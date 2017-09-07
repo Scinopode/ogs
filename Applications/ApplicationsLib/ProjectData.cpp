@@ -294,7 +294,7 @@ void ProjectData::parseMaterials(BaseLib::ConfigTree const& media_config)
     }
 
     auto const medium_config = media_config.getConfigSubtree("medium");
-    MaterialPropertyLib::Medium medium;
+    MaterialPropertyLib::Medium medium(medium_config);
 
 }
 
