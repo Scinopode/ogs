@@ -17,6 +17,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <limits>
 
 
 namespace MaterialPropertyLib
@@ -39,13 +40,16 @@ SaturationBrooksCorey::SaturationBrooksCorey(
 PropertyDataType  SaturationBrooksCorey::value(VariableArray const& v)
 {
 
-    const double p_cap = getScalar(
-            v[MaterialPropertyLib::Variables::capillary_pressure]);
+    const double p_cap = std::max(1.e-14,
+            getScalar(v[MaterialPropertyLib::Variables::capillary_pressure]));
 
     const double s_L_res =_residual_liquid_saturation;
     const double s_L_max = 1.0 - _residual_gas_saturation;
     const double lambda = _exponent;
     const double p_b = _entry_pressure;
+
+    if (p_cap <= p_b)
+        return s_L_max;
 
     const double s_eff = std::pow(p_b/p_cap, lambda);
     return s_eff*(s_L_max - s_L_res) + s_L_res;
@@ -56,9 +60,8 @@ PropertyDataType SaturationBrooksCorey::dvalue(VariableArray const& v, Variables
 
     assert((pv == Variables::capillary_pressure) && "SaturationBrooksCorey::dvalue is implemented for "
             " derivatives with respect to capillary pressure only.");
-
-    const double p_cap = getScalar(
-            v[MaterialPropertyLib::Variables::capillary_pressure]);
+    const double p_cap = std::max(1.e-14,
+            getScalar(v[MaterialPropertyLib::Variables::capillary_pressure]));
 
     const double s_L_res = _residual_liquid_saturation;
     const double s_L_max = 1.0 - _residual_gas_saturation;
