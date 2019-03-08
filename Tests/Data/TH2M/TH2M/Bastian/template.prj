@@ -1,0 +1,619 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<OpenGeoSysProject>
+   <!--<mesh>square_1x1_quad8_1e2.vtu</mesh>
+    <geometry>square_1x1.gml</geometry>    -->
+   <mesh>benvasim_quad8.vtu</mesh>
+   <geometry>BenVaSim1_4a2.gml</geometry>
+   <processes>
+      <process>
+         <name>TH2M_process</name>
+         <type>TH2M</type>
+         <integration_order>3</integration_order>
+         <dimension>2</dimension>
+
+<!--            <jacobian_assembler>
+                <type>CompareJacobians</type>
+                
+                <jacobian_assembler>
+                    <type>Analytical</type>
+                </jacobian_assembler>
+
+                <reference_jacobian_assembler>
+                    <type>CentralDifferences</type>
+                <component_magnitudes>1.0  1.0  1.0  1.0  1.0  1.0  1.0  1.0  1.0  1.0  1.0  1.0  1.0  1.0  1.0  1.0  1.0  1.0  1.0  1.0 
+                1.0  1.0  1.0  1.0  1.0  1.0  1.0  1.0</component_magnitudes>
+                <relative_epsilons> 1e-3 1e-3 1e-3 1e-3 1e-3 1e-3 1e-3 1e-3 1e-3 1e-3 1e-3 1e-3 1e-8 1e-8 1e-8 1e-8 1e-8 1e-8 1e-8 1e-8 
+                1e-8 1e-8 1e-8 1e-8 1e-8 1e-8 1e-8 1e-8</relative_epsilons>
+                </reference_jacobian_assembler>
+                <abs_tol>1e-4</abs_tol>
+                <rel_tol>1e-5</rel_tol>
+                <fail_on_error>true</fail_on_error>
+                <log_file>j_comparison.py</log_file>
+            </jacobian_assembler>
+-->
+         
+         <jacobian_assembler>
+            <type>CentralDifferences</type>
+            <component_magnitudes>1.0  1.0  1.0  1.0  1.0  1.0  1.0  1.0  1.0  1.0  1.0  1.0  1.0  1.0  1.0  1.0  1.0  1.0  1.0  1.0 
+                1.0  1.0  1.0  1.0  1.0  1.0  1.0  1.0</component_magnitudes>
+            <relative_epsilons>1e-3 1e-3 1e-3 1e-3 1e-3 1e-3 1e-3 1e-3 1e-3 1e-3 1e-3 1e-3 1e-8 1e-8 1e-8 1e-8 1e-8 1e-8 1e-8 1e-8 
+                1e-8 1e-8 1e-8 1e-8 1e-8 1e-8 1e-8 1e-8</relative_epsilons>
+         </jacobian_assembler>
+
+
+         <constitutive_relation>
+            <type>LinearElasticIsotropic</type>
+            <youngs_modulus>E</youngs_modulus>
+            <poissons_ratio>nu</poissons_ratio>
+         </constitutive_relation>
+
+         <specific_body_force>0 -9.81</specific_body_force>
+        <!-- <mass_lumping> true </mass_lumping> -->
+
+         <process_variables>
+
+            <gas_pressure>gas_pressure</gas_pressure>
+            <capillary_pressure>capillary_pressure</capillary_pressure>
+            <temperature>temperature</temperature>
+            <displacement>displacement</displacement>
+
+         </process_variables>
+
+         <secondary_variables>
+            <secondary_variable type="static" internal_name="sigma_eff" output_name="sigma_eff" />
+            <secondary_variable type="static" internal_name="epsilon" output_name="epsilon" />
+            <secondary_variable type="static" internal_name="velocity_gas" output_name="velocity_gas" />
+            <secondary_variable type="static" internal_name="velocity_liquid" output_name="velocity_liquid" />
+
+            <secondary_variable type="static" internal_name="pressure_gas_linear" output_name="pressure_gas_linear" />
+            <secondary_variable type="static" internal_name="pressure_cap_linear" output_name="pressure_cap_linear" />
+
+            <secondary_variable type="static" internal_name="pressure_wet" output_name="pressure_wet" />
+            <secondary_variable type="static" internal_name="density_gas" output_name="density_gas" />
+            <secondary_variable type="static" internal_name="density_liquid" output_name="density_liquid" />
+            <secondary_variable type="static" internal_name="saturation" output_name="saturation" />
+         </secondary_variables>
+
+      </process>
+   </processes>
+
+
+   <media>
+      <medium id="0">
+         <phases>
+            <phase>
+               <name>solid</name>
+               <properties>
+                  <property>
+                     <name>density</name>
+                     <type>Constant</type>
+                     <value>2.7e3</value>
+                  </property>
+                  <property>
+                     <name>thermal_expansivity</name>
+                     <type>Constant</type>
+                     <value>0</value>
+                  </property>
+                  <property>
+                     <name>compressibility</name>
+                     <type>Constant</type>
+                     <value>0</value>
+                  </property>
+                  <property>
+                     <name>specific_heat_capacity</name>
+                     <type>Constant</type>
+                     <value>0</value>
+                  </property>
+                  <property>
+                     <name>thermal_conductivity</name>
+                     <type>Constant</type>
+                     <value>0</value>
+                  </property>
+               </properties>
+            </phase>
+            <phase>
+               <name>liquid</name>
+               <properties>
+                  <property>
+                     <name>density</name>
+                     <type>Constant</type>
+                     <value>1.0e3</value>
+                  </property>
+                  <property>
+                     <name>thermal_expansivity</name>
+                     <type>Constant</type>
+                     <value>0</value>
+                  </property>
+                  <property>
+                     <name>viscosity</name>
+                     <type>Constant</type>
+                     <value>1e-3</value>
+                  </property>
+                  <property>
+                     <name>compressibility</name>
+                     <type>Constant</type>
+                     <value>0</value>
+                  </property>
+                  <property>
+                     <name>specific_heat_capacity</name>
+                     <type>Constant</type>
+                     <value>1.0</value>
+                  </property>
+                  <property>
+                     <name>thermal_conductivity</name>
+                     <type>Constant</type>
+                     <value>0</value>
+                  </property>
+               </properties>
+            </phase>
+            <phase>
+               <name>gas</name>
+               <properties>
+                  <property>
+                     <name>density</name>
+                     <type>Ideal_Gas_Law</type>
+                  </property>
+                  <property>
+                     <name>compressibility</name>
+                     <type>Constant</type>
+                     <value>1.e-5</value>
+                  </property>
+                  <property>
+                     <name>viscosity</name>
+                     <type>Constant</type>
+                     <value>1.8e-5</value>
+                  </property>
+                  <property>
+                     <name>thermal_expansivity</name>
+                     <type>Constant</type>
+                     <value>-1.0e-3</value>
+                  </property>
+                  <property>
+                     <name>viscosity</name>
+                     <type>Constant</type>
+                     <value>1.8e-5</value>
+                  </property>
+                  <property>
+                     <name>specific_heat_capacity</name>
+                     <type>Constant</type>
+                     <value>1.0</value>
+                  </property>
+                  <property>
+                     <name>thermal_conductivity</name>
+                     <type>Constant</type>
+                     <value>1</value>
+                  </property>
+                  <property>
+                     <name>molar_mass</name>
+                     <type>Constant</type>
+                     <value>0.0289</value>
+                  </property>
+               </properties>
+            </phase>
+         </phases>
+         <properties>
+            <property>
+               <name>permeability</name>
+               <type>Constant</type>
+               <value>2.5e-21</value>
+            </property>
+            <!--                  
+            <property>
+                    <name>saturation</name>
+                    <type>SaturationFredlund</type>
+                    <parameter_a>22</parameter_a>
+                    <parameter_n>-5</parameter_n>
+                    <parameter_m>2</parameter_m>
+                    <parameter_psi_r>1.0e5</parameter_psi_r>
+            </property>   -->
+
+            <property>
+               <name>saturation</name>
+               <type>SaturationBrooksCorey</type>
+               <residual_liquid_saturation>0.02</residual_liquid_saturation>
+               <residual_gas_saturation>0.0</residual_gas_saturation>
+               <lambda>0.68</lambda>
+               <entry_pressure>5.0e6</entry_pressure>
+            </property>
+
+            <property>
+               <name>relative_permeability</name>
+               <type>RelPermBrooksCorey</type>
+               <residual_liquid_saturation>0.02</residual_liquid_saturation>
+               <residual_gas_saturation>0.0</residual_gas_saturation>
+               <lambda>0.68</lambda>
+               <k_rel_min_liquid>1.0e-6</k_rel_min_liquid>
+               <k_rel_min_gas>1.0e-7</k_rel_min_gas>
+            </property>
+
+            <property>
+               <name>compressibility</name>
+               <type>Constant</type>
+               <value>1.2E-10</value>
+            </property>
+
+            <property>
+               <name>porosity</name>
+               <type>Constant</type>
+               <value>0.33</value>
+            </property>
+            <property>
+               <name>biot_coefficient</name>
+               <type>Constant</type>
+               <value>1</value>
+            </property>
+         </properties>
+      </medium>
+   </media>
+
+   <time_loop>
+      <processes>
+         <process ref="TH2M_process">
+            <nonlinear_solver>basic_newton</nonlinear_solver>
+            
+            <!--
+                  <convergence_criterion>
+                      <type>DeltaX</type>
+                      <norm_type>NORM2</norm_type>
+                      <abstol>1e-15</abstol>
+                  </convergence_criterion>
+            -->
+
+
+            <convergence_criterion>
+               <type>PerComponentDeltaX</type>
+               <norm_type>NORM2</norm_type>
+               <!--      p_g   p_cap  T     ux    uy    uz  -->
+               <abstols>1e-5 1e-5 1e-5 1e-5 1e-5</abstols>
+<!--           <reltols>1e-3 1e-3 1e-1 1e-1 1e-1 </reltols> -->
+            </convergence_criterion>
+
+
+            <time_discretization>
+               <type>BackwardEuler</type>
+            </time_discretization>
+
+            <time_stepping>
+               <type>FixedTimeStepping</type>
+               <t_initial>0</t_initial>
+               <t_end>6.e13</t_end>
+               <timesteps>
+
+                  <pair><repeat>10</repeat><delta_t>0.0001</delta_t></pair>
+                  <pair><repeat>20</repeat><delta_t>0.1</delta_t></pair>
+                  <pair><repeat>9</repeat><delta_t>1</delta_t></pair>
+                  <pair><repeat>9</repeat><delta_t>10</delta_t></pair>
+                  <pair><repeat>9</repeat><delta_t>100</delta_t></pair>
+                  <pair><repeat>9</repeat><delta_t>1000</delta_t></pair>
+                  <pair><repeat>9</repeat><delta_t>25464</delta_t></pair>
+                  <pair><repeat>9</repeat><delta_t>43200</delta_t></pair>
+                  <pair><repeat>6</repeat><delta_t>86400</delta_t></pair>
+                  <pair><repeat>9</repeat><delta_t>864000</delta_t></pair>
+                  <pair><repeat>9</repeat><delta_t>8640000</delta_t></pair>
+                  <pair><repeat>9</repeat><delta_t>86400000</delta_t></pair>
+                  <pair><repeat>9</repeat><delta_t>864000000</delta_t></pair>
+                  <pair><repeat>9</repeat><delta_t>8640000000</delta_t></pair>
+                  <pair><repeat>10</repeat><delta_t>86400000000</delta_t></pair>
+                 <pair><repeat>700</repeat><delta_t>864000000000</delta_t></pair>
+
+               </timesteps>
+
+            </time_stepping>
+         </process>
+      </processes>
+
+      <output>
+         <type>VTK</type>
+         <prefix>result_benvasim</prefix>
+         <timesteps>
+            <pair> <repeat>1</repeat> <each_steps>1</each_steps>   </pair>
+         </timesteps>
+
+         <output_iteration_results>false</output_iteration_results>
+
+                  <variables>
+                  <variable>displacement</variable>
+                  <variable>temperature</variable>
+                  <variable>capillary_pressure</variable>
+                  <variable>gas_pressure</variable>
+                  <variable>sigma_eff</variable>
+                  <variable>epsilon</variable>
+                  <variable>velocity_gas</variable>
+                  <variable>velocity_liquid</variable>
+                  <variable>pressure_gas_linear</variable>
+                  <variable>pressure_cap_linear</variable>
+                  <variable>pressure_wet</variable>
+                  <variable>density_gas</variable>
+                  <variable>density_liquid</variable>
+                  <variable>saturation</variable>
+                  </variables>
+
+      </output>
+
+
+   </time_loop>
+   
+   <parameters>
+      <parameter>
+         <name>E</name>
+         <type>Constant</type>
+         <value>6.5e8</value>
+      </parameter>
+      <parameter>
+         <name>nu</name>
+         <type>Constant</type>
+         <value>0.0</value>
+      </parameter>
+
+<!--
+      <parameter>
+         <name>rho_sr</name>
+         <type>Constant</type>
+         <value>2700</value>
+      </parameter>
+
+-->
+
+      <parameter>
+         <name>displacement_ini</name>
+         <type>Constant</type>
+         <values>0 0</values>
+      </parameter>
+
+      <parameter>
+         <name>displacement_0</name>
+         <type>Constant</type>
+         <values>0</values>
+      </parameter>
+
+      <parameter>
+         <name>pressure_gas_ic</name>
+         <type>Constant</type>
+         <values>0.2e6</values>
+      </parameter>
+
+      <parameter>
+         <name>pressure_cap_ic</name>
+         <type>Constant</type>
+         <values>1e7</values>
+      </parameter>
+
+       <parameter>
+         <name>T_ini</name>
+         <type>Constant</type>
+         <values>330</values>
+      </parameter>
+
+
+      <parameter>
+         <name>bc_1</name>
+         <type>Constant</type>
+         <values>1.0</values>
+      </parameter>
+
+
+      <parameter>
+         <name>pressure_gas_left</name>
+         <type>CurveScaled</type>
+         <curve>timeRamp_pg_left</curve>
+         <parameter>bc_1</parameter>
+      </parameter>
+
+      <parameter>
+         <name>pressure_gas_right</name>
+         <type>CurveScaled</type>
+         <curve>timeRamp_pg_right</curve>
+         <parameter>bc_1</parameter>
+      </parameter>
+
+      <parameter>
+         <name>pressure_cap_left</name>
+         <type>CurveScaled</type>
+         <curve>timeRamp_pc_left</curve>
+         <parameter>bc_1</parameter>
+      </parameter>
+
+      <parameter>
+         <name>pressure_cap_right</name>
+         <type>CurveScaled</type>
+         <curve>timeRamp_pc_right</curve>
+         <parameter>bc_1</parameter>
+      </parameter>
+
+      <parameter>
+         <name>displacement_right</name>
+         <type>Constant</type>
+         <value>0</value>
+      </parameter>
+
+      <parameter>
+         <name>stress_bc_left</name>
+         <type>Constant</type>
+         <value>4e6</value>
+      </parameter>
+
+   </parameters>
+
+
+   <curves>
+      <curve>
+         <name>timeRamp_pg_left</name>
+         <coords>0     1     3150000 1.0e99 </coords>
+         <values>0.2e6 0.2e6 3.0e6   3.0e6  </values>
+      </curve>
+
+      <curve>
+         <name>timeRamp_pg_right</name>
+         <coords>0     1     3150000 1.0e99 </coords>
+         <values>0.2e6 0.2e6 0.5e6   0.5e6</values>
+      </curve>
+
+      <curve>
+         <name>timeRamp_pc_left</name>
+         <coords>0     1     3150000 1.0e99 </coords>
+         <values>1.0e7 1.0e7 1.4e7   1.4e7  </values>
+      </curve>
+
+      <curve>
+         <name>timeRamp_pc_right</name>
+         <coords>0     1     3150000 1.0e99 </coords>
+         <values>1.0e7 1.0e7 1.25e8 1.25e8  </values>
+      </curve>
+
+   </curves>
+
+
+   <process_variables>
+      <process_variable>
+         <name>displacement</name>
+         <components>2</components>
+         <order>2</order>
+         <initial_condition>displacement_ini</initial_condition>
+
+         <boundary_conditions>
+
+            <boundary_condition>
+               <geometrical_set>Model_geometry</geometrical_set>
+               <geometry>left</geometry>
+               <type>Neumann</type>
+               <component>0</component>
+               <parameter>stress_bc_left</parameter>
+            </boundary_condition>
+
+            <boundary_condition>
+               <geometrical_set>Model_geometry</geometrical_set>
+               <geometry>right</geometry>
+               <type>Dirichlet</type>
+               <component>0</component>
+               <parameter>displacement_0</parameter>
+            </boundary_condition>
+
+            <boundary_condition>
+               <geometrical_set>Model_geometry</geometrical_set>
+               <geometry>top</geometry>
+               <type>Dirichlet</type>
+               <component>1</component>
+               <parameter>displacement_0</parameter>
+            </boundary_condition>
+
+            <boundary_condition>
+               <geometrical_set>Model_geometry</geometrical_set>
+               <geometry>bottom</geometry>
+               <type>Dirichlet</type>
+               <component>1</component>
+               <parameter>displacement_0</parameter>
+            </boundary_condition>
+
+         </boundary_conditions>
+      </process_variable>
+
+
+      <process_variable>
+         <name>temperature</name>
+         <components>1</components>
+         <order>1</order>
+         <initial_condition>T_ini</initial_condition>
+     <!--    <boundary_conditions>
+         </boundary_conditions> -->
+      </process_variable>
+
+
+      <process_variable>
+         <name>gas_pressure</name>
+         <components>1</components>
+         <order>1</order>
+         <initial_condition>pressure_gas_ic</initial_condition>
+         <boundary_conditions>
+
+            <boundary_condition>
+               <geometrical_set>Model_geometry</geometrical_set>
+               <geometry>left</geometry>
+               <type>Dirichlet</type>
+               <parameter>pressure_gas_left</parameter>
+            </boundary_condition>
+
+            <boundary_condition>
+               <geometrical_set>Model_geometry</geometrical_set>
+               <geometry>right</geometry>
+               <type>Dirichlet</type>
+               <parameter>pressure_gas_right</parameter>
+            </boundary_condition>
+
+         </boundary_conditions>
+      </process_variable>
+
+
+      <process_variable>
+         <name>capillary_pressure</name>
+         <components>1</components>
+         <order>1</order>
+         <initial_condition>pressure_cap_ic</initial_condition>
+         <boundary_conditions>
+
+            <boundary_condition>
+               <geometrical_set>Model_geometry</geometrical_set>
+               <geometry>left</geometry>
+               <type>Dirichlet</type>
+               <parameter>pressure_cap_left</parameter>
+            </boundary_condition>
+
+            <boundary_condition>
+               <geometrical_set>Model_geometry</geometrical_set>
+               <geometry>right</geometry>
+               <type>Dirichlet</type>
+               <parameter>pressure_cap_right</parameter>
+            </boundary_condition>
+
+         </boundary_conditions>
+
+      </process_variable>
+   </process_variables>
+
+
+   <nonlinear_solvers>
+
+      <nonlinear_solver>
+         <name>basic_newton</name>
+         <type>Newton</type>
+         <max_iter>50</max_iter>
+         <linear_solver>general_linear_solver</linear_solver>
+      </nonlinear_solver>
+   </nonlinear_solvers>
+
+   <linear_solvers>
+      <linear_solver>
+         <name>general_linear_solver</name>
+         <eigen>
+            <solver_type>SparseLU</solver_type>
+            <scaling>true</scaling>
+         </eigen>
+      </linear_solver>
+
+            <!--       <linear_solver>
+              <name>general_linear_solver</name>
+              <lis>-i bicgstab -p ilu -tol 1e-18 -maxiter 10000</lis> 
+              <eigen>
+                  <solver_type>BiCGSTAB</solver_type>
+                  <precon_type>DIAGONAL</precon_type>
+                  <max_iteration_step>10000</max_iteration_step>
+                  <error_tolerance>1e-18</error_tolerance>
+              </eigen>
+            </linear_solver> -->
+      <!--        <linear_solver>
+              <name>general_linear_solver</name>
+              <lis>-i cg -p jacobi -tol 1e-16 -maxiter 10000</lis>
+              <eigen>
+                  <solver_type>SparseLU</solver_type>
+                  <scaling>true</scaling>
+                  <precon_type>DIAGONAL</precon_type>
+                  <max_iteration_step>10000</max_iteration_step>
+                  <error_tolerance>1e-16</error_tolerance>
+              </eigen>
+              <petsc>
+                  <prefix>sd</prefix>
+                  <parameters>-sd_ksp_type cg -sd_pc_type bjacobi -sd_ksp_rtol 1e-16 -sd_ksp_max_it 10000</parameters>
+              </petsc>
+            </linear_solver>-->
+   </linear_solvers>
+</OpenGeoSysProject>
+
