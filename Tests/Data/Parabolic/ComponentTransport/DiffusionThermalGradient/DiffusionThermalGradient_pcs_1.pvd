@@ -1,0 +1,26 @@
+<?xml version="1.0"?>
+<VTKFile type="Collection" version="0.1" byte_order="LittleEndian" compressor="vtkZLibDataCompressor">
+  <Collection>
+    <DataSet timestep="0" group="" part="0" file="DiffusionThermalGradient_pcs_1_ts_0_t_0.000000.vtu"/>
+    <DataSet timestep="4730400" group="" part="0" file="DiffusionThermalGradient_pcs_1_ts_5_t_4730400.000000.vtu"/>
+    <DataSet timestep="9460800" group="" part="0" file="DiffusionThermalGradient_pcs_1_ts_10_t_9460800.000000.vtu"/>
+    <DataSet timestep="14191200" group="" part="0" file="DiffusionThermalGradient_pcs_1_ts_15_t_14191200.000000.vtu"/>
+    <DataSet timestep="18921600" group="" part="0" file="DiffusionThermalGradient_pcs_1_ts_20_t_18921600.000000.vtu"/>
+    <DataSet timestep="23652000" group="" part="0" file="DiffusionThermalGradient_pcs_1_ts_25_t_23652000.000000.vtu"/>
+    <DataSet timestep="28382400" group="" part="0" file="DiffusionThermalGradient_pcs_1_ts_30_t_28382400.000000.vtu"/>
+    <DataSet timestep="33112800" group="" part="0" file="DiffusionThermalGradient_pcs_1_ts_35_t_33112800.000000.vtu"/>
+    <DataSet timestep="37843200" group="" part="0" file="DiffusionThermalGradient_pcs_1_ts_40_t_37843200.000000.vtu"/>
+    <DataSet timestep="42573600" group="" part="0" file="DiffusionThermalGradient_pcs_1_ts_45_t_42573600.000000.vtu"/>
+    <DataSet timestep="47304000" group="" part="0" file="DiffusionThermalGradient_pcs_1_ts_50_t_47304000.000000.vtu"/>
+    <DataSet timestep="52034400" group="" part="0" file="DiffusionThermalGradient_pcs_1_ts_55_t_52034400.000000.vtu"/>
+    <DataSet timestep="56764800" group="" part="0" file="DiffusionThermalGradient_pcs_1_ts_60_t_56764800.000000.vtu"/>
+    <DataSet timestep="61495200" group="" part="0" file="DiffusionThermalGradient_pcs_1_ts_65_t_61495200.000000.vtu"/>
+    <DataSet timestep="66225600" group="" part="0" file="DiffusionThermalGradient_pcs_1_ts_70_t_66225600.000000.vtu"/>
+    <DataSet timestep="70956000" group="" part="0" file="DiffusionThermalGradient_pcs_1_ts_75_t_70956000.000000.vtu"/>
+    <DataSet timestep="75686400" group="" part="0" file="DiffusionThermalGradient_pcs_1_ts_80_t_75686400.000000.vtu"/>
+    <DataSet timestep="80416800" group="" part="0" file="DiffusionThermalGradient_pcs_1_ts_85_t_80416800.000000.vtu"/>
+    <DataSet timestep="85147200" group="" part="0" file="DiffusionThermalGradient_pcs_1_ts_90_t_85147200.000000.vtu"/>
+    <DataSet timestep="89877600" group="" part="0" file="DiffusionThermalGradient_pcs_1_ts_95_t_89877600.000000.vtu"/>
+    <DataSet timestep="94608000" group="" part="0" file="DiffusionThermalGradient_pcs_1_ts_100_t_94608000.000000.vtu"/>
+  </Collection>
+</VTKFile>
