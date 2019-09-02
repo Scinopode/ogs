@@ -16,66 +16,6 @@
                 <capillary_pressure>capillary_pressure</capillary_pressure>
                 <gas_pressure>gas_pressure</gas_pressure>
             </process_variables>
-            <material_property>
-                <fluid>
-                    <liquid_density>
-                        <type>Constant</type>
-                        <value> 1.e3 </value>
-                    </liquid_density>
-                    <gas_density>
-                        <type>Constant</type>
-                        <value> 1.e3  </value>
-                    </gas_density>
-                    <liquid_viscosity>
-                        <type>Constant</type>
-                        <value> 1.e-3 </value>
-                    </liquid_viscosity>
-                    <gas_viscosity>
-                        <type>Constant</type>
-                        <value> 1.e-3 </value>
-                    </gas_viscosity>
-                </fluid>
-                <porous_medium>
-                    <porous_medium id="0">
-                        <permeability>
-                            <permeability_tensor_entries>kappa1</permeability_tensor_entries>
-                            <type>Constant</type>
-                        </permeability>
-                        <porosity>
-                            <type>Constant</type>
-                            <porosity_parameter>constant_porosity_parameter</porosity_parameter>
-                        </porosity>
-                        <storage>
-                            <type>Constant</type>
-                            <value> 0.0 </value>
-                        </storage>
-                        <capillary_pressure>
-                            <type>BrooksCorey</type>
-                            <pd> 5000 </pd>
-                            <sr> 0.0 </sr>
-                            <smax> 1. </smax>
-                            <m> 2 </m>
-                            <pc_max> 2e+7 </pc_max>
-                        </capillary_pressure>
-                        <relative_permeability>
-                            <relative_permeability id="0">
-                                <type>NonWettingPhaseBrooksCoreyOilGas</type>
-                                <sr>  0.0 </sr>
-                                <smax> 1.0</smax>
-                                <m> 2 </m>
-                                <krel_min> 1e-9 </krel_min>
-                            </relative_permeability>
-                            <relative_permeability id="1">
-                                <type>WettingPhaseBrooksCoreyOilGas</type>
-                                <sr>  0.0 </sr>
-                                <smax> 1.0</smax>
-                                <m> 2 </m>
-                                <krel_min> 0.0 </krel_min>
-                            </relative_permeability>
-                        </relative_permeability>
-                    </porous_medium>
-                </porous_medium>
-            </material_property>
             <secondary_variables>
                 <secondary_variable type="static" internal_name="saturation" output_name="saturation"/>
             </secondary_variables>
@@ -89,36 +29,6 @@
       <medium id="0">
          <phases>
             <phase>
-               <type>solid</type>
-               <properties>
-                  <property>
-                     <name>density</name>
-                     <type>Constant</type>
-                     <value>2.85e3</value>
-                  </property>
-                  <property>
-                     <name>thermal_expansivity</name>
-                     <type>Constant</type>
-                     <value>0</value>
-                  </property>
-                  <property>
-                     <name>compressibility</name>
-                     <type>Constant</type>
-                     <value>0</value>
-                  </property>
-                  <property>
-                     <name>specific_heat_capacity</name>
-                     <type>Constant</type>
-                     <value>0</value>
-                  </property>
-                  <property>
-                     <name>thermal_conductivity</name>
-                     <type>Constant</type>
-                     <value>0</value>
-                  </property>
-               </properties>
-            </phase>
-            <phase>
                <type>liquid</type>
                <properties>
                   <property>
@@ -127,32 +37,10 @@
                      <value>1.0e3</value>
                   </property>
                   <property>
-                     <name>thermal_expansivity</name>
-                     <type>Constant</type>
-                     <value>0</value>
-                  </property>
-                  <property>
                      <name>viscosity</name>
                      <type>Constant</type>
                      <value>1e-3</value>
                   </property>
-                  <property>
-                     <name>compressibility</name>
-                     <type>Constant</type>
-                     <value>0</value>
-                  </property>
-                  <property>
-                     <name>specific_heat_capacity</name>
-                     <type>Constant</type>
-                     <value>1.0</value>
-                  </property>
-                  <property>
-                     <name>thermal_conductivity</name>
-                     <type>Constant</type>
-                     <value>0</value>
-                  </property>
-
-
                </properties>
             </phase>
             <phase>
@@ -164,29 +52,9 @@
                      <value>1.0e3</value>
                   </property>
                   <property>
-                     <name>compressibility</name>
-                     <type>Constant</type>
-                     <value>1.e-5</value>
-                  </property>
-                  <property>
                      <name>viscosity</name>
                      <type>Constant</type>
                      <value>1.e-3</value>
-                  </property>
-                  <property>
-                     <name>thermal_expansivity</name>
-                     <type>Constant</type>
-                     <value>-1.0e-3</value>
-                  </property>
-                  <property>
-                     <name>specific_heat_capacity</name>
-                     <type>Constant</type>
-                     <value>1.0</value>
-                  </property>
-                  <property>
-                     <name>thermal_conductivity</name>
-                     <type>Constant</type>
-                     <value>1</value>
                   </property>
                   <property>
                      <name>molar_mass</name>
@@ -223,21 +91,11 @@
             </property>
 
             <property>
-               <name>compressibility</name>
-               <type>Constant</type>
-               <value>0</value>
-            </property>
-
-            <property>
                <name>porosity</name>
                <type>Constant</type>
                <value>0.3</value>
             </property>
-            <property>
-               <name>biot_coefficient</name>
-               <type>Constant</type>
-               <value>0.0</value>
-            </property>
+
          </properties>
       </medium>
    </media>
