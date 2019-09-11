@@ -41,6 +41,7 @@ PropertyDataType SaturationLiakopoulos::dValue(
     VariableArray const& variable_array, Variable const primary_variable,
     ParameterLib::SpatialPosition const& /*pos*/, double const /*t*/) const
 {
+    (void)primary_variable;
     assert((primary_variable == Variable::capillary_pressure) &&
            "SaturationLiakopoulos::dvalue is implemented for "
            " derivatives with respect to capillary pressure only.");
@@ -60,6 +61,8 @@ PropertyDataType SaturationLiakopoulos::d2Value(
     Variable const primary_variable2,
     ParameterLib::SpatialPosition const& /*pos*/, double const /*t*/) const
 {
+    (void)primary_variable1;
+    (void)primary_variable2;
     assert((primary_variable1 == Variable::capillary_pressure) &&
            (primary_variable2 == Variable::capillary_pressure) &&
            "SaturationLiakopoulos::ddvalue is implemented for "
