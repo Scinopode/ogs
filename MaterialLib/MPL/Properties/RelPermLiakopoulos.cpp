@@ -63,6 +63,7 @@ PropertyDataType RelPermLiakopoulos::dValue(
     VariableArray const& variable_array, Variable const primary_variable,
     ParameterLib::SpatialPosition const& pos, double const t) const
 {
+    (void)primary_variable;
     assert((primary_variable == Variable::liquid_saturation) &&
            "RelPermLiakopoulos::dValue is implemented for "
            " derivatives with respect to liquid saturation only.");
