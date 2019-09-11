@@ -73,7 +73,7 @@ std::unique_ptr<MaterialPropertyLib::Property> createProperty(
     {
         return createSaturationLiakopoulos(config);
     }
-	
+
     if (boost::iequals(property_type, "RelPermLiakopoulos"))
     {
         return createRelPermLiakopoulos(config);
