@@ -19,9 +19,6 @@
 
 TEST(MaterialPropertyLib, SaturationLiakopoulos)
 {
-    const double parameter_a = -1.9722e-11;
-    const double parameter_b = 2.4279;
-
     std::stringstream m;
     m << "<medium>\n";
     m << "<phases></phases>\n";
@@ -96,6 +93,5 @@ TEST(MaterialPropertyLib, SaturationLiakopoulos)
         ASSERT_NEAR(s_L, s_L_ref[idx], 1.e-10);
         ASSERT_NEAR(ds_L_dp_cap, ds_L_dp_cap_ref[idx], 1.e-10);
         ASSERT_NEAR(d2s_L_dp_cap2, d2s_L_dp_cap2_ref[idx], 1.e-10);
-        
     }
 }
