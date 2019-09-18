@@ -1221,3 +1221,45 @@ AddTest(
     Wetland_1d_pcs_11_ts_4_t_28800.000000_expected.vtu Wetland_1d_pcs_11_ts_4_t_28800.000000.vtu Sulphide Sulphide 1e-10 1e-16
     RUNTIME 140
 )
+
+AddTest(
+    NAME 2D_ReactiveMassTransport_SurfaceSorption
+    PATH Parabolic/ComponentTransport/ReactiveTransport/SurfaceSorption
+    EXECUTABLE ogs
+    EXECUTABLE_ARGS RadionuclidesTransport.prj
+    WRAPPER time
+    TESTER vtkdiff
+    REQUIREMENTS NOT OGS_USE_MPI
+    DIFF_DATA
+    RadionuclidesTransport_pcs_13_ts_1_t_1000.000000_expected.vtu RadionuclidesTransport_pcs_13_ts_1_t_1000.000000.vtu pressure pressure 1e-6 1e-10
+    RadionuclidesTransport_pcs_13_ts_1_t_1000.000000_expected.vtu RadionuclidesTransport_pcs_13_ts_1_t_1000.000000.vtu Am Am 1e-10 1e-16
+    RadionuclidesTransport_pcs_13_ts_1_t_1000.000000_expected.vtu RadionuclidesTransport_pcs_13_ts_1_t_1000.000000.vtu Ca Ca 1e-10 1e-16
+    RadionuclidesTransport_pcs_13_ts_1_t_1000.000000_expected.vtu RadionuclidesTransport_pcs_13_ts_1_t_1000.000000.vtu Cl Cl 1e-10 1e-16
+    RadionuclidesTransport_pcs_13_ts_1_t_1000.000000_expected.vtu RadionuclidesTransport_pcs_13_ts_1_t_1000.000000.vtu Cs Cs 1e-10 1e-16
+    RadionuclidesTransport_pcs_13_ts_1_t_1000.000000_expected.vtu RadionuclidesTransport_pcs_13_ts_1_t_1000.000000.vtu H H 1e-10 1e-16
+    RadionuclidesTransport_pcs_13_ts_1_t_1000.000000_expected.vtu RadionuclidesTransport_pcs_13_ts_1_t_1000.000000.vtu Na Na 1e-10 1e-16
+    RadionuclidesTransport_pcs_13_ts_1_t_1000.000000_expected.vtu RadionuclidesTransport_pcs_13_ts_1_t_1000.000000.vtu Ni Ni 1e-10 1e-16
+    RadionuclidesTransport_pcs_13_ts_1_t_1000.000000_expected.vtu RadionuclidesTransport_pcs_13_ts_1_t_1000.000000.vtu Ra Ra 1e-10 1e-16
+    RadionuclidesTransport_pcs_13_ts_1_t_1000.000000_expected.vtu RadionuclidesTransport_pcs_13_ts_1_t_1000.000000.vtu Th Th 1e-10 1e-16
+    RadionuclidesTransport_pcs_13_ts_2_t_2000.000000_expected.vtu RadionuclidesTransport_pcs_13_ts_2_t_2000.000000.vtu pressure pressure 1e-6 1e-10
+    RadionuclidesTransport_pcs_13_ts_2_t_2000.000000_expected.vtu RadionuclidesTransport_pcs_13_ts_2_t_2000.000000.vtu Am Am 1e-10 1e-16
+    RadionuclidesTransport_pcs_13_ts_2_t_2000.000000_expected.vtu RadionuclidesTransport_pcs_13_ts_2_t_2000.000000.vtu Ca Ca 1e-10 1e-16
+    RadionuclidesTransport_pcs_13_ts_2_t_2000.000000_expected.vtu RadionuclidesTransport_pcs_13_ts_2_t_2000.000000.vtu Cl Cl 1e-10 1e-16
+    RadionuclidesTransport_pcs_13_ts_2_t_2000.000000_expected.vtu RadionuclidesTransport_pcs_13_ts_2_t_2000.000000.vtu Cs Cs 1e-10 1e-16
+    RadionuclidesTransport_pcs_13_ts_2_t_2000.000000_expected.vtu RadionuclidesTransport_pcs_13_ts_2_t_2000.000000.vtu H H 1e-10 1e-16
+    RadionuclidesTransport_pcs_13_ts_2_t_2000.000000_expected.vtu RadionuclidesTransport_pcs_13_ts_2_t_2000.000000.vtu Na Na 1e-10 1e-16
+    RadionuclidesTransport_pcs_13_ts_2_t_2000.000000_expected.vtu RadionuclidesTransport_pcs_13_ts_2_t_2000.000000.vtu Ni Ni 1e-10 1e-16
+    RadionuclidesTransport_pcs_13_ts_2_t_2000.000000_expected.vtu RadionuclidesTransport_pcs_13_ts_2_t_2000.000000.vtu Ra Ra 1e-10 1e-16
+    RadionuclidesTransport_pcs_13_ts_2_t_2000.000000_expected.vtu RadionuclidesTransport_pcs_13_ts_2_t_2000.000000.vtu Th Th 1e-10 1e-16
+    RadionuclidesTransport_pcs_13_ts_3_t_3000.000000_expected.vtu RadionuclidesTransport_pcs_13_ts_3_t_3000.000000.vtu pressure pressure 1e-6 1e-10
+    RadionuclidesTransport_pcs_13_ts_3_t_3000.000000_expected.vtu RadionuclidesTransport_pcs_13_ts_3_t_3000.000000.vtu Am Am 1e-10 1e-16
+    RadionuclidesTransport_pcs_13_ts_3_t_3000.000000_expected.vtu RadionuclidesTransport_pcs_13_ts_3_t_3000.000000.vtu Ca Ca 1e-10 1e-16
+    RadionuclidesTransport_pcs_13_ts_3_t_3000.000000_expected.vtu RadionuclidesTransport_pcs_13_ts_3_t_3000.000000.vtu Cl Cl 1e-10 1e-16
+    RadionuclidesTransport_pcs_13_ts_3_t_3000.000000_expected.vtu RadionuclidesTransport_pcs_13_ts_3_t_3000.000000.vtu Cs Cs 1e-10 1e-16
+    RadionuclidesTransport_pcs_13_ts_3_t_3000.000000_expected.vtu RadionuclidesTransport_pcs_13_ts_3_t_3000.000000.vtu H H 1e-10 1e-16
+    RadionuclidesTransport_pcs_13_ts_3_t_3000.000000_expected.vtu RadionuclidesTransport_pcs_13_ts_3_t_3000.000000.vtu Na Na 1e-10 1e-16
+    RadionuclidesTransport_pcs_13_ts_3_t_3000.000000_expected.vtu RadionuclidesTransport_pcs_13_ts_3_t_3000.000000.vtu Ni Ni 1e-10 1e-16
+    RadionuclidesTransport_pcs_13_ts_3_t_3000.000000_expected.vtu RadionuclidesTransport_pcs_13_ts_3_t_3000.000000.vtu Ra Ra 1e-10 1e-16
+    RadionuclidesTransport_pcs_13_ts_3_t_3000.000000_expected.vtu RadionuclidesTransport_pcs_13_ts_3_t_3000.000000.vtu Th Th 1e-10 1e-16
+    RUNTIME 140
+)
