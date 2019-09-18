@@ -172,7 +172,7 @@ void TwoPhaseFlowWithPPLocalAssembler<
         double const Sw_old = _process_data.material->getSaturation(
             material_id, t, pos, pn_int_pt, temperature, pc_int_pt);
 
-        double const eps = 1.e-8;
+        double const eps = 1.e-12;
 
         double const Sw_old_p = _process_data.material->getSaturation(
             material_id, t, pos, pn_int_pt, temperature, pc_int_pt + eps);
@@ -186,54 +186,27 @@ void TwoPhaseFlowWithPPLocalAssembler<
             _process_data.material->getSaturationDerivative(
                 material_id, t, pos, pn_int_pt, temperature, Sw);
 
-        double const k_rel_nonwet_old =
-            _process_data.material->getNonwetRelativePermeability(
-                t, pos, pn_int_pt, temperature, Sw);
+        // std::cout << std::setprecision(10);
+        // if (std::fabs(Sw - Sw_old) > 1.e-15)
+        // {
+        //     std::cout << "Sw: " << Sw << " Sw_old: " << Sw_old;
+        //     const double diff = Sw - Sw_old;
+        //     std::cout << " -- Diff: " << diff << "\n";
+        //     //   OGS_FATAL("SW differs.");
+        // }
 
-        double const k_rel_wet_old =
-            _process_data.material->getWetRelativePermeability(
-                t, pos, _pressure_wet[ip], temperature, Sw);
-        std::cout << std::setprecision(16);
-        if (std::fabs(Sw - Sw_old) > 1.e-15)
-        {
-            std::cout << "Sw: " << Sw << " Sw_old: " << Sw_old << "\n";
-            const double diff = Sw - Sw_old;
-            std::cout << "Diff: " << diff << "\n";
-            //   OGS_FATAL("SW differs.");
-        }
+        // if (std::fabs(dSw_dpc - dSw_dpc_old) > 1.e-20)
+        // {
+        //     std::cout << "dSw_dpc_MPL: " << dSw_dpc
+        //               << " dSw_dpc_WW: " << dSw_dpc_old
+        //               << " cd(WW): " << dSw_dpc_old_cd;
+        //     const double diff_mpl_ww = dSw_dpc - dSw_dpc_old;
+        //     const double diff_mpl_cd = dSw_dpc - dSw_dpc_old_cd;
 
-        if (std::fabs(dSw_dpc - dSw_dpc_old) > 1.e-16)
-        {
-            std::cout << "dSw_dpc: " << dSw_dpc
-                      << " dSw_dpc_old: " << dSw_dpc_old
-                      << " cd: " << dSw_dpc_old_cd << "\n";
-            const double diff = dSw_dpc - dSw_dpc_old;
-            std::cout << "Diff: " << diff << "\n";
-            //   OGS_FATAL("dSw_dpc differs.");
-        }
-
-        if (std::fabs(k_rel_nonwet - k_rel_nonwet_old) > 1.e-15)
-        {
-            std::cout << "k_rel_nonwet: " << k_rel_nonwet
-                      << " k_rel_nonwet_old: " << k_rel_nonwet_old << "\n";
-            const double diff = k_rel_nonwet - k_rel_nonwet_old;
-            std::cout << "Diff: " << diff << "\n";
-            //   OGS_FATAL("k_rel_nonwet differs");
-        }
-
-        if (std::fabs(k_rel_wet - k_rel_wet_old) > 1.e-15)
-        {
-            std::cout << "k_rel_wet: " << k_rel_wet
-                      << " k_rel_wet_old: " << k_rel_wet_old << "\n";
-            const double diff = k_rel_wet - k_rel_wet_old;
-            std::cout << "Diff: " << diff << "\n";
-            //   OGS_FATAL("k_rel_wet differs by");
-        }
-
-        // assert(std::fabs(Sw -Sw_old) <= 1.e-16);
-        // assert(std::fabs(dSw_dpc - dSw_dpc_old) <= 1.e-16);
-        // assert(std::fabs(k_rel_nonwet - k_rel_nonwet_old) <= 1.e-16);
-        // assert(std::fabs(k_rel_wet - k_rel_wet_old) <= 1.e-16);
+        //     std::cout << " -- d(MPL-CD): " << diff_mpl_cd
+        //               << " d(MPL-WW): " << diff_mpl_ww << "\n";
+        //     //   OGS_FATAL("dSw_dpc differs.");
+        // }
 
         auto const mu_nonwet = gas_phase.property(MPL::PropertyType::viscosity)
                                    .template value<double>(variables, pos, t);
