@@ -193,14 +193,9 @@
             <value>298.15</value>
         </parameter>
         <parameter>
-            <name>T_HeatedBottomBC_Neumann</name>
+            <name>T_Borehole</name>
             <type>Constant</type>
-            <value>55</value>
-        </parameter>
-        <parameter>
-            <name>T_HeatedLateralBC_Neumann</name>
-            <type>Constant</type>
-            <value>55</value>
+            <value>353.15</value>
         </parameter>
         <parameter>
             <name>p0</name>
@@ -222,19 +217,19 @@
             <boundary_conditions>
                 <boundary_condition>
                     <geometrical_set>DiffusionThermalGradient</geometrical_set>
-                    <geometry>HeatedBottomBC</geometry>
-                    <type>Neumann</type>
-                    <parameter>T_HeatedBottomBC_Neumann</parameter>
+                    <geometry>BoreholeBottom</geometry>
+                    <type>Dirichlet</type>
+                    <parameter>T_Borehole</parameter>
                 </boundary_condition>
                 <boundary_condition>
                     <geometrical_set>DiffusionThermalGradient</geometrical_set>
-                    <geometry>HeatedLateralBC</geometry>
-                    <type>Neumann</type>
-                    <parameter>T_HeatedLateralBC_Neumann</parameter>
+                    <geometry>BoreholeLateral</geometry>
+                    <type>Dirichlet</type>
+                    <parameter>T_Borehole</parameter>
                 </boundary_condition>
                 <boundary_condition>
                     <geometrical_set>DiffusionThermalGradient</geometrical_set>
-                    <geometry>RightBC</geometry>
+                    <geometry>Right</geometry>
                     <type>Dirichlet</type>
                     <parameter>T0</parameter>
                 </boundary_condition>
@@ -248,13 +243,13 @@
             <boundary_conditions>
                 <boundary_condition>
                     <geometrical_set>DiffusionThermalGradient</geometrical_set>
-                    <geometry>HeatedBottomBC</geometry>
+                    <geometry>BoreholeBottom</geometry>
                     <type>Dirichlet</type>
                     <parameter>p0</parameter>
                 </boundary_condition>
                 <boundary_condition>
                     <geometrical_set>DiffusionThermalGradient</geometrical_set>
-                    <geometry>HeatedLateralBC</geometry>
+                    <geometry>BoreholeLateral</geometry>
                     <type>Dirichlet</type>
                     <parameter>p0</parameter>
                 </boundary_condition>
