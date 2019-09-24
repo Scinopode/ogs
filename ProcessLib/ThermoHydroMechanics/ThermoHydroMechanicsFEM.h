@@ -140,6 +140,16 @@ public:
         std::vector<NumLib::LocalToGlobalIndexMap const*> const& dof_table,
         std::vector<double>& cache) const override;
 
+    std::vector<double> const& getIntPtPorosity(
+        const double /*t*/,
+        GlobalVector const& /*current_solution*/,
+        NumLib::LocalToGlobalIndexMap const& /*dof_table*/,
+        std::vector<double>& /*cache*/) const override
+    {
+        assert(!_porosity.empty());
+        return _porosity;
+    }
+
 private:
     std::size_t setSigma(double const* values)
     {
@@ -261,6 +271,10 @@ private:
     SecondaryData<
         typename ShapeMatricesTypeDisplacement::ShapeMatrices::ShapeType>
         _secondary_data;
+
+    // output vector for wetting phase saturation with
+    // respect to each integration point
+    std::vector<double> _porosity;
 
     // The shape function of pressure has the same form with the shape function
     // of temperature

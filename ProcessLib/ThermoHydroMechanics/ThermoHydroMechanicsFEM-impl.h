@@ -42,7 +42,8 @@ ThermoHydroMechanicsLocalAssembler<ShapeFunctionDisplacement,
     : _process_data(process_data),
       _integration_method(integration_order),
       _element(e),
-      _is_axially_symmetric(is_axially_symmetric)
+      _is_axially_symmetric(is_axially_symmetric),
+      _porosity(std::vector<double>(_integration_method.getNumberOfPoints()))
 {
     unsigned const n_integration_points =
         _integration_method.getNumberOfPoints();
@@ -237,9 +238,14 @@ void ThermoHydroMechanicsLocalAssembler<ShapeFunctionDisplacement,
                     MaterialPropertyLib::PropertyType::thermal_expansivity)
                 .template value<double>(vars, x_position, t);
 
-        auto const porosity =
+        auto const porosity_ref =
             solid_phase.property(MaterialPropertyLib::PropertyType::porosity)
                 .template value<double>(vars, x_position, t);
+
+        auto const porosity = sigma_eff * (-1.e-4) + porosity_ref;
+
+        _porosity[ip] = porosity;
+
 
         auto const intrinsic_permeability =
             MaterialPropertyLib::formEigenTensor<DisplacementDim>(
