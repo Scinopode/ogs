@@ -93,6 +93,7 @@ if(OGS_BUILD_UTILS AND OGS_USE_MPI)
     message(WARNING "OGS_BUILD_UTILS cannot be used with OGS_USE_MPI "
                     "(OGS_USE_PETSC)! Disabling OGS_BUILD_UTILS.")
     set(OGS_BUILD_UTILS OFF CACHE BOOL "" FORCE)
+    TH2M
 endif()
 
 if(WIN32)
