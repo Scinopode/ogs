@@ -44,7 +44,8 @@ enum class Variable : int
 {
     concentration,
     phase_pressure,
-    effective_pore_pressure_rate,
+    phase_pressure_rate,
+    liquid_phase_pressure,
     capillary_pressure,
     density,
     temperature,
