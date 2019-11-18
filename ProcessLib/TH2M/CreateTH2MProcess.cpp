@@ -40,53 +40,59 @@ std::unique_ptr<Process> createTH2MProcess(
     std::map<int, std::unique_ptr<MaterialPropertyLib::Medium>> const& media)
 {
     //! \ogs_file_param{prj__processes__process__type}
-    config.checkConfigParameter("type", "THERMO_HYDRO_MECHANICS");
+    config.checkConfigParameter("type", "TH2M");
     DBUG("Create TH2MProcess.");
 
     auto const staggered_scheme =
-        //! \ogs_file_param{prj__processes__process__THERMO_HYDRO_MECHANICS__coupling_scheme}
+        //! \ogs_file_param{prj__processes__process__TH2M__coupling_scheme}
         config.getConfigParameterOptional<std::string>("coupling_scheme");
     const bool use_monolithic_scheme =
         !(staggered_scheme && (*staggered_scheme == "staggered"));
 
     // Process variable.
 
-    //! \ogs_file_param{prj__processes__process__THERMO_HYDRO_MECHANICS__process_variables}
+    //! \ogs_file_param{prj__processes__process__TH2M__process_variables}
     auto const pv_config = config.getConfigSubtree("process_variables");
 
+    ProcessVariable* variable_pGR;
+    ProcessVariable* variable_pCap;
     ProcessVariable* variable_T;
-    ProcessVariable* variable_p;
-    ProcessVariable* variable_u;
+    ProcessVariable* variable_uS;
     std::vector<std::vector<std::reference_wrapper<ProcessVariable>>>
         process_variables;
     if (use_monolithic_scheme)  // monolithic scheme.
     {
         auto per_process_variables = findProcessVariables(
             variables, pv_config,
-            {//! \ogs_file_param_special{prj__processes__process__THERMO_HYDRO_MECHANICS__process_variables__temperature}
+            {//! \ogs_file_param_special{prj__processes__process__TH2M__process_variables__gas_pressure}
+             "gas_pressure",
+             //! \ogs_file_param_special{prj__processes__process__TH2M__process_variables__capillary_pressure}
+             "capillary_pressure",
+             //! \ogs_file_param_special{prj__processes__process__TH2M__process_variables__temperature}
              "temperature",
-             //! \ogs_file_param_special{prj__processes__process__THERMO_HYDRO_MECHANICS__process_variables__pressure}
-             "pressure",
-             //! \ogs_file_param_special{prj__processes__process__THERMO_HYDRO_MECHANICS__process_variables__displacement}
+             //! \ogs_file_param_special{prj__processes__process__TH2M__process_variables__displacement}
              "displacement"});
-        variable_T = &per_process_variables[0].get();
-        variable_p = &per_process_variables[1].get();
-        variable_u = &per_process_variables[2].get();
+        variable_pGR = &per_process_variables[0].get();
+        variable_pCap = &per_process_variables[1].get();
+        variable_T = &per_process_variables[2].get();
+        variable_u = &per_process_variables[3].get();
         process_variables.push_back(std::move(per_process_variables));
     }
     else  // staggered scheme.
     {
         using namespace std::string_literals;
         for (auto const& variable_name :
-             {"temperature"s, "pressure"s, "displacement"s})
+             {"gas_pressure"s, "capillary_pressure"s, "temperature"s,
+              "displacement"s})
         {
             auto per_process_variables =
                 findProcessVariables(variables, pv_config, {variable_name});
             process_variables.push_back(std::move(per_process_variables));
         }
-        variable_T = &process_variables[0][0].get();
-        variable_p = &process_variables[1][0].get();
-        variable_u = &process_variables[2][0].get();
+        variable_pGR = &process_variables[0][0].get();
+        variable_pCap = &process_variables[1][0].get();
+        variable_T = &process_variables[2][0].get();
+        variable_u = &process_variables[3][0].get();
     }
 
     DBUG("Associate displacement with process variable '%s'.",
@@ -102,15 +108,26 @@ std::unique_ptr<Process> createTH2MProcess(
             DisplacementDim);
     }
 
-    DBUG("Associate pressure with process variable '%s'.",
-         variable_p->getName().c_str());
-    if (variable_p->getNumberOfComponents() != 1)
+    DBUG("Associate gas (non-wetting) pressure with process variable '%s'.",
+         variable_pGR->getName().c_str());
+    if (variable_pGR->getNumberOfComponents() != 1)
     {
         OGS_FATAL(
-            "Pressure process variable '%s' is not a scalar variable but has "
+            "Gas pressure process variable '%s' is not a scalar variable but has "
             "%d components.",
-            variable_p->getName().c_str(),
-            variable_p->getNumberOfComponents());
+            variable_pGR->getName().c_str(),
+            variable_pGR->getNumberOfComponents());
+    }
+
+    DBUG("Associate capillary pressure with process variable '%s'.",
+         variable_pCap->getName().c_str());
+    if (variable_pCap->getNumberOfComponents() != 1)
+    {
+        OGS_FATAL(
+            "Capillary pressure process variable '%s' is not a scalar variable but has "
+            "%d components.",
+            variable_pCap->getName().c_str(),
+            variable_pCap->getNumberOfComponents());
     }
 
     DBUG("Associate temperature with process variable '%s'.",
@@ -131,7 +148,7 @@ std::unique_ptr<Process> createTH2MProcess(
     // reference temperature
     auto& reference_temperature = ParameterLib::findParameter<double>(
         config,
-        //! \ogs_file_param_special{prj__processes__process__THERMO_HYDRO_MECHANICS__reference_temperature}
+        //! \ogs_file_param_special{prj__processes__process__TH2M__reference_temperature}
         "reference_temperature", parameters, 1, &mesh);
     DBUG("Use '%s' as reference temperature parameter.",
          reference_temperature.name.c_str());
@@ -140,7 +157,7 @@ std::unique_ptr<Process> createTH2MProcess(
     Eigen::Matrix<double, DisplacementDim, 1> specific_body_force;
     {
         std::vector<double> const b =
-            //! \ogs_file_param{prj__processes__process__THERMO_HYDRO_MECHANICS__specific_body_force}
+            //! \ogs_file_param{prj__processes__process__TH2M__specific_body_force}
             config.getConfigParameter<std::vector<double>>(
                 "specific_body_force");
         if (b.size() != DisplacementDim)
@@ -159,10 +176,8 @@ std::unique_ptr<Process> createTH2MProcess(
         MaterialPropertyLib::createMaterialSpatialDistributionMap(media, mesh);
 
     TH2MProcessData<DisplacementDim> process_data{
-        materialIDs(mesh),
-        std::move(media_map),
-        std::move(solid_constitutive_relations),
-        reference_temperature,
+        materialIDs(mesh), std::move(media_map),
+        std::move(solid_constitutive_relations), reference_temperature,
         specific_body_force};
 
     SecondaryVariableCollection secondary_variables;
