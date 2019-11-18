@@ -46,6 +46,7 @@ TH2MProcess<DisplacementDim>::TH2MProcess(
 
     _hydraulic_flow = MeshLib::getOrCreateMeshProperty<double>(
         mesh, "HydraulicFlow", MeshLib::MeshItemType::Node, 1);
+        
 }
 
 template <int DisplacementDim>
@@ -97,11 +98,14 @@ void TH2MProcess<DisplacementDim>::constructDofTable()
 
     if (_use_monolithic_scheme)
     {
-        // For temperature, which is the first
+        // For gas pressure, which is the first
         std::vector<MeshLib::MeshSubset> all_mesh_subsets{
             *_mesh_subset_base_nodes};
 
-        // For pressure, which is the second
+        // For capillary pressure, which is the second
+        all_mesh_subsets.push_back(*_mesh_subset_base_nodes);
+
+        // For temperature, which is the third
         all_mesh_subsets.push_back(*_mesh_subset_base_nodes);
 
         // For displacement.
@@ -160,7 +164,7 @@ void TH2MProcess<DisplacementDim>::initializeConcreteProcess(
     unsigned const integration_order)
 {
     const int mechanical_process_id = _use_monolithic_scheme ? 0 : 2;
-    const int deformation_variable_id = _use_monolithic_scheme ? 2 : 0;
+    const int deformation_variable_id = _use_monolithic_scheme ? 3 : 0;
     ProcessLib::TH2M::createLocalAssemblers<
         DisplacementDim, TH2MLocalAssembler>(
         mesh.getDimension(), mesh.getElements(), dof_table,
@@ -186,14 +190,25 @@ void TH2MProcess<DisplacementDim>::initializeConcreteProcess(
                          &LocalAssemblerInterface::getIntPtEpsilon));
 
     _secondary_variables.addSecondaryVariable(
-        "velocity",
+        "velocity_gas",
         makeExtrapolator(mesh.getDimension(), getExtrapolator(),
                          _local_assemblers,
-                         &LocalAssemblerInterface::getIntPtDarcyVelocity));
+                         &LocalAssemblerInterface::getIntPtDarcyVelocityGas));
 
-    _process_data.pressure_interpolated =
+    _secondary_variables.addSecondaryVariable(
+        "velocity_liquid",
+        makeExtrapolator(mesh.getDimension(), getExtrapolator(),
+                         _local_assemblers,
+                         &LocalAssemblerInterface::getIntPtDarcyVelocityLiquid));
+
+    _process_data.gas_pressure_interpolated =
         MeshLib::getOrCreateMeshProperty<double>(
-            const_cast<MeshLib::Mesh&>(mesh), "pressure_interpolated",
+            const_cast<MeshLib::Mesh&>(mesh), "gas_pressure_interpolated",
+            MeshLib::MeshItemType::Node, 1);
+
+    _process_data.capillary_pressure_interpolated =
+        MeshLib::getOrCreateMeshProperty<double>(
+            const_cast<MeshLib::Mesh&>(mesh), "capillary_pressure_interpolated",
             MeshLib::MeshItemType::Node, 1);
 
     _process_data.temperature_interpolated =
@@ -213,22 +228,22 @@ void TH2MProcess<
 {
     if (_use_monolithic_scheme)
     {
-        const int process_id_of_thermohydromechancs = 0;
+        const int process_id_of_th2m = 0;
         initializeProcessBoundaryConditionsAndSourceTerms(
-            *_local_to_global_index_map, process_id_of_thermohydromechancs);
+            *_local_to_global_index_map, process_id_of_th2m);
         return;
     }
 
     // Staggered scheme:
+    // for the equations of twophase flow
+    const int hydraulic_process_id = 1;
+    initializeProcessBoundaryConditionsAndSourceTerms(
+        *_local_to_global_index_map_with_base_nodes, hydraulic_process_id);
+
     // for the equations of heat transport
     const int thermal_process_id = 0;
     initializeProcessBoundaryConditionsAndSourceTerms(
         *_local_to_global_index_map_with_base_nodes, thermal_process_id);
-
-    // for the equations of mass balance
-    const int hydraulic_process_id = 1;
-    initializeProcessBoundaryConditionsAndSourceTerms(
-        *_local_to_global_index_map_with_base_nodes, hydraulic_process_id);
 
     // for the equations of deformation.
     const int mechanical_process_id = 2;

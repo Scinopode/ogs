@@ -20,11 +20,6 @@ namespace TH2M
 {
 struct LocalAssemblerInterface;
 
-/// Thermally induced deformation process in linear kinematics
-/// poro-mechanical/biphasic model.
-///
-/// The mixture momentum balance, the mixture mass balance and the mixture
-/// energy balance are solved under fully saturated conditions.
 template <int DisplacementDim>
 class TH2MProcess final : public Process
 {
@@ -55,10 +50,8 @@ public:
      * process.
      *
      * @param process_id Process ID. If the monolithic scheme is applied,
-     *                               process_id = 0. For the staggered scheme,
-     *                               process_id = 0 represents the
-     *                               hydraulic (H) process, while process_id = 1
-     *                               represents the mechanical (M) process.
+     *                               process_id = 0. Staggered scheme is not yet
+     *                               implemented.
      * @return Matrix specifications including size and sparse pattern.
      */
     MathLib::MatrixSpecifications getMatrixSpecifications(

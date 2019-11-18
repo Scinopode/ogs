@@ -63,17 +63,14 @@ public:
         MathLib::KelvinVector::KelvinVectorDimensions<DisplacementDim>::value;
     using Invariants = MathLib::KelvinVector::Invariants<KelvinVectorSize>;
 
-    TH2MLocalAssembler(
-        TH2MLocalAssembler const&) = delete;
-    TH2MLocalAssembler(TH2MLocalAssembler&&) =
-        delete;
+    TH2MLocalAssembler(TH2MLocalAssembler const&) = delete;
+    TH2MLocalAssembler(TH2MLocalAssembler&&) = delete;
 
-    TH2MLocalAssembler(
-        MeshLib::Element const& e,
-        std::size_t const /*local_matrix_size*/,
-        bool const is_axially_symmetric,
-        unsigned const integration_order,
-        TH2MProcessData<DisplacementDim>& process_data);
+    TH2MLocalAssembler(MeshLib::Element const& e,
+                       std::size_t const /*local_matrix_size*/,
+                       bool const is_axially_symmetric,
+                       unsigned const integration_order,
+                       TH2MProcessData<DisplacementDim>& process_data);
 
     void assemble(double const /*t*/, double const /*dt*/,
                   std::vector<double> const& /*local_x*/,
@@ -134,7 +131,12 @@ public:
         return Eigen::Map<const Eigen::RowVectorXd>(N_u.data(), N_u.size());
     }
 
-    std::vector<double> const& getIntPtDarcyVelocity(
+    std::vector<double> const& getIntPtDarcyVelocityGas(
+        const double t,
+        std::vector<GlobalVector*> const& x,
+        std::vector<NumLib::LocalToGlobalIndexMap const*> const& dof_table,
+        std::vector<double>& cache) const override;
+    std::vector<double> const& getIntPtDarcyVelocityLiquid(
         const double t,
         std::vector<GlobalVector*> const& x,
         std::vector<NumLib::LocalToGlobalIndexMap const*> const& dof_table,
@@ -264,11 +266,13 @@ private:
 
     // The shape function of pressure has the same form with the shape function
     // of temperature
-    static const int temperature_index = 0;
+    static const int gas_pressure_index = 0;
+    static const int gas_pressure_size = ShapeFunctionPressure::NPOINTS;
+    static const int capillary_pressure_index = ShapeFunctionPressure::NPOINTS;
+    static const int capillary_pressure_size = ShapeFunctionPressure::NPOINTS;
+    static const int temperature_index = 2 * ShapeFunctionPressure::NPOINTS;
     static const int temperature_size = ShapeFunctionPressure::NPOINTS;
-    static const int pressure_index = ShapeFunctionPressure::NPOINTS;
-    static const int pressure_size = ShapeFunctionPressure::NPOINTS;
-    static const int displacement_index = ShapeFunctionPressure::NPOINTS * 2;
+    static const int displacement_index = ShapeFunctionPressure::NPOINTS * 3;
     static const int displacement_size =
         ShapeFunctionDisplacement::NPOINTS * DisplacementDim;
 };

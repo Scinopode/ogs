@@ -51,7 +51,8 @@ struct TH2MProcessData
     /// A vector of displacement dimension's length.
     Eigen::Matrix<double, DisplacementDim, 1> const specific_body_force;
 
-    MeshLib::PropertyVector<double>* pressure_interpolated = nullptr;
+    MeshLib::PropertyVector<double>* gas_pressure_interpolated = nullptr;
+    MeshLib::PropertyVector<double>* capillary_pressure_interpolated = nullptr;
     MeshLib::PropertyVector<double>* temperature_interpolated = nullptr;
 
     EIGEN_MAKE_ALIGNED_OPERATOR_NEW;

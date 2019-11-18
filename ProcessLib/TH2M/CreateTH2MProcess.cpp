@@ -57,7 +57,7 @@ std::unique_ptr<Process> createTH2MProcess(
     ProcessVariable* variable_pGR;
     ProcessVariable* variable_pCap;
     ProcessVariable* variable_T;
-    ProcessVariable* variable_uS;
+    ProcessVariable* variable_u;
     std::vector<std::vector<std::reference_wrapper<ProcessVariable>>>
         process_variables;
     if (use_monolithic_scheme)  // monolithic scheme.
@@ -80,6 +80,11 @@ std::unique_ptr<Process> createTH2MProcess(
     }
     else  // staggered scheme.
     {
+        OGS_FATAL("A Staggered version of TH2M is not implemented yet.");
+        // The following implementation is based on the
+        // ThermoHydroMechanics-Process. It was expanded by a second pressure
+        // (capillary pressure), but the implementation is not tested for TH2M.
+
         using namespace std::string_literals;
         for (auto const& variable_name :
              {"gas_pressure"s, "capillary_pressure"s, "temperature"s,
@@ -113,7 +118,8 @@ std::unique_ptr<Process> createTH2MProcess(
     if (variable_pGR->getNumberOfComponents() != 1)
     {
         OGS_FATAL(
-            "Gas pressure process variable '%s' is not a scalar variable but has "
+            "Gas pressure process variable '%s' is not a scalar variable but "
+            "has "
             "%d components.",
             variable_pGR->getName().c_str(),
             variable_pGR->getNumberOfComponents());
@@ -124,7 +130,8 @@ std::unique_ptr<Process> createTH2MProcess(
     if (variable_pCap->getNumberOfComponents() != 1)
     {
         OGS_FATAL(
-            "Capillary pressure process variable '%s' is not a scalar variable but has "
+            "Capillary pressure process variable '%s' is not a scalar variable "
+            "but has "
             "%d components.",
             variable_pCap->getName().c_str(),
             variable_pCap->getNumberOfComponents());

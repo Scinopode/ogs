@@ -30,15 +30,13 @@ namespace TH2M
 {
 template <typename ShapeFunctionDisplacement, typename ShapeFunctionPressure,
           typename IntegrationMethod, int DisplacementDim>
-TH2MLocalAssembler<ShapeFunctionDisplacement,
-                                   ShapeFunctionPressure, IntegrationMethod,
-                                   DisplacementDim>::
-    TH2MLocalAssembler(
-        MeshLib::Element const& e,
-        std::size_t const /*local_matrix_size*/,
-        bool const is_axially_symmetric,
-        unsigned const integration_order,
-        TH2MProcessData<DisplacementDim>& process_data)
+TH2MLocalAssembler<ShapeFunctionDisplacement, ShapeFunctionPressure,
+                   IntegrationMethod, DisplacementDim>::
+    TH2MLocalAssembler(MeshLib::Element const& e,
+                       std::size_t const /*local_matrix_size*/,
+                       bool const is_axially_symmetric,
+                       unsigned const integration_order,
+                       TH2MProcessData<DisplacementDim>& process_data)
     : _process_data(process_data),
       _integration_method(integration_order),
       _element(e),
@@ -98,9 +96,8 @@ TH2MLocalAssembler<ShapeFunctionDisplacement,
 // not considered as that in HT process.
 template <typename ShapeFunctionDisplacement, typename ShapeFunctionPressure,
           typename IntegrationMethod, int DisplacementDim>
-void TH2MLocalAssembler<ShapeFunctionDisplacement,
-                                        ShapeFunctionPressure,
-                                        IntegrationMethod, DisplacementDim>::
+void TH2MLocalAssembler<ShapeFunctionDisplacement, ShapeFunctionPressure,
+                        IntegrationMethod, DisplacementDim>::
     assembleWithJacobian(double const t, double const dt,
                          std::vector<double> const& local_x,
                          std::vector<double> const& local_xdot,
@@ -110,30 +107,46 @@ void TH2MLocalAssembler<ShapeFunctionDisplacement,
                          std::vector<double>& local_rhs_data,
                          std::vector<double>& local_Jac_data)
 {
-    assert(local_x.size() ==
-           pressure_size + displacement_size + temperature_size);
+    auto const matrix_size = gas_pressure_size + capillary_pressure_size +
+                             temperature_size + displacement_size;
+
+    assert(local_x.size() == matrix_size);
+
+    auto pGR =
+        Eigen::Map<typename ShapeMatricesTypePressure::template VectorType<
+            gas_pressure_size> const>(local_x.data() + gas_pressure_index,
+                                      gas_pressure_size);
+
+    auto pCap =
+        Eigen::Map<typename ShapeMatricesTypePressure::template VectorType<
+            capillary_pressure_size> const>(
+            local_x.data() + capillary_pressure_index, capillary_pressure_size);
 
     auto T = Eigen::Map<typename ShapeMatricesTypePressure::template VectorType<
         temperature_size> const>(local_x.data() + temperature_index,
                                  temperature_size);
-
-    auto p = Eigen::Map<typename ShapeMatricesTypePressure::template VectorType<
-        pressure_size> const>(local_x.data() + pressure_index, pressure_size);
 
     auto u =
         Eigen::Map<typename ShapeMatricesTypeDisplacement::template VectorType<
             displacement_size> const>(local_x.data() + displacement_index,
                                       displacement_size);
 
+    auto pGR_dot =
+        Eigen::Map<typename ShapeMatricesTypePressure::template VectorType<
+            gas_pressure_size> const>(local_xdot.data() + gas_pressure_index,
+                                      gas_pressure_size);
+
+    auto pCap_dot =
+        Eigen::Map<typename ShapeMatricesTypePressure::template VectorType<
+            capillary_pressure_size> const>(
+            local_xdot.data() + capillary_pressure_index,
+            capillary_pressure_size);
+
     auto T_dot =
         Eigen::Map<typename ShapeMatricesTypePressure::template VectorType<
             temperature_size> const>(local_xdot.data() + temperature_index,
                                      temperature_size);
 
-    auto p_dot =
-        Eigen::Map<typename ShapeMatricesTypePressure::template VectorType<
-            pressure_size> const>(local_xdot.data() + pressure_index,
-                                  pressure_size);
     auto u_dot =
         Eigen::Map<typename ShapeMatricesTypeDisplacement::template VectorType<
             displacement_size> const>(local_xdot.data() + displacement_index,
@@ -141,307 +154,255 @@ void TH2MLocalAssembler<ShapeFunctionDisplacement,
 
     auto local_Jac = MathLib::createZeroedMatrix<
         typename ShapeMatricesTypeDisplacement::template MatrixType<
-            temperature_size + displacement_size + pressure_size,
-            temperature_size + displacement_size + pressure_size>>(
-        local_Jac_data, displacement_size + pressure_size + temperature_size,
-        displacement_size + pressure_size + temperature_size);
+            matrix_size, matrix_size>>(local_Jac_data, matrix_size,
+                                       matrix_size);
 
-    auto local_rhs = MathLib::createZeroedVector<
-        typename ShapeMatricesTypeDisplacement::template VectorType<
-            displacement_size + pressure_size + temperature_size>>(
-        local_rhs_data, displacement_size + pressure_size + temperature_size);
+    auto local_rhs =
+        MathLib::createZeroedVector<typename ShapeMatricesTypeDisplacement::
+                                        template VectorType<matrix_size>>(
+            local_rhs_data, matrix_size);
+
+    // gas pressure equation
+    //   - mass submatrices
+    typename ShapeMatricesTypePressure::NodalMatrixType MGpG;
+    MGpG.setZero(gas_pressure_size, gas_pressure_size);
+
+    typename ShapeMatricesTypePressure::NodalMatrixType MGpC;
+    MGpC.setZero(gas_pressure_size, capillary_pressure_size);
+
+    typename ShapeMatricesTypePressure::NodalMatrixType MGT;
+    MGT.setZero(gas_pressure_size, temperature_size);
+
+    typename ShapeMatricesTypePressure::NodalMatrixType MGU;
+    MGU.setZero(gas_pressure_size, displacement_size);
+
+    //  - laplace matrix
+    typename ShapeMatricesTypePressure::NodalMatrixType LGpG;
+    LGpG.setZero(gas_pressure_size, gas_pressure_size);
+
+    //  - rhs vector
+    typename ShapeMatricesTypePressure::NodalVectorType fG;
+    fG.setZero(gas_pressure_size);
+
+    // capillary pressure equation
+    //  - mass submatrices
+    typename ShapeMatricesTypePressure::NodalMatrixType MLpG;
+    MLpG.setZero(capillary_pressure_size, gas_pressure_size);
+
+    typename ShapeMatricesTypePressure::NodalMatrixType MLpC;
+    MLpC.setZero(capillary_pressure_size, capillary_pressure_size);
+
+    typename ShapeMatricesTypePressure::NodalMatrixType MLT;
+    MLT.setZero(capillary_pressure_size, temperature_size);
+
+    typename ShapeMatricesTypePressure::NodalMatrixType MLU;
+    MLU.setZero(capillary_pressure_size, displacement_size);
+
+    //  - laplace submatrices
+    typename ShapeMatricesTypePressure::NodalMatrixType LLpG;
+    LLpG.setZero(capillary_pressure_size, gas_pressure_size);
+
+    typename ShapeMatricesTypePressure::NodalMatrixType LLpC;
+    LLpC.setZero(capillary_pressure_size, capillary_pressure_size);
+
+    //  - rhs vector
+    typename ShapeMatricesTypePressure::NodalVectorType fL;
+    fL.setZero(capillary_pressure_size);
+
+    // temperature equation
+    //  - mass submatrices
+    typename ShapeMatricesTypePressure::NodalMatrixType MTpG;
+    MTpG.setZero(temperature_size, gas_pressure_size);
+
+    typename ShapeMatricesTypePressure::NodalMatrixType MTpC;
+    MTpC.setZero(temperature_size, capillary_pressure_size);
 
     typename ShapeMatricesTypePressure::NodalMatrixType MTT;
     MTT.setZero(temperature_size, temperature_size);
 
-    typename ShapeMatricesTypePressure::NodalMatrixType KTT_coeff;
-    KTT_coeff.setZero(temperature_size, temperature_size);
+    //  - advection submatrices
+    typename ShapeMatricesTypePressure::NodalMatrixType ATpG;
+    ATpG.setZero(temperature_size, gas_pressure_size);
 
-    typename ShapeMatricesTypePressure::NodalMatrixType KTT;
-    KTT.setZero(temperature_size, temperature_size);
+    typename ShapeMatricesTypePressure::NodalMatrixType ATpC;
+    ATpC.setZero(temperature_size, capillary_pressure_size);
 
-    typename ShapeMatricesTypePressure::NodalMatrixType KTp;
-    KTp.setZero(temperature_size, pressure_size);
+    typename ShapeMatricesTypePressure::NodalMatrixType ATT;
+    ATT.setZero(temperature_size, temperature_size);
 
-    typename ShapeMatricesTypePressure::NodalMatrixType KTp_coeff;
-    KTp_coeff.setZero(temperature_size, pressure_size);
+    //  - laplace submatrix
+    typename ShapeMatricesTypePressure::NodalMatrixType LTT;
+    LTT.setZero(temperature_size, temperature_size);
 
-    typename ShapeMatricesTypePressure::NodalMatrixType laplace_p;
-    laplace_p.setZero(pressure_size, pressure_size);
+    //  - rhs vector
+    typename ShapeMatricesTypePressure::NodalVectorType fT;
+    fT.setZero(temperature_size);
 
-    typename ShapeMatricesTypePressure::NodalMatrixType storage_p;
-    storage_p.setZero(pressure_size, pressure_size);
+    // displacement equation
+    //  - stiffness submatrices
+    typename ShapeMatricesTypePressure::NodalMatrixType KUpG;
+    KUpG.setZero(displacement_size, gas_pressure_size);
 
-    typename ShapeMatricesTypePressure::NodalMatrixType storage_T;
-    storage_T.setZero(pressure_size, temperature_size);
+    typename ShapeMatricesTypePressure::NodalMatrixType KUpC;
+    KUpC.setZero(displacement_size, capillary_pressure_size);
 
-    typename ShapeMatricesTypeDisplacement::template MatrixType<
-        displacement_size, pressure_size>
-        Kup;
-    Kup.setZero(displacement_size, pressure_size);
-    typename ShapeMatricesTypeDisplacement::template MatrixType<
-        displacement_size, temperature_size>
-        KuT;
-    KuT.setZero(displacement_size, temperature_size);
+    //  - rhs vector
+    typename ShapeMatricesTypePressure::NodalVectorType fU;
+    fU.setZero(displacement_size);
 
     ParameterLib::SpatialPosition x_position;
     x_position.setElementID(_element.getID());
 
     auto const& medium = _process_data.media_map->getMedium(_element.getID());
+    auto const& gas_phase = medium->phase("NonAqueousLiquid");
     auto const& liquid_phase = medium->phase("AqueousLiquid");
     auto const& solid_phase = medium->phase("Solid");
-    MaterialPropertyLib::VariableArray vars;
 
     unsigned const n_integration_points =
         _integration_method.getNumberOfPoints();
     for (unsigned ip = 0; ip < n_integration_points; ip++)
     {
         x_position.setIntegrationPoint(ip);
+
+        auto const& Np = _ip_data[ip].N_p;
+        auto const& NT = Np;
+        auto const& Nu = _ip_data[ip].N_u;
+
+        auto const& NpT = Np.transpose();
+        auto const& NTT = NT.transpose();
+        auto const& NuT = Nu.transpose();
+
+        auto const& gradNp = _ip_data[ip].dNdx_p;
+        auto const& gradNT = gradNp;
+        auto const& gradNu = _ip_data[ip].dNdx_u;
+
+        auto const& gradNpT = gradNp.transpose();
+        auto const& gradNTT = gradNT.transpose();
+        auto const& gradNuT = gradNu.transpose();
+
+        auto const& Nu_op = _ip_data[ip].N_u_op;
         auto const& w = _ip_data[ip].integration_weight;
 
-        auto const& N_u_op = _ip_data[ip].N_u_op;
+        auto const& m = MathLib::KelvinVector::Invariants<
+            MathLib::KelvinVector::KelvinVectorDimensions<
+                DisplacementDim>::value>::identity2;
 
-        auto const& N_u = _ip_data[ip].N_u;
-        auto const& dNdx_u = _ip_data[ip].dNdx_u;
-
-        auto const& N_p = _ip_data[ip].N_p;
-        auto const& dNdx_p = _ip_data[ip].dNdx_p;
-
-        // same shape function for pressure and temperature since they have the
-        // same order
-        auto const& N_T = N_p;
-        auto const& dNdx_T = dNdx_p;
-        auto const T_int_pt = N_T * T;
+        auto const mT = m.transpose();
 
         auto const x_coord =
             interpolateXCoordinate<ShapeFunctionDisplacement,
-                                   ShapeMatricesTypeDisplacement>(_element,
-                                                                  N_u);
-        auto const B =
+                                   ShapeMatricesTypeDisplacement>(_element, Nu);
+
+        auto const Bu =
             LinearBMatrix::computeBMatrix<DisplacementDim,
                                           ShapeFunctionDisplacement::NPOINTS,
                                           typename BMatricesType::BMatrixType>(
-                dNdx_u, N_u, x_coord, _is_axially_symmetric);
+                gradNu, Nu, x_coord, _is_axially_symmetric);
+
+        auto const BuT = Bu.transpose();
 
         auto& eps = _ip_data[ip].eps;
         auto const& sigma_eff = _ip_data[ip].sigma_eff;
 
+        auto const T_int_pt = NT * T;
+        auto const pGR_int_pt = Np * pGR;
+        auto const pCap_int_pt = Np * pCap;
+        auto const pLR_int_pt = Np * (pGR - pCap);
+
+        MaterialPropertyLib::VariableArray vars;
         vars[static_cast<int>(MaterialPropertyLib::Variable::temperature)] =
             T_int_pt;
-        vars[static_cast<int>(MaterialPropertyLib::Variable::phase_pressure)] =
-            N_p * p;
+        vars[static_cast<int>(
+            MaterialPropertyLib::Variable::gas_phase_pressure)] = pGR_int_pt;
+        vars[static_cast<int>(
+            MaterialPropertyLib::Variable::capillary_pressure)] = pCap_int_pt;
+        vars[static_cast<int>(
+            MaterialPropertyLib::Variable::liquid_phase_pressure)] = pLR_int_pt;
 
-        auto const solid_density =
-            solid_phase.property(MaterialPropertyLib::PropertyType::density)
-                .template value<double>(vars, x_position, t);
-        auto const specific_storage =
-            solid_phase.property(MaterialPropertyLib::PropertyType::storage)
-                .template value<double>(vars, x_position, t);
-        auto const solid_linear_thermal_expansion_coefficient =
-            solid_phase
-                .property(
-                    MaterialPropertyLib::PropertyType::thermal_expansivity)
-                .template value<double>(vars, x_position, t);
+        auto const k_S = MaterialPropertyLib::formEigenTensor<DisplacementDim>(
+            medium.property(MaterialPropertyLib::PropertyType::permeability)
+                .value(vars, x_position, t));
 
-        auto const porosity =
-            solid_phase.property(MaterialPropertyLib::PropertyType::porosity)
+        auto const s_L =
+            medium
+                .property(MaterialPropertyLib::PropertyType::liquid_saturation)
                 .template value<double>(vars, x_position, t);
+        auto const s_G = 1. - s_L;
 
-        auto const intrinsic_permeability =
-            MaterialPropertyLib::formEigenTensor<DisplacementDim>(
-                solid_phase
-                    .property(MaterialPropertyLib::PropertyType::permeability)
-                    .value(vars, x_position, t));
-
-        auto const fluid_density =
-            liquid_phase.property(MaterialPropertyLib::PropertyType::density)
+        auto const phi =
+            medium.property(MaterialPropertyLib::PropertyType::porosity)
                 .template value<double>(vars, x_position, t);
 
-        double const fluid_volumetric_thermal_expansion_coefficient =
-            MaterialPropertyLib::getThermalExpansivity(
-                liquid_phase, vars, fluid_density, x_position, t);
+        MGpG.noalias() += (NpT * Np) * w;
+        MGpC.noalias() += (NpT * Np) * w;
+        MGT.noalias() += (NpT * Np) * w;
+        MGU.noalias() += (NpT * mT * Bu) * w;
+        LGpG.noalias() += (gradNpT * gradNp) * w;
+        fG.noalias() += (gradNpT)*w;
 
-        // Use the viscosity model to compute the viscosity
-        auto const viscosity =
-            liquid_phase.property(MaterialPropertyLib::PropertyType::viscosity)
-                .template value<double>(vars, x_position, t);
-        GlobalDimMatrixType K_over_mu = intrinsic_permeability / viscosity;
+        MLpG.noalias() += (NpT * Np) * w;
+        MLpC.noalias() += (NpT * Np) * w;
+        MLT.noalias() += (NpT * Np) * w;
+        MLU.noalias() += (NpT * mT * Bu) * w;
+        LLpG.noalias() += (gradNpT * gradNp) * w;
+        LLpC.noalias() += (gradNpT * gradNp) * w;
+        fL.noalias() += (NpT)*w;
 
-        double const T0 = _process_data.reference_temperature(t, x_position)[0];
+        MTpG.noalias() += (NTT * NT) * w;
+        MTpC.noalias() += (NTT * NT) * w;
+        MTT.noalias() += (NTT * NT) * w;
+        ATpG.noalias() += (NTT * gradNT) * w;
+        ATpC.noalias() += (NTT * gradNT) * w;
+        ATT.noalias() += (NTT * gradNT) * w;
+        LTT.noalias() += (gradNTT * gradNT) * w;
+        fT.noalias() += (NTT)*w;
 
-        auto const& b = _process_data.specific_body_force;
-        auto const& identity2 = MathLib::KelvinVector::Invariants<
-            MathLib::KelvinVector::KelvinVectorDimensions<
-                DisplacementDim>::value>::identity2;
-
-        // TODO (Wenqing) : Change dT to time step wise increment
-        double const delta_T(T_int_pt - T0);
-        double const thermal_strain =
-            solid_linear_thermal_expansion_coefficient * delta_T;
-
-        double const rho_s = solid_density * (1 - 3 * thermal_strain);
-
-        auto velocity = (-K_over_mu * dNdx_p * p).eval();
-        velocity += K_over_mu * fluid_density * b;
-
+        KUpG.noalias() += (BuT * m * Np) * w;
+        KUpC.noalias() += (BuT * m * Np) * w;
+        fU.noalias() += (BuT - Nu_op) * w;
         //
         // displacement equation, displacement part
         //
-        eps.noalias() = B * u;
+        eps.noalias() = Bu * u;
         auto C = _ip_data[ip].updateConstitutiveRelationThermal(
-            t, x_position, dt, u,
-            _process_data.reference_temperature(t, x_position)[0],
+            t, pos, dt, u, _process_data.reference_temperature(t, pos)[0],
             thermal_strain);
 
-        local_Jac
-            .template block<displacement_size, displacement_size>(
-                displacement_index, displacement_index)
-            .noalias() += B.transpose() * C * B * w;
-
-        auto const rho = rho_s * (1 - porosity) + porosity * fluid_density;
-        local_rhs.template segment<displacement_size>(displacement_index)
-            .noalias() -=
-            (B.transpose() * sigma_eff - N_u_op.transpose() * rho * b) * w;
-
-        //
-        // displacement equation, pressure part (K_up)
-        //
-        auto const alpha =
-            solid_phase
-                .property(MaterialPropertyLib::PropertyType::biot_coefficient)
-                .template value<double>(vars, x_position, t);
-
-        Kup.noalias() += B.transpose() * alpha * identity2 * N_p * w;
-
-        //
-        // pressure equation, pressure part (K_pp and M_pp).
-        //
-        laplace_p.noalias() += dNdx_p.transpose() * K_over_mu * dNdx_p * w;
-
-        storage_p.noalias() += N_p.transpose() * specific_storage * N_p * w;
-        //
-        //  RHS, pressure part
-        //
-        local_rhs.template segment<pressure_size>(pressure_index).noalias() +=
-            dNdx_p.transpose() * fluid_density * K_over_mu * b * w;
-        //
-        // pressure equation, temperature part (M_pT)
-        //
-        auto const beta =
-            porosity * fluid_volumetric_thermal_expansion_coefficient +
-            (1 - porosity) * 3 * solid_linear_thermal_expansion_coefficient;
-        storage_T.noalias() += N_T.transpose() * beta * N_T * w;
-
-        //
-        // pressure equation, displacement part.
-        //
-        // Reusing Kup.transpose().
-
-        //
-        // temperature equation, temperature part.
-        //
-        const double c_f =
-            liquid_phase
-                .property(
-                    MaterialPropertyLib::PropertyType::specific_heat_capacity)
-                .template value<double>(vars, x_position, t);
-        auto const fluid_thermal_conductivity =
-            liquid_phase
-                .property(
-                    MaterialPropertyLib::PropertyType::thermal_conductivity)
-                .template value<double>(vars, x_position, t);
-        GlobalDimMatrixType effective_thermal_condictivity =
-            MaterialPropertyLib::formEffectiveThermalConductivity<
-                DisplacementDim>(
-                solid_phase
-                    .property(
-                        MaterialPropertyLib::PropertyType::thermal_conductivity)
-                    .value(vars, x_position, t),
-                fluid_thermal_conductivity, porosity);
-
-        KTT.noalias() +=
-            (dNdx_T.transpose() * effective_thermal_condictivity * dNdx_T +
-             dNdx_T.transpose() * velocity * N_p * fluid_density * c_f) *
-            w;
-
-        auto const effective_volumetric_heat_capacity =
-            porosity * fluid_density * c_f +
-            (1.0 - porosity) * solid_density *
-                solid_phase
-                    .property(MaterialPropertyLib::PropertyType::
-                                  specific_heat_capacity)
-                    .template value<double>(vars, x_position, t);
-
-        MTT.noalias() +=
-            N_T.transpose() * effective_volumetric_heat_capacity * N_T * w;
-
-        //
-        // temperature equation, pressure part
-        //
-        KTp.noalias() += fluid_density * c_f * N_T.transpose() *
-                         (dNdx_T * T).transpose() * K_over_mu * dNdx_p * w;
+        JUu.noalias() += Bu.transpose() * C * Bu * w;
     }
-    // temperature equation, temperature part
-    local_Jac
-        .template block<temperature_size, temperature_size>(temperature_index,
-                                                            temperature_index)
-        .noalias() += KTT + MTT / dt;
 
-    // temperature equation, pressure part
-    local_Jac
-        .template block<temperature_size, pressure_size>(temperature_index,
-                                                         pressure_index)
-        .noalias() -= KTp;
-    // displacement equation, temperature part
-    local_Jac
-        .template block<displacement_size, temperature_size>(displacement_index,
-                                                             temperature_index)
-        .noalias() -= KuT;
+    JGpG.noalias() = MGpG / dt + LGpG;
+    JGpC.noalias() = -MGpC / dt;
+    JGT.noalias() = -MGT / dt;
+    JGu.noalias() = MGu / dt;
 
-    // displacement equation, pressure part
-    local_Jac
-        .template block<displacement_size, pressure_size>(displacement_index,
-                                                          pressure_index)
-        .noalias() -= Kup;
+    JLpG.noalias() = MLpG / dt + LLpG;
+    JLpC.noalias() = -MLpC / dt - LLpC;
+    JLT.noalias() = -MLT / dt;
+    JLu.noalias() = MLu / dt;
 
-    // pressure equation, temperature part.
-    local_Jac
-        .template block<pressure_size, temperature_size>(pressure_index,
-                                                         temperature_index)
-        .noalias() -= storage_T / dt;
+    JTpG.noalias() = -MTpG / dt - ATpG;
+    JTpC.noalias() = MTpC / dt + ATpC;
+    JTT.noalias() = MTT / dt + ATT + LTT;
 
-    // pressure equation, pressure part.
-    local_Jac
-        .template block<pressure_size, pressure_size>(pressure_index,
-                                                      pressure_index)
-        .noalias() += laplace_p + storage_p / dt;
+    JUpG.noalias() = -KUpG;
+    JUpC.noalias() = -KUpC;
 
-    // pressure equation, displacement part.
-    local_Jac
-        .template block<pressure_size, displacement_size>(pressure_index,
-                                                          displacement_index)
-        .noalias() += Kup.transpose() / dt;
-
-    // pressure equation (f_p)
-    local_rhs.template segment<pressure_size>(pressure_index).noalias() -=
-        laplace_p * p + storage_p * p_dot - storage_T * T_dot +
-        Kup.transpose() * u_dot;
-
-    // displacement equation (f_u)
-    local_rhs.template segment<displacement_size>(displacement_index)
-        .noalias() += Kup * p;
-
-    // temperature equation (f_T)
-    local_rhs.template segment<temperature_size>(temperature_index).noalias() -=
-        KTT * T + MTT * T_dot;
+    rG.noalias() = MGpG * pGR_dot - MGpC * pCap_dot - MGT * T_dot +
+                   MGu * u_dot + LGpG * pGR - fG;
+    rL.noalias() = MLpG * pGR_dot - MLpC * pCap_dot - MLT * T_dot +
+                   MLu * u_dot + LLpG * pGR - LLpC * pCap - fL;
+    rT.noalias() = -MTpG * pGR_dot + MTpC * pCap_dot + MTT * T_dot +
+                   (ATT + LTT) * T - ATpG * pGR + ATpC * pCap + fT;
+    rU.noalias() = fU - KUpG * pGR + KUpC * pCap;
 }
 
 template <typename ShapeFunctionDisplacement, typename ShapeFunctionPressure,
           typename IntegrationMethod, int DisplacementDim>
-std::vector<double> const& TH2MLocalAssembler<
-    ShapeFunctionDisplacement, ShapeFunctionPressure, IntegrationMethod,
-    DisplacementDim>::
-    getIntPtDarcyVelocity(
+std::vector<double> const&
+TH2MLocalAssembler<ShapeFunctionDisplacement, ShapeFunctionPressure,
+                   IntegrationMethod, DisplacementDim>::
+    getIntPtDarcyVelocityGas(
         const double t,
         std::vector<GlobalVector*> const& x,
         std::vector<NumLib::LocalToGlobalIndexMap const*> const& dof_table,
@@ -463,8 +424,96 @@ std::vector<double> const& TH2MLocalAssembler<
     ParameterLib::SpatialPosition pos;
     pos.setElementID(_element.getID());
 
-    auto p = Eigen::Map<typename ShapeMatricesTypePressure::template VectorType<
-        pressure_size> const>(local_x.data() + pressure_index, pressure_size);
+    auto pGR =
+        Eigen::Map<typename ShapeMatricesTypePressure::template VectorType<
+            gas_pressure_size> const>(local_x.data() + gas_pressure_index,
+                                      gas_pressure_size);
+    auto T = Eigen::Map<typename ShapeMatricesTypePressure::template VectorType<
+        temperature_size> const>(local_x.data() + temperature_index,
+                                 temperature_size);
+
+    unsigned const n_integration_points =
+        _integration_method.getNumberOfPoints();
+
+    ParameterLib::SpatialPosition x_position;
+    x_position.setElementID(_element.getID());
+
+    auto const& medium = _process_data.media_map->getMedium(_element.getID());
+    auto const& gas_phase = medium->phase("NonAqueousLiquid");
+    auto const& solid_phase = medium->phase("Solid");
+    MaterialPropertyLib::VariableArray vars;
+
+    for (unsigned ip = 0; ip < n_integration_points; ip++)
+    {
+        x_position.setIntegrationPoint(ip);
+
+        auto const& N_p = _ip_data[ip].N_p;
+
+        vars[static_cast<int>(MaterialPropertyLib::Variable::temperature)] =
+            N_p * T;  // N_p = N_T
+        vars[static_cast<int>(MaterialPropertyLib::Variable::phase_pressure)] =
+            N_p * pGR;
+
+        auto const viscosity =
+            gas_phase.property(MaterialPropertyLib::PropertyType::viscosity)
+                .template value<double>(vars, x_position, t);
+        GlobalDimMatrixType K_over_mu =
+            MaterialPropertyLib::formEigenTensor<DisplacementDim>(
+                solid_phase
+                    .property(MaterialPropertyLib::PropertyType::permeability)
+                    .value(vars, x_position, t)) /
+            viscosity;
+
+        auto const fluid_density =
+            gas_phase.property(MaterialPropertyLib::PropertyType::density)
+                .template value<double>(vars, x_position, t);
+        auto const& b = _process_data.specific_body_force;
+
+        // Compute the velocity
+        auto const& dNdx_p = _ip_data[ip].dNdx_p;
+        cache_matrix.col(ip).noalias() =
+            -K_over_mu * dNdx_p * pGR + K_over_mu * fluid_density * b;
+    }
+
+    return cache;
+}
+
+template <typename ShapeFunctionDisplacement, typename ShapeFunctionPressure,
+          typename IntegrationMethod, int DisplacementDim>
+std::vector<double> const&
+TH2MLocalAssembler<ShapeFunctionDisplacement, ShapeFunctionPressure,
+                   IntegrationMethod, DisplacementDim>::
+    getIntPtDarcyVelocityLiquid(
+        const double t,
+        std::vector<GlobalVector*> const& x,
+        std::vector<NumLib::LocalToGlobalIndexMap const*> const& dof_table,
+        std::vector<double>& cache) const
+{
+    auto const num_intpts = _ip_data.size();
+
+    constexpr int process_id = 0;  // monolithic scheme;
+    auto const indices =
+        NumLib::getIndices(_element.getID(), *dof_table[process_id]);
+    assert(!indices.empty());
+    auto const local_x = x[process_id]->get(indices);
+
+    cache.clear();
+    auto cache_matrix = MathLib::createZeroedMatrix<Eigen::Matrix<
+        double, DisplacementDim, Eigen::Dynamic, Eigen::RowMajor>>(
+        cache, DisplacementDim, num_intpts);
+
+    ParameterLib::SpatialPosition pos;
+    pos.setElementID(_element.getID());
+
+    auto pGR =
+        Eigen::Map<typename ShapeMatricesTypePressure::template VectorType<
+            gas_pressure_size> const>(local_x.data() + gas_pressure_index,
+                                      gas_pressure_size);
+    auto pCap =
+        Eigen::Map<typename ShapeMatricesTypePressure::template VectorType<
+            capillary_pressure_size> const>(
+            local_x.data() + capillary_pressure_index, capillary_pressure_size);
+    auto pLR = pGR - pCap;
     auto T = Eigen::Map<typename ShapeMatricesTypePressure::template VectorType<
         temperature_size> const>(local_x.data() + temperature_index,
                                  temperature_size);
@@ -489,7 +538,7 @@ std::vector<double> const& TH2MLocalAssembler<
         vars[static_cast<int>(MaterialPropertyLib::Variable::temperature)] =
             N_p * T;  // N_p = N_T
         vars[static_cast<int>(MaterialPropertyLib::Variable::phase_pressure)] =
-            N_p * p;
+            N_p * pLR;
 
         auto const viscosity =
             liquid_phase.property(MaterialPropertyLib::PropertyType::viscosity)
@@ -509,7 +558,7 @@ std::vector<double> const& TH2MLocalAssembler<
         // Compute the velocity
         auto const& dNdx_p = _ip_data[ip].dNdx_p;
         cache_matrix.col(ip).noalias() =
-            -K_over_mu * dNdx_p * p + K_over_mu * fluid_density * b;
+            -K_over_mu * dNdx_p * pLR + K_over_mu * fluid_density * b;
     }
 
     return cache;
@@ -517,13 +566,16 @@ std::vector<double> const& TH2MLocalAssembler<
 
 template <typename ShapeFunctionDisplacement, typename ShapeFunctionPressure,
           typename IntegrationMethod, int DisplacementDim>
-void TH2MLocalAssembler<ShapeFunctionDisplacement,
-                                        ShapeFunctionPressure,
-                                        IntegrationMethod, DisplacementDim>::
+void TH2MLocalAssembler<ShapeFunctionDisplacement, ShapeFunctionPressure,
+                        IntegrationMethod, DisplacementDim>::
     postNonLinearSolverConcrete(std::vector<double> const& local_x,
                                 double const t, double const dt,
                                 bool const use_monolithic_scheme)
 {
+    DBUG(
+        "Warning(TODO): postNonLinearSolverConcrete is not fully "
+        "configurated for TH2M!");
+
     const int displacement_offset =
         use_monolithic_scheme ? displacement_index : 0;
 
@@ -535,8 +587,15 @@ void TH2MLocalAssembler<ShapeFunctionDisplacement,
     auto T = Eigen::Map<typename ShapeMatricesTypePressure::template VectorType<
         temperature_size> const>(local_x.data() + temperature_index,
                                  temperature_size);
-    auto p = Eigen::Map<typename ShapeMatricesTypePressure::template VectorType<
-        pressure_size> const>(local_x.data() + pressure_index, pressure_size);
+    auto pGR =
+        Eigen::Map<typename ShapeMatricesTypePressure::template VectorType<
+            gas_pressure_size> const>(local_x.data() + gas_pressure_index,
+                                      gas_pressure_size);
+
+    auto pCap =
+        Eigen::Map<typename ShapeMatricesTypePressure::template VectorType<
+            capillary_pressure_size> const>(
+            local_x.data() + capillary_pressure_index, capillary_pressure_size);
 
     ParameterLib::SpatialPosition x_position;
     x_position.setElementID(_element.getID());
@@ -568,7 +627,7 @@ void TH2MLocalAssembler<ShapeFunctionDisplacement,
         vars[static_cast<int>(MaterialPropertyLib::Variable::temperature)] =
             T_int_pt;
         vars[static_cast<int>(MaterialPropertyLib::Variable::phase_pressure)] =
-            N_T * p;  // N_T = N_p
+            N_T * pGR;  // N_T = N_p
 
         auto const solid_linear_thermal_expansion_coefficient =
             solid_phase
@@ -592,23 +651,33 @@ void TH2MLocalAssembler<ShapeFunctionDisplacement,
 
 template <typename ShapeFunctionDisplacement, typename ShapeFunctionPressure,
           typename IntegrationMethod, int DisplacementDim>
-void TH2MLocalAssembler<ShapeFunctionDisplacement,
-                                        ShapeFunctionPressure,
-                                        IntegrationMethod, DisplacementDim>::
+void TH2MLocalAssembler<ShapeFunctionDisplacement, ShapeFunctionPressure,
+                        IntegrationMethod, DisplacementDim>::
     computeSecondaryVariableConcrete(double const /*t*/,
                                      std::vector<double> const& local_x)
 {
-    auto p = Eigen::Map<typename ShapeMatricesTypePressure::template VectorType<
-        pressure_size> const>(local_x.data() + pressure_index, pressure_size);
+    auto pGR =
+        Eigen::Map<typename ShapeMatricesTypePressure::template VectorType<
+            gas_pressure_size> const>(local_x.data() + gas_pressure_index,
+                                      gas_pressure_size);
+    auto pCap =
+        Eigen::Map<typename ShapeMatricesTypePressure::template VectorType<
+            capillary_pressure_size> const>(
+            local_x.data() + capillary_pressure_index, capillary_pressure_size);
 
     NumLib::interpolateToHigherOrderNodes<
         ShapeFunctionPressure, typename ShapeFunctionDisplacement::MeshElement,
-        DisplacementDim>(_element, _is_axially_symmetric, p,
-                         *_process_data.pressure_interpolated);
+        DisplacementDim>(_element, _is_axially_symmetric, pGR,
+                         *_process_data.gas_pressure_interpolated);
+
+    NumLib::interpolateToHigherOrderNodes<
+        ShapeFunctionPressure, typename ShapeFunctionDisplacement::MeshElement,
+        DisplacementDim>(_element, _is_axially_symmetric, pCap,
+                         *_process_data.capillary_pressure_interpolated);
 
     auto T = Eigen::Map<typename ShapeMatricesTypePressure::template VectorType<
-        pressure_size> const>(local_x.data() + temperature_index,
-                              temperature_size);
+        temperature_size> const>(local_x.data() + temperature_index,
+                                 temperature_size);
 
     NumLib::interpolateToHigherOrderNodes<
         ShapeFunctionPressure, typename ShapeFunctionDisplacement::MeshElement,
