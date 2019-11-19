@@ -463,33 +463,80 @@ void TH2MLocalAssembler<ShapeFunctionDisplacement, ShapeFunctionPressure,
         auto const phi_G = s_G * phi;
         auto const phi_L = s_L * phi;
         auto const phi_S = 1. - phi;
-        MGpG.noalias() += (NpT * Np) * w;
-        MGpC.noalias() += (NpT * Np) * w;
-        MGT.noalias() += (NpT * Np) * w;
-        MGU.noalias() += (NpT * mT * Bu) * w;
-        LGpG.noalias() += (gradNpT * gradNp) * w;
-        fG.noalias() += (gradNpT)*w;
 
-        MLpG.noalias() += (NpT * Np) * w;
-        MLpC.noalias() += (NpT * Np) * w;
-        MLT.noalias() += (NpT * Np) * w;
-        MLU.noalias() += (NpT * mT * Bu) * w;
-        LLpG.noalias() += (gradNpT * gradNp) * w;
-        LLpC.noalias() += (gradNpT * gradNp) * w;
-        fL.noalias() += (NpT)*w;
+        // coefficient matrices
+        //  - gas pressure equation
+        MGpG.noalias() +=
+            (NpT * s_G * (phi * beta_p_GR + (alpha_B - phi) * beta_p_SR) * Np) *
+            w;
+        MGpC.noalias() +=
+            (NpT *
+             (s_G * (alpha_B - phi) * beta_p_SR * (s_L + pCap_int_pt * dsLdPc) +
+              phi * dsLdPc) *
+             Np) *
+            w;
+        MGT.noalias() +=
+            (NpT * s_G * (phi * beta_T_GR + (alpha_B - phi) * beta_T_SR) * Np) *
+            w;
+        MGu.noalias() += (NpT * s_G * alpha_B * mT * Bu) * w;
+        LGpG.noalias() += (gradNpT * k_over_mu_G * gradNp) * w;
+        fG.noalias() += (gradNpT * rho_GR * k_over_mu_G * b) * w;
 
-        MTpG.noalias() += (NTT * NT) * w;
-        MTpC.noalias() += (NTT * NT) * w;
-        MTT.noalias() += (NTT * NT) * w;
-        ATpG.noalias() += (NTT * gradNT) * w;
-        ATpC.noalias() += (NTT * gradNT) * w;
-        ATT.noalias() += (NTT * gradNT) * w;
-        LTT.noalias() += (gradNTT * gradNT) * w;
-        fT.noalias() += (NTT)*w;
+        //  - liquid pressure equation
+        MLpG.noalias() +=
+            (NpT * s_L * (phi * beta_p_LR + (alpha_B - phi) * beta_p_SR) * Np) *
+            w;
+        MLpC.noalias() +=
+            (NpT *
+             (s_L * (alpha_B - phi) * beta_p_SR * (s_L + pCap_int_pt * dsLdPc) +
+              phi_L * beta_p_LR - phi * dsLdPc) *
+             Np) *
+            w;
+        MLT.noalias() +=
+            (NpT * s_L * (phi * beta_T_LR + (alpha_B - phi) * beta_T_SR) * Np) *
+            w;
+        MLu.noalias() += (NpT * s_L * alpha_B * mT * Bu) * w;
+        LLpG.noalias() += (gradNpT * k_over_mu_L * gradNp) * w;
+        LLpC.noalias() += (gradNpT * k_over_mu_L * gradNp) * w;
+        fL.noalias() += (gradNpT * rho_LR * k_over_mu_L * b) * w;
 
-        KUpG.noalias() += (BuT * m * Np) * w;
-        KUpC.noalias() += (BuT * m * Np) * w;
-        fU.noalias() += (BuT - Nu_op) * w;
+        // darcy-velocities
+        auto const w_GS = -k_over_mu_G * (gradNp * pGR - rho_GR * b);
+
+        auto const w_LS =
+            -k_over_mu_L * (gradNp * pGR - gradNp * pCap - rho_GR * b);
+
+        //  - temperature equation
+        MTpG.noalias() +=
+            (NTT * (phi_G * beta_T_GR + phi_L * beta_T_LR + phi_S * beta_T_SR) *
+             T_int_pt * NT) *
+            w;
+        MTpC.noalias() +=
+            (NTT *
+             ((phi_L * beta_T_LR +
+               phi_S * beta_T_SR * (s_L + pCap_int_pt * dsLdPc) * T_int_pt) +
+              phi * pCap_int_pt * dsLdPc) *
+             NT) *
+            w;
+        MTT.noalias() += (NTT * rho_c_p * NT) * w;
+        ATpG.noalias() +=
+            (NTT *
+             (beta_T_GR * w_GS.transpose() + beta_T_LR * w_LS.transpose()) *
+             gradNT) *
+            w;
+        ATpC.noalias() += (NTT * beta_T_LR * w_LS.transpose() * gradNT) * w;
+        ATT.noalias() += (NTT *
+                          (rho_LR * c_p_L * w_LS.transpose() +
+                           rho_GR * c_p_G * w_GS.transpose()) *
+                          gradNT) *
+                         w;
+        LTT.noalias() += (gradNTT * lambda * gradNT) * w;
+
+        //  - displacement equation
+        KUpG.noalias() += (BuT * alpha_B * m * Np) * w;
+        KUpC.noalias() += (BuT * alpha_B * s_L * m * Np) * w;
+        fU.noalias() += (BuT * sigma_eff - Nu_op * rho * b) * w;
+
         // TODO (Wenqing) : Change dT to time step wise increment
         double const delta_T(T_int_pt - T0);
         double const thermal_strain = beta_T_SR * delta_T;
