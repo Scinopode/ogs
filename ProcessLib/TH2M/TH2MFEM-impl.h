@@ -28,6 +28,8 @@ namespace ProcessLib
 {
 namespace TH2M
 {
+namespace MPL = MaterialPropertyLib;
+
 template <typename ShapeFunctionDisplacement, typename ShapeFunctionPressure,
           typename IntegrationMethod, int DisplacementDim>
 TH2MLocalAssembler<ShapeFunctionDisplacement, ShapeFunctionPressure,
@@ -250,19 +252,19 @@ void TH2MLocalAssembler<ShapeFunctionDisplacement, ShapeFunctionPressure,
     typename ShapeMatricesTypePressure::NodalVectorType fU;
     fU.setZero(displacement_size);
 
-    ParameterLib::SpatialPosition x_position;
-    x_position.setElementID(_element.getID());
+    ParameterLib::SpatialPosition pos;
+    pos.setElementID(_element.getID());
 
-    auto const& medium = _process_data.media_map->getMedium(_element.getID());
-    auto const& gas_phase = medium->phase("NonAqueousLiquid");
-    auto const& liquid_phase = medium->phase("AqueousLiquid");
-    auto const& solid_phase = medium->phase("Solid");
+    auto const& medium = *_process_data.media_map->getMedium(_element.getID());
+    auto const& liquid_phase = medium.phase("AqueousLiquid");
+    auto const& gas_phase = medium.phase("Gas");
+    auto const& solid_phase = medium.phase("Solid");
 
     unsigned const n_integration_points =
         _integration_method.getNumberOfPoints();
     for (unsigned ip = 0; ip < n_integration_points; ip++)
     {
-        x_position.setIntegrationPoint(ip);
+        pos.setIntegrationPoint(ip);
 
         auto const& Np = _ip_data[ip].N_p;
         auto const& NT = Np;
@@ -309,29 +311,100 @@ void TH2MLocalAssembler<ShapeFunctionDisplacement, ShapeFunctionPressure,
         auto const pCap_int_pt = Np * pCap;
         auto const pLR_int_pt = Np * (pGR - pCap);
 
-        MaterialPropertyLib::VariableArray vars;
-        vars[static_cast<int>(MaterialPropertyLib::Variable::temperature)] =
-            T_int_pt;
-        vars[static_cast<int>(
-            MaterialPropertyLib::Variable::gas_phase_pressure)] = pGR_int_pt;
-        vars[static_cast<int>(
-            MaterialPropertyLib::Variable::capillary_pressure)] = pCap_int_pt;
-        vars[static_cast<int>(
-            MaterialPropertyLib::Variable::liquid_phase_pressure)] = pLR_int_pt;
+        MPL::VariableArray vars;
+        vars[static_cast<int>(MPL::Variable::temperature)] = T_int_pt;
+        vars[static_cast<int>(MPL::Variable::gas_phase_pressure)] = pGR_int_pt;
+        vars[static_cast<int>(MPL::Variable::capillary_pressure)] = pCap_int_pt;
+        vars[static_cast<int>(MPL::Variable::liquid_phase_pressure)] =
+            pLR_int_pt;
 
-        auto const k_S = MaterialPropertyLib::formEigenTensor<DisplacementDim>(
-            medium.property(MaterialPropertyLib::PropertyType::permeability)
-                .value(vars, x_position, t));
+        // Material properties
+        //  - solid phase properties
+        auto const beta_p_SR =
+            solid_phase.property(MPL::PropertyType::compressibility)
+                .template value<double>(vars, pos, t);
 
-        auto const s_L =
-            medium
-                .property(MaterialPropertyLib::PropertyType::liquid_saturation)
-                .template value<double>(vars, x_position, t);
+        auto const beta_T_SR =
+            solid_phase.property(MPL::PropertyType::thermal_expansivity)
+                .template value<double>(vars, pos, t);
+
+        //  - gas phase properties
+        auto const beta_p_GR =
+            gas_phase.property(MPL::PropertyType::compressibility)
+                .template value<double>(vars, pos, t);
+
+        auto const beta_T_GR =
+            gas_phase.property(MPL::PropertyType::thermal_expansivity)
+                .template value<double>(vars, pos, t);
+
+        auto const mu_GR = gas_phase.property(MPL::PropertyType::viscosity)
+                               .template value<double>(vars, pos, t);
+
+        auto const rho_GR = gas_phase.property(MPL::PropertyType::density)
+                                .template value<double>(vars, pos, t);
+
+        auto const cp_G =
+            liquid_phase.property(MPL::PropertyType::specific_heat_capacity)
+                .template value<double>(vars, pos, t);
+
+        //  - liquid phase properties
+        auto const beta_p_LR =
+            liquid_phase.property(MPL::PropertyType::compressibility)
+                .template value<double>(vars, pos, t);
+
+        auto const beta_T_LR =
+            liquid_phase.property(MPL::PropertyType::thermal_expansivity)
+                .template value<double>(vars, pos, t);
+
+        auto const mu_LR = liquid_phase.property(MPL::PropertyType::viscosity)
+                               .template value<double>(vars, pos, t);
+
+        auto const rho_LR = liquid_phase.property(MPL::PropertyType::density)
+                                .template value<double>(vars, pos, t);
+
+        auto const cp_L =
+            liquid_phase.property(MPL::PropertyType::specific_heat_capacity)
+                .template value<double>(vars, pos, t);
+
+        //  - medium properties
+        auto const k_S = MPL::formEigenTensor<DisplacementDim>(
+            medium.property(MPL::PropertyType::permeability)
+                .value(vars, pos, t));
+
+        auto const s_L = medium.property(MPL::PropertyType::saturation)
+                             .template value<double>(vars, pos, t);
+
         auto const s_G = 1. - s_L;
 
-        auto const phi =
-            medium.property(MaterialPropertyLib::PropertyType::porosity)
-                .template value<double>(vars, x_position, t);
+        auto const dsLdPc =
+            medium.property(MPL::PropertyType::saturation)
+                .template dValue<double>(
+                    vars, MPL::Variable::capillary_pressure, pos, t);
+
+        auto const alpha_B =
+            medium.property(MPL::PropertyType::biot_coefficient)
+                .template value<double>(vars, pos, t);
+
+        auto const phi = medium.property(MPL::PropertyType::porosity)
+                             .template value<double>(vars, pos, t);
+
+        auto const k_rel =
+            medium.property(MPL::PropertyType::relative_permeability)
+                .template value<MPL::Pair>(vars, pos, t);
+
+        auto const k_rel_L = k_rel[0];
+        auto const k_rel_G = k_rel[1];
+
+        auto const rho = medium.property(MPL::PropertyType::density)
+                             .template value<double>(vars, pos, t);
+
+        auto const cp =
+            medium.property(MPL::PropertyType::specific_heat_capacity)
+                .template value<double>(vars, pos, t);
+
+        auto const lambda = MPL::formEigenTensor<DisplacementDim>(
+            medium.property(MPL::PropertyType::specific_heat_capacity)
+                .template value<double>(vars, pos, t));
 
         MGpG.noalias() += (NpT * Np) * w;
         MGpC.noalias() += (NpT * Np) * w;
@@ -421,9 +494,6 @@ TH2MLocalAssembler<ShapeFunctionDisplacement, ShapeFunctionPressure,
         double, DisplacementDim, Eigen::Dynamic, Eigen::RowMajor>>(
         cache, DisplacementDim, num_intpts);
 
-    ParameterLib::SpatialPosition pos;
-    pos.setElementID(_element.getID());
-
     auto pGR =
         Eigen::Map<typename ShapeMatricesTypePressure::template VectorType<
             gas_pressure_size> const>(local_x.data() + gas_pressure_index,
@@ -435,38 +505,35 @@ TH2MLocalAssembler<ShapeFunctionDisplacement, ShapeFunctionPressure,
     unsigned const n_integration_points =
         _integration_method.getNumberOfPoints();
 
-    ParameterLib::SpatialPosition x_position;
-    x_position.setElementID(_element.getID());
+    ParameterLib::SpatialPosition pos;
+    pos.setElementID(_element.getID());
 
     auto const& medium = _process_data.media_map->getMedium(_element.getID());
     auto const& gas_phase = medium->phase("NonAqueousLiquid");
     auto const& solid_phase = medium->phase("Solid");
-    MaterialPropertyLib::VariableArray vars;
+    MPL::VariableArray vars;
 
     for (unsigned ip = 0; ip < n_integration_points; ip++)
     {
-        x_position.setIntegrationPoint(ip);
+        pos.setIntegrationPoint(ip);
 
         auto const& N_p = _ip_data[ip].N_p;
 
-        vars[static_cast<int>(MaterialPropertyLib::Variable::temperature)] =
+        vars[static_cast<int>(MPL::Variable::temperature)] =
             N_p * T;  // N_p = N_T
-        vars[static_cast<int>(MaterialPropertyLib::Variable::phase_pressure)] =
-            N_p * pGR;
+        vars[static_cast<int>(MPL::Variable::phase_pressure)] = N_p * pGR;
 
-        auto const viscosity =
-            gas_phase.property(MaterialPropertyLib::PropertyType::viscosity)
-                .template value<double>(vars, x_position, t);
+        auto const viscosity = gas_phase.property(MPL::PropertyType::viscosity)
+                                   .template value<double>(vars, pos, t);
         GlobalDimMatrixType K_over_mu =
-            MaterialPropertyLib::formEigenTensor<DisplacementDim>(
-                solid_phase
-                    .property(MaterialPropertyLib::PropertyType::permeability)
-                    .value(vars, x_position, t)) /
+            MPL::formEigenTensor<DisplacementDim>(
+                solid_phase.property(MPL::PropertyType::permeability)
+                    .value(vars, pos, t)) /
             viscosity;
 
         auto const fluid_density =
-            gas_phase.property(MaterialPropertyLib::PropertyType::density)
-                .template value<double>(vars, x_position, t);
+            gas_phase.property(MPL::PropertyType::density)
+                .template value<double>(vars, pos, t);
         auto const& b = _process_data.specific_body_force;
 
         // Compute the velocity
@@ -502,9 +569,6 @@ TH2MLocalAssembler<ShapeFunctionDisplacement, ShapeFunctionPressure,
         double, DisplacementDim, Eigen::Dynamic, Eigen::RowMajor>>(
         cache, DisplacementDim, num_intpts);
 
-    ParameterLib::SpatialPosition pos;
-    pos.setElementID(_element.getID());
-
     auto pGR =
         Eigen::Map<typename ShapeMatricesTypePressure::template VectorType<
             gas_pressure_size> const>(local_x.data() + gas_pressure_index,
@@ -521,38 +585,36 @@ TH2MLocalAssembler<ShapeFunctionDisplacement, ShapeFunctionPressure,
     unsigned const n_integration_points =
         _integration_method.getNumberOfPoints();
 
-    ParameterLib::SpatialPosition x_position;
-    x_position.setElementID(_element.getID());
+    ParameterLib::SpatialPosition pos;
+    pos.setElementID(_element.getID());
 
     auto const& medium = _process_data.media_map->getMedium(_element.getID());
     auto const& liquid_phase = medium->phase("AqueousLiquid");
     auto const& solid_phase = medium->phase("Solid");
-    MaterialPropertyLib::VariableArray vars;
+    MPL::VariableArray vars;
 
     for (unsigned ip = 0; ip < n_integration_points; ip++)
     {
-        x_position.setIntegrationPoint(ip);
+        pos.setIntegrationPoint(ip);
 
         auto const& N_p = _ip_data[ip].N_p;
 
-        vars[static_cast<int>(MaterialPropertyLib::Variable::temperature)] =
+        vars[static_cast<int>(MPL::Variable::temperature)] =
             N_p * T;  // N_p = N_T
-        vars[static_cast<int>(MaterialPropertyLib::Variable::phase_pressure)] =
-            N_p * pLR;
+        vars[static_cast<int>(MPL::Variable::phase_pressure)] = N_p * pLR;
 
         auto const viscosity =
-            liquid_phase.property(MaterialPropertyLib::PropertyType::viscosity)
-                .template value<double>(vars, x_position, t);
+            liquid_phase.property(MPL::PropertyType::viscosity)
+                .template value<double>(vars, pos, t);
         GlobalDimMatrixType K_over_mu =
-            MaterialPropertyLib::formEigenTensor<DisplacementDim>(
-                solid_phase
-                    .property(MaterialPropertyLib::PropertyType::permeability)
-                    .value(vars, x_position, t)) /
+            MPL::formEigenTensor<DisplacementDim>(
+                solid_phase.property(MPL::PropertyType::permeability)
+                    .value(vars, pos, t)) /
             viscosity;
 
         auto const fluid_density =
-            liquid_phase.property(MaterialPropertyLib::PropertyType::density)
-                .template value<double>(vars, x_position, t);
+            liquid_phase.property(MPL::PropertyType::density)
+                .template value<double>(vars, pos, t);
         auto const& b = _process_data.specific_body_force;
 
         // Compute the velocity
@@ -597,16 +659,16 @@ void TH2MLocalAssembler<ShapeFunctionDisplacement, ShapeFunctionPressure,
             capillary_pressure_size> const>(
             local_x.data() + capillary_pressure_index, capillary_pressure_size);
 
-    ParameterLib::SpatialPosition x_position;
-    x_position.setElementID(_element.getID());
+    ParameterLib::SpatialPosition pos;
+    pos.setElementID(_element.getID());
     auto const& medium = _process_data.media_map->getMedium(_element.getID());
     auto const& solid_phase = medium->phase("Solid");
-    MaterialPropertyLib::VariableArray vars;
+    MPL::VariableArray vars;
 
     int const n_integration_points = _integration_method.getNumberOfPoints();
     for (int ip = 0; ip < n_integration_points; ip++)
     {
-        x_position.setIntegrationPoint(ip);
+        pos.setIntegrationPoint(ip);
         auto const& N_u = _ip_data[ip].N_u;
         auto const& N_T = _ip_data[ip].N_p;
         auto const& dNdx_u = _ip_data[ip].dNdx_u;
@@ -621,19 +683,16 @@ void TH2MLocalAssembler<ShapeFunctionDisplacement, ShapeFunctionPressure,
                                           typename BMatricesType::BMatrixType>(
                 dNdx_u, N_u, x_coord, _is_axially_symmetric);
 
-        double const T0 = _process_data.reference_temperature(t, x_position)[0];
+        double const T0 = _process_data.reference_temperature(t, pos)[0];
 
         double const T_int_pt = N_T * T;
-        vars[static_cast<int>(MaterialPropertyLib::Variable::temperature)] =
-            T_int_pt;
-        vars[static_cast<int>(MaterialPropertyLib::Variable::phase_pressure)] =
+        vars[static_cast<int>(MPL::Variable::temperature)] = T_int_pt;
+        vars[static_cast<int>(MPL::Variable::phase_pressure)] =
             N_T * pGR;  // N_T = N_p
 
         auto const solid_linear_thermal_expansion_coefficient =
-            solid_phase
-                .property(
-                    MaterialPropertyLib::PropertyType::thermal_expansivity)
-                .template value<double>(vars, x_position, t);
+            solid_phase.property(MPL::PropertyType::thermal_expansivity)
+                .template value<double>(vars, pos, t);
 
         double const delta_T(T_int_pt - T0);
         double const thermal_strain =
@@ -643,8 +702,7 @@ void TH2MLocalAssembler<ShapeFunctionDisplacement, ShapeFunctionPressure,
         eps.noalias() = B * u;
 
         _ip_data[ip].updateConstitutiveRelationThermal(
-            t, x_position, dt, u,
-            _process_data.reference_temperature(t, x_position)[0],
+            t, pos, dt, u, _process_data.reference_temperature(t, pos)[0],
             thermal_strain);
     }
 }
