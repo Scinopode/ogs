@@ -272,7 +272,6 @@ void TH2MLocalAssembler<ShapeFunctionDisplacement, ShapeFunctionPressure,
 
         auto const& NpT = Np.transpose();
         auto const& NTT = NT.transpose();
-        auto const& NuT = Nu.transpose();
 
         auto const& gradNp = _ip_data[ip].dNdx_p;
         auto const& gradNT = gradNp;
@@ -280,7 +279,6 @@ void TH2MLocalAssembler<ShapeFunctionDisplacement, ShapeFunctionPressure,
 
         auto const& gradNpT = gradNp.transpose();
         auto const& gradNTT = gradNT.transpose();
-        auto const& gradNuT = gradNu.transpose();
 
         auto const& Nu_op = _ip_data[ip].N_u_op;
         auto const& w = _ip_data[ip].integration_weight;
