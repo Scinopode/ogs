@@ -175,8 +175,8 @@ void TH2MLocalAssembler<ShapeFunctionDisplacement, ShapeFunctionPressure,
     typename ShapeMatricesTypePressure::NodalMatrixType MGT;
     MGT.setZero(gas_pressure_size, temperature_size);
 
-    typename ShapeMatricesTypePressure::NodalMatrixType MGU;
-    MGU.setZero(gas_pressure_size, displacement_size);
+    typename ShapeMatricesTypePressure::NodalMatrixType MGu;
+    MGu.setZero(gas_pressure_size, displacement_size);
 
     //  - laplace matrix
     typename ShapeMatricesTypePressure::NodalMatrixType LGpG;
@@ -197,8 +197,8 @@ void TH2MLocalAssembler<ShapeFunctionDisplacement, ShapeFunctionPressure,
     typename ShapeMatricesTypePressure::NodalMatrixType MLT;
     MLT.setZero(capillary_pressure_size, temperature_size);
 
-    typename ShapeMatricesTypePressure::NodalMatrixType MLU;
-    MLU.setZero(capillary_pressure_size, displacement_size);
+    typename ShapeMatricesTypePressure::NodalMatrixType MLu;
+    MLu.setZero(capillary_pressure_size, displacement_size);
 
     //  - laplace submatrices
     typename ShapeMatricesTypePressure::NodalMatrixType LLpG;
