@@ -777,7 +777,8 @@ void TH2MLocalAssembler<ShapeFunctionDisplacement, ShapeFunctionPressure,
     {
         pos.setIntegrationPoint(ip);
         auto const& N_u = _ip_data[ip].N_u;
-        auto const& N_T = _ip_data[ip].N_p;
+        auto const& N_p = _ip_data[ip].N_p;
+        auto const& N_T = N_p;
         auto const& dNdx_u = _ip_data[ip].dNdx_u;
 
         auto const x_coord =
@@ -794,8 +795,8 @@ void TH2MLocalAssembler<ShapeFunctionDisplacement, ShapeFunctionPressure,
 
         double const T_int_pt = N_T * T;
         vars[static_cast<int>(MPL::Variable::temperature)] = T_int_pt;
-        vars[static_cast<int>(MPL::Variable::phase_pressure)] =
-            N_T * pGR;  // N_T = N_p
+        vars[static_cast<int>(MPL::Variable::gas_phase_pressure)] = N_p * pGR;
+        vars[static_cast<int>(MPL::Variable::capillary_pressure)] = N_p * pCap;
 
         auto const solid_linear_thermal_expansion_coefficient =
             solid_phase.property(MPL::PropertyType::thermal_expansivity)
