@@ -252,6 +252,54 @@ void TH2MLocalAssembler<ShapeFunctionDisplacement, ShapeFunctionPressure,
     typename ShapeMatricesTypePressure::NodalVectorType fU;
     fU.setZero(displacement_size);
 
+    // pointer-matrices to the jacobian matrix
+    auto JGpG = local_Jac.template block<gas_pressure_size, gas_pressure_size>(
+        gas_pressure_index, gas_pressure_index);
+    auto JGpC =
+        local_Jac.template block<gas_pressure_size, capillary_pressure_size>(
+            gas_pressure_index, capillary_pressure_index);
+    auto JGT = local_Jac.template block<gas_pressure_size, temperature_size>(
+        gas_pressure_index, temperature_index);
+    auto JGu = local_Jac.template block<gas_pressure_size, displacement_size>(
+        gas_pressure_index, displacement_index);
+
+    auto JLpG =
+        local_Jac.template block<capillary_pressure_size, gas_pressure_size>(
+            capillary_pressure_index, gas_pressure_index);
+    auto JLpC =
+        local_Jac
+            .template block<capillary_pressure_size, capillary_pressure_size>(
+                capillary_pressure_index, capillary_pressure_index);
+    auto JLT =
+        local_Jac.template block<capillary_pressure_size, temperature_size>(
+            capillary_pressure_index, temperature_index);
+    auto JLu =
+        local_Jac.template block<capillary_pressure_size, displacement_size>(
+            capillary_pressure_index, displacement_index);
+
+    auto JTpG = local_Jac.template block<temperature_size, gas_pressure_size>(
+        temperature_index, gas_pressure_index);
+    auto JTpC =
+        local_Jac.template block<temperature_size, capillary_pressure_size>(
+            temperature_index, capillary_pressure_index);
+    auto JTT = local_Jac.template block<temperature_size, temperature_size>(
+        temperature_index, temperature_index);
+
+    auto JUpG = local_Jac.template block<displacement_size, gas_pressure_size>(
+        displacement_index, gas_pressure_index);
+    auto JUpC =
+        local_Jac.template block<displacement_size, capillary_pressure_size>(
+            displacement_index, capillary_pressure_index);
+    auto JUu = local_Jac.template block<displacement_size, displacement_size>(
+        displacement_index, displacement_index);
+
+    // pointer-matrices to the residuum column-matrix
+    auto rG = local_rhs.template segment<gas_pressure_size>(gas_pressure_index);
+    auto rL = local_rhs.template segment<capillary_pressure_size>(
+        capillary_pressure_index);
+    auto rT = local_rhs.template segment<temperature_size>(temperature_index);
+    auto rU = local_rhs.template segment<displacement_size>(displacement_index);
+
     ParameterLib::SpatialPosition pos;
     pos.setElementID(_element.getID());
 
