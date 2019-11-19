@@ -303,6 +303,7 @@ void TH2MLocalAssembler<ShapeFunctionDisplacement, ShapeFunctionPressure,
 
         auto& eps = _ip_data[ip].eps;
         auto const& sigma_eff = _ip_data[ip].sigma_eff;
+        double const T0 = _process_data.reference_temperature(t, pos)[0];
 
         double const T_int_pt = NT * T;
         double const pGR_int_pt = Np * pGR;
@@ -326,6 +327,12 @@ void TH2MLocalAssembler<ShapeFunctionDisplacement, ShapeFunctionPressure,
             solid_phase.property(MPL::PropertyType::thermal_expansivity)
                 .template value<double>(vars, pos, t);
 
+        auto const rho_SR = solid_phase.property(MPL::PropertyType::density)
+                                .template value<double>(vars, pos, t);
+        auto const c_p_S =
+            solid_phase.property(MPL::PropertyType::specific_heat_capacity)
+                .template value<double>(vars, pos, t);
+
         //  - gas phase properties
         auto const beta_p_GR =
             gas_phase.property(MPL::PropertyType::compressibility)
@@ -341,8 +348,8 @@ void TH2MLocalAssembler<ShapeFunctionDisplacement, ShapeFunctionPressure,
         auto const rho_GR = gas_phase.property(MPL::PropertyType::density)
                                 .template value<double>(vars, pos, t);
 
-        auto const cp_G =
-            liquid_phase.property(MPL::PropertyType::specific_heat_capacity)
+        auto const c_p_G =
+            gas_phase.property(MPL::PropertyType::specific_heat_capacity)
                 .template value<double>(vars, pos, t);
 
         //  - liquid phase properties
@@ -360,7 +367,7 @@ void TH2MLocalAssembler<ShapeFunctionDisplacement, ShapeFunctionPressure,
         auto const rho_LR = liquid_phase.property(MPL::PropertyType::density)
                                 .template value<double>(vars, pos, t);
 
-        auto const cp_L =
+        auto const c_p_L =
             liquid_phase.property(MPL::PropertyType::specific_heat_capacity)
                 .template value<double>(vars, pos, t);
 
@@ -383,9 +390,6 @@ void TH2MLocalAssembler<ShapeFunctionDisplacement, ShapeFunctionPressure,
             medium.property(MPL::PropertyType::biot_coefficient)
                 .template value<double>(vars, pos, t);
 
-        auto const phi = medium.property(MPL::PropertyType::porosity)
-                             .template value<double>(vars, pos, t);
-
         auto const k_rel =
             medium.property(MPL::PropertyType::relative_permeability)
                 .template value<MPL::Pair>(vars, pos, t);
@@ -393,17 +397,24 @@ void TH2MLocalAssembler<ShapeFunctionDisplacement, ShapeFunctionPressure,
         auto const k_rel_L = k_rel[0];
         auto const k_rel_G = k_rel[1];
 
-        auto const rho = medium.property(MPL::PropertyType::density)
-                             .template value<double>(vars, pos, t);
+        auto const& b = _process_data.specific_body_force;
 
-        auto const cp =
-            medium.property(MPL::PropertyType::specific_heat_capacity)
-                .template value<double>(vars, pos, t);
+        auto const rho = rho_GR + rho_LR + rho_SR;
+        auto const rho_c_p = rho_GR * c_p_G + rho_LR * c_p_L + rho_SR * c_p_S;
 
         auto const lambda = MPL::formEigenTensor<DisplacementDim>(
             medium.property(MPL::PropertyType::specific_heat_capacity)
                 .template value<double>(vars, pos, t));
 
+        auto const k_over_mu_G = k_S * k_rel_G / mu_GR;
+        auto const k_over_mu_L = k_S * k_rel_L / mu_LR;
+
+        auto const phi = medium.property(MPL::PropertyType::porosity)
+                             .template value<double>(vars, pos, t);
+
+        auto const phi_G = s_G * phi;
+        auto const phi_L = s_L * phi;
+        auto const phi_S = 1. - phi;
         MGpG.noalias() += (NpT * Np) * w;
         MGpC.noalias() += (NpT * Np) * w;
         MGT.noalias() += (NpT * Np) * w;
@@ -431,6 +442,9 @@ void TH2MLocalAssembler<ShapeFunctionDisplacement, ShapeFunctionPressure,
         KUpG.noalias() += (BuT * m * Np) * w;
         KUpC.noalias() += (BuT * m * Np) * w;
         fU.noalias() += (BuT - Nu_op) * w;
+        // TODO (Wenqing) : Change dT to time step wise increment
+        double const delta_T(T_int_pt - T0);
+        double const thermal_strain = beta_T_SR * delta_T;
         //
         // displacement equation, displacement part
         //
