@@ -353,10 +353,10 @@ void TH2MLocalAssembler<ShapeFunctionDisplacement, ShapeFunctionPressure,
         auto const& sigma_eff = _ip_data[ip].sigma_eff;
         double const T0 = _process_data.reference_temperature(t, pos)[0];
 
-        double const T_int_pt = NT * T;
-        double const pGR_int_pt = Np * pGR;
-        double const pCap_int_pt = Np * pCap;
-        double const pLR_int_pt = pGR_int_pt - pCap_int_pt;
+        auto const T_int_pt = NT.dot(T);
+        auto const pGR_int_pt = Np.dot(pGR);
+        auto const pCap_int_pt = Np.dot(pCap);
+        auto const pLR_int_pt = pGR_int_pt - pCap_int_pt;
 
         MPL::VariableArray vars;
         vars[static_cast<int>(MPL::Variable::temperature)] = T_int_pt;
