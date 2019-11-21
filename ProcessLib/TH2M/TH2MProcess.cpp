@@ -111,12 +111,12 @@ void TH2MProcess<DisplacementDim>::constructDofTable()
         // For displacement.
         const int monolithic_process_id = 0;
         std::generate_n(std::back_inserter(all_mesh_subsets),
-                        getProcessVariables(monolithic_process_id)[2]
+                        getProcessVariables(monolithic_process_id)[3]
                             .get()
                             .getNumberOfComponents(),
                         [&]() { return *_mesh_subset_all_nodes; });
 
-        std::vector<int> const vec_n_components{1, 1, DisplacementDim};
+        std::vector<int> const vec_n_components{1, 1, 1, DisplacementDim};
         _local_to_global_index_map =
             std::make_unique<NumLib::LocalToGlobalIndexMap>(
                 std::move(all_mesh_subsets), vec_n_components,
@@ -163,7 +163,7 @@ void TH2MProcess<DisplacementDim>::initializeConcreteProcess(
     MeshLib::Mesh const& mesh,
     unsigned const integration_order)
 {
-    const int mechanical_process_id = _use_monolithic_scheme ? 0 : 2;
+    const int mechanical_process_id = _use_monolithic_scheme ? 0 : 3;
     const int deformation_variable_id = _use_monolithic_scheme ? 3 : 0;
     ProcessLib::TH2M::createLocalAssemblers<
         DisplacementDim, TH2MLocalAssembler>(
