@@ -46,7 +46,6 @@ TH2MProcess<DisplacementDim>::TH2MProcess(
 
     _hydraulic_flow = MeshLib::getOrCreateMeshProperty<double>(
         mesh, "HydraulicFlow", MeshLib::MeshItemType::Node, 1);
-        
 }
 
 template <int DisplacementDim>
@@ -165,8 +164,8 @@ void TH2MProcess<DisplacementDim>::initializeConcreteProcess(
 {
     const int mechanical_process_id = _use_monolithic_scheme ? 0 : 3;
     const int deformation_variable_id = _use_monolithic_scheme ? 3 : 0;
-    ProcessLib::TH2M::createLocalAssemblers<
-        DisplacementDim, TH2MLocalAssembler>(
+    ProcessLib::TH2M::createLocalAssemblers<DisplacementDim,
+                                            TH2MLocalAssembler>(
         mesh.getDimension(), mesh.getElements(), dof_table,
         // use displacement process variable to set shape function order
         getProcessVariables(mechanical_process_id)[deformation_variable_id]
@@ -197,9 +196,9 @@ void TH2MProcess<DisplacementDim>::initializeConcreteProcess(
 
     _secondary_variables.addSecondaryVariable(
         "velocity_liquid",
-        makeExtrapolator(mesh.getDimension(), getExtrapolator(),
-                         _local_assemblers,
-                         &LocalAssemblerInterface::getIntPtDarcyVelocityLiquid));
+        makeExtrapolator(
+            mesh.getDimension(), getExtrapolator(), _local_assemblers,
+            &LocalAssemblerInterface::getIntPtDarcyVelocityLiquid));
 
     _process_data.gas_pressure_interpolated =
         MeshLib::getOrCreateMeshProperty<double>(
@@ -223,8 +222,7 @@ void TH2MProcess<DisplacementDim>::initializeConcreteProcess(
 }
 
 template <int DisplacementDim>
-void TH2MProcess<
-    DisplacementDim>::initializeBoundaryConditions()
+void TH2MProcess<DisplacementDim>::initializeBoundaryConditions()
 {
     if (_use_monolithic_scheme)
     {
@@ -271,12 +269,11 @@ void TH2MProcess<DisplacementDim>::assembleConcreteProcess(
 }
 
 template <int DisplacementDim>
-void TH2MProcess<DisplacementDim>::
-    assembleWithJacobianConcreteProcess(
-        const double t, double const dt, std::vector<GlobalVector*> const& x,
-        GlobalVector const& xdot, const double dxdot_dx, const double dx_dx,
-        int const process_id, GlobalMatrix& M, GlobalMatrix& K, GlobalVector& b,
-        GlobalMatrix& Jac)
+void TH2MProcess<DisplacementDim>::assembleWithJacobianConcreteProcess(
+    const double t, double const dt, std::vector<GlobalVector*> const& x,
+    GlobalVector const& xdot, const double dxdot_dx, const double dx_dx,
+    int const process_id, GlobalMatrix& M, GlobalMatrix& K, GlobalVector& b,
+    GlobalMatrix& Jac)
 {
     std::vector<std::reference_wrapper<NumLib::LocalToGlobalIndexMap>>
         dof_tables;
@@ -370,11 +367,11 @@ void TH2MProcess<DisplacementDim>::postTimestepConcreteProcess(
 }
 
 template <int DisplacementDim>
-void TH2MProcess<
-    DisplacementDim>::postNonLinearSolverConcreteProcess(GlobalVector const& x,
-                                                         const double t,
-                                                         double const dt,
-                                                         const int process_id)
+void TH2MProcess<DisplacementDim>::postNonLinearSolverConcreteProcess(
+    GlobalVector const& x,
+    const double t,
+    double const dt,
+    const int process_id)
 {
     if (!hasMechanicalProcess(process_id))
     {
@@ -389,10 +386,8 @@ void TH2MProcess<
 }
 
 template <int DisplacementDim>
-void TH2MProcess<
-    DisplacementDim>::computeSecondaryVariableConcrete(const double t,
-                                                       GlobalVector const& x,
-                                                       const int process_id)
+void TH2MProcess<DisplacementDim>::computeSecondaryVariableConcrete(
+    const double t, GlobalVector const& x, const int process_id)
 {
     DBUG("Compute the secondary variables for HydroMechanicsProcess.");
     GlobalExecutor::executeMemberOnDereferenced(
@@ -401,8 +396,8 @@ void TH2MProcess<
 }
 
 template <int DisplacementDim>
-std::tuple<NumLib::LocalToGlobalIndexMap*, bool> TH2MProcess<
-    DisplacementDim>::getDOFTableForExtrapolatorData() const
+std::tuple<NumLib::LocalToGlobalIndexMap*, bool>
+TH2MProcess<DisplacementDim>::getDOFTableForExtrapolatorData() const
 {
     const bool manage_storage = false;
     return std::make_tuple(_local_to_global_index_map_single_component.get(),
@@ -410,8 +405,7 @@ std::tuple<NumLib::LocalToGlobalIndexMap*, bool> TH2MProcess<
 }
 
 template <int DisplacementDim>
-NumLib::LocalToGlobalIndexMap const&
-TH2MProcess<DisplacementDim>::getDOFTable(
+NumLib::LocalToGlobalIndexMap const& TH2MProcess<DisplacementDim>::getDOFTable(
     const int process_id) const
 {
     if (hasMechanicalProcess(process_id))
