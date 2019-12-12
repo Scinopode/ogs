@@ -10,6 +10,7 @@
 
 #pragma once
 
+#include <iostream>
 #include "TH2MFEM.h"
 
 #include "MaterialLib/SolidModels/SelectSolidConstitutiveRelation.h"
@@ -310,6 +311,7 @@ void TH2MLocalAssembler<ShapeFunctionDisplacement, ShapeFunctionPressure,
 
     unsigned const n_integration_points =
         _integration_method.getNumberOfPoints();
+
     for (unsigned ip = 0; ip < n_integration_points; ip++)
     {
         pos.setIntegrationPoint(ip);
@@ -352,11 +354,50 @@ void TH2MLocalAssembler<ShapeFunctionDisplacement, ShapeFunctionPressure,
         auto& eps = _ip_data[ip].eps;
         auto const& sigma_eff = _ip_data[ip].sigma_eff;
         double const T0 = _process_data.reference_temperature(t, pos)[0];
+#define DEBUG_TH2M
 
         auto const T_int_pt = NT.dot(T);
         auto const pGR_int_pt = Np.dot(pGR);
         auto const pCap_int_pt = Np.dot(pCap);
         auto const pLR_int_pt = pGR_int_pt - pCap_int_pt;
+#ifdef DEBUG_TH2M
+        std::cout << "-----------------\n";
+        std::cout << "--- unknowns: ---\n";
+        std::cout << "pGR: " << pGR << "\n";
+        std::cout << "pCap: " << pCap << "\n";
+        std::cout << "T: " << T << "\n";
+        std::cout << "--------------------\n";
+
+        std::cout << "---------------------\n";
+        std::cout << "--- unknowns(IP): ---\n";
+        std::cout << "pGR_int_pt: " << pGR_int_pt << "\n";
+        std::cout << "pCap_int_pt: " << pCap_int_pt << "\n";
+        std::cout << "T_int_pt: " << T_int_pt << "\n";
+        std::cout << "--------------------\n";
+#endif
+
+#ifdef DEBUG_TH2M
+        std::cout << "*************************************\n";
+        std::cout << " Shape matrices: \n";
+        std::cout << " --------------- \n";
+        std::cout << " Np:\n" << Np << "\n";
+        std::cout << " --------------- \n";
+        std::cout << " Nu:\n" << Nu << "\n";
+        std::cout << " --------------- \n";
+        std::cout << " Nu_op:\n" << Nu_op << "\n";
+        std::cout << " --------------- \n";
+        std::cout << " gradNp:\n" << gradNp << "\n";
+        std::cout << " --------------- \n";
+        std::cout << " Bu:\n" << Bu << "\n";
+        std::cout << " --------------- \n";
+        std::cout << "*************************************\n";
+        std::cout << " Process variables: \n";
+        std::cout << " --------------- \n";
+        std::cout << " Bu:\n" << Bu << "\n";
+        std::cout << " --------------- \n";
+#endif
+
+        std::cout << " Calculate constitutive parameters. \n";
 
         MPL::VariableArray vars;
         vars[static_cast<int>(MPL::Variable::temperature)] = T_int_pt;
@@ -377,6 +418,7 @@ void TH2MLocalAssembler<ShapeFunctionDisplacement, ShapeFunctionPressure,
 
         auto const rho_SR = solid_phase.property(MPL::PropertyType::density)
                                 .template value<double>(vars, pos, t);
+
         auto const c_p_S =
             solid_phase.property(MPL::PropertyType::specific_heat_capacity)
                 .template value<double>(vars, pos, t);
@@ -464,6 +506,9 @@ void TH2MLocalAssembler<ShapeFunctionDisplacement, ShapeFunctionPressure,
         auto const phi_L = s_L * phi;
         auto const phi_S = 1. - phi;
 
+#ifdef DEBUG_TH2M
+        std::cout << " assemble sub-matrices: \n";
+#endif
         // coefficient matrices
         //  - gas pressure equation
         MGpG.noalias() +=
@@ -506,6 +551,14 @@ void TH2MLocalAssembler<ShapeFunctionDisplacement, ShapeFunctionPressure,
         auto const w_LS =
             -k_over_mu_L * (gradNp * pGR - gradNp * pCap - rho_GR * b);
 
+#ifdef DEBUG_TH2M
+        std::cout << "--------------------\n";
+        std::cout << "--- velocities:  ---\n";
+        std::cout << "w_GS: " << w_GS << "\n";
+        std::cout << "w_LS: " << w_LS << "\n";
+        std::cout << "--------------------\n";
+#endif
+
         //  - temperature equation
         MTpG.noalias() +=
             (NTT * (phi_G * beta_T_GR + phi_L * beta_T_LR + phi_S * beta_T_SR) *
@@ -535,7 +588,14 @@ void TH2MLocalAssembler<ShapeFunctionDisplacement, ShapeFunctionPressure,
         //  - displacement equation
         KUpG.noalias() += (BuT * alpha_B * m * Np) * w;
         KUpC.noalias() += (BuT * alpha_B * s_L * m * Np) * w;
-        fU.noalias() += (BuT * sigma_eff - Nu_op * rho * b) * w;
+
+#ifdef DEBUG_TH2M
+        std::cout << " BuT " << BuT << "\n";
+        std::cout << " Nu_op " << Nu_op << "\n";
+        std::cout << " sigma_eff " << sigma_eff << "\n";
+        std::cout << " b " << b << "\n";
+#endif
+        fU.noalias() += (BuT * sigma_eff - Nu_op.transpose() * rho * b) * w;
 
         // TODO (Wenqing) : Change dT to time step wise increment
         double const delta_T(T_int_pt - T0);
@@ -548,7 +608,7 @@ void TH2MLocalAssembler<ShapeFunctionDisplacement, ShapeFunctionPressure,
             t, pos, dt, u, _process_data.reference_temperature(t, pos)[0],
             thermal_strain);
 
-        JUu.noalias() += Bu.transpose() * C * Bu * w;
+        JUu.noalias() += BuT * C * Bu * w;
     }
 
     JGpG.noalias() = MGpG / dt + LGpG;
@@ -575,6 +635,13 @@ void TH2MLocalAssembler<ShapeFunctionDisplacement, ShapeFunctionPressure,
     rT.noalias() = -MTpG * pGR_dot + MTpC * pCap_dot + MTT * T_dot +
                    (ATT + LTT) * T - ATpG * pGR + ATpC * pCap + fT;
     rU.noalias() = fU - KUpG * pGR + KUpC * pCap;
+
+#ifdef DEBUG_TH2M
+    std::cout << "--------------------------\n";
+    std::cout << local_Jac << "\n";
+    std::cout << "--------------------------\n";
+    std::cout << local_rhs << "\n";
+#endif
 }
 
 template <typename ShapeFunctionDisplacement, typename ShapeFunctionPressure,
