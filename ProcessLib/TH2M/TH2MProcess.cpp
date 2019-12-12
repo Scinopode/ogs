@@ -61,7 +61,8 @@ TH2MProcess<DisplacementDim>::getMatrixSpecifications(
 {
     // For the monolithic scheme or the M process (deformation) in the staggered
     // scheme.
-    if (_use_monolithic_scheme || process_id == 2)
+    const int deformation_process_id = 3;
+    if (_use_monolithic_scheme || process_id == deformation_process_id)
     {
         auto const& l = *_local_to_global_index_map;
         return {l.dofSizeWithoutGhosts(), l.dofSizeWithoutGhosts(),
@@ -109,13 +110,24 @@ void TH2MProcess<DisplacementDim>::constructDofTable()
 
         // For displacement.
         const int monolithic_process_id = 0;
-        std::generate_n(std::back_inserter(all_mesh_subsets),
-                        getProcessVariables(monolithic_process_id)[3]
-                            .get()
-                            .getNumberOfComponents(),
-                        [&]() { return *_mesh_subset_all_nodes; });
+        const int deformation_process_id = 3;
+        std::generate_n(
+            std::back_inserter(all_mesh_subsets),
+            getProcessVariables(monolithic_process_id)[deformation_process_id]
+                .get()
+                .getNumberOfComponents(),
+            [&]() { return *_mesh_subset_all_nodes; });
 
-        std::vector<int> const vec_n_components{1, 1, 1, DisplacementDim};
+        // number of per_process_variable_components
+        const int n_gas_pressure_components = 1;
+        const int n_capillary_pressure_components = 1;
+        const int n_temperature_components = 1;
+        const int n_displacement_components = DisplacementDim;
+
+        std::vector<int> const vec_n_components{
+            n_gas_pressure_components, n_capillary_pressure_components,
+            n_temperature_components, n_displacement_components};
+
         _local_to_global_index_map =
             std::make_unique<NumLib::LocalToGlobalIndexMap>(
                 std::move(all_mesh_subsets), vec_n_components,
@@ -125,7 +137,7 @@ void TH2MProcess<DisplacementDim>::constructDofTable()
     else
     {
         // For displacement equation.
-        const int process_id = 2;
+        const int process_id = 3;
         std::vector<MeshLib::MeshSubset> all_mesh_subsets;
         std::generate_n(
             std::back_inserter(all_mesh_subsets),
