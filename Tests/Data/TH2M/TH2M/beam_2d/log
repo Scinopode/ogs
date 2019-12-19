@@ -1,0 +1,184 @@
+info: This is OpenGeoSys-6 version 6.2.1-751-gd68c8060f.dirty.20191216145747.
+info: OGS started on 2019-12-17 08:19:04+0100.
+debug: Project configuration from file 'heat_cond.prj' read.
+debug: Reading multiple meshes.
+debug: Reading mesh file 'beam_quad.vtu'.
+debug: Reading mesh file 'beam_geometry_left.vtu'.
+debug: Reading mesh file 'beam_geometry_right.vtu'.
+debug: Reading mesh file 'beam_geometry_top.vtu'.
+debug: Reading mesh file 'beam_geometry_bottom.vtu'.
+debug: Reading curves configuration.
+debug: Reading parameters:
+info: ConstantParameter: E
+debug: Using value 5e+09 for constant parameter.
+info: ConstantParameter: nu
+debug: Using value 0.3 for constant parameter.
+info: ConstantParameter: T0
+debug: Using value 300 for constant parameter.
+info: ConstantParameter: displacement0
+debug: Using following values for the constant parameter:
+debug: 	0
+debug: 	0
+info: ConstantParameter: pGR_ic
+debug: Using value 100000 for constant parameter.
+info: ConstantParameter: pGR_bc_left
+debug: Using value 100000 for constant parameter.
+info: ConstantParameter: pGR_bc_right
+debug: Using value 100000 for constant parameter.
+info: ConstantParameter: pCap_ic
+debug: Using value 50000 for constant parameter.
+info: ConstantParameter: pCap_bc
+debug: Using value 5000 for constant parameter.
+info: ConstantParameter: T_ic
+debug: Using value 300 for constant parameter.
+info: ConstantParameter: T_bc_left
+debug: Using value 300 for constant parameter.
+info: ConstantParameter: T_bc_right
+debug: Using value 300 for constant parameter.
+info: ConstantParameter: ux_bc
+debug: Using value 0 for constant parameter.
+info: ConstantParameter: uy_bc
+debug: Using value 0 for constant parameter.
+info: ConstantParameter: dirichlet0
+debug: Using value 0 for constant parameter.
+debug: Parse process variables:
+debug: Found parameter `displacement0'.
+debug: Constructing process variable u
+debug: Found mesh 'beam_geometry_right' with id 2.
+debug: Found mesh 'beam_geometry_bottom' with id 4.
+info: No source terms for process variable 'u' found.
+debug: Found parameter `pGR_ic'.
+debug: Constructing process variable pGR
+debug: Found mesh 'beam_geometry_left' with id 1.
+debug: Found mesh 'beam_geometry_right' with id 2.
+info: No source terms for process variable 'pGR' found.
+debug: Found parameter `pCap_ic'.
+debug: Constructing process variable pCap
+debug: Found mesh 'beam_geometry_left' with id 1.
+info: No source terms for process variable 'pCap' found.
+debug: Found parameter `T_ic'.
+debug: Constructing process variable T
+debug: Found mesh 'beam_geometry_left' with id 1.
+debug: Found mesh 'beam_geometry_right' with id 2.
+info: No source terms for process variable 'T' found.
+debug: Reading media:
+debug: Create Constant property
+debug: Create Constant property
+debug: Create Constant property
+debug: Create Constant property
+debug: Create Constant property
+debug: Create Constant property
+debug: Create Constant property
+debug: Create Constant property
+debug: Create Constant property
+debug: Create Constant property
+debug: Create Constant property
+debug: Create Constant property
+debug: Create Constant property
+debug: Create Constant property
+debug: Create Constant property
+debug: Create Constant property
+debug: Create Constant property
+debug: Create Constant property
+debug: Create Constant property
+debug: Create Constant property
+debug: Create Constant property
+debug: Create Constant property
+debug: Create Constant property
+debug: Create Constant property
+debug: Reading processes:
+debug: Create TH2MProcess.
+debug: Found process variable 'pGR' for config tag <gas_pressure>.
+debug: Found process variable 'pCap' for config tag <capillary_pressure>.
+debug: Found process variable 'T' for config tag <temperature>.
+debug: Found process variable 'u' for config tag <displacement>.
+debug: Associate displacement with process variable 'u'.
+debug: Associate gas (non-wetting) pressure with process variable 'pGR'.
+debug: Associate capillary pressure with process variable 'pCap'.
+debug: Associate temperature with process variable 'T'.
+debug: Create LinearElasticIsotropic material
+debug: Found parameter `E'.
+debug: Use 'E' as youngs_modulus parameter.
+debug: Found parameter `nu'.
+debug: Use 'nu' as poissons_ratio parameter.
+debug: Found 1 constitutive relations.
+debug: Found parameter `T0'.
+debug: Use 'T0' as reference temperature parameter.
+warning: Secondary variable type specification is deprecated and is ignored. All secondary variable types are 'static'.
+warning: Secondary variable type specification is deprecated and is ignored. All secondary variable types are 'static'.
+debug: Reading linear solver configuration.
+debug: Reading linear solver configuration.
+debug: Reading time loop configuration.
+debug: Parse output configuration:
+debug: adding output variable `pGR'
+debug: adding output variable `gas_pressure_interpolated'
+debug: adding output variable `capillary_pressure'
+debug: adding output variable `capillary_pressure_interpolated'
+debug: adding output variable `temperature'
+debug: adding output variable `temperature_interpolated'
+debug: adding output variable `displacement'
+debug: adding output variable `sigma'
+debug: adding output variable `epsilon'
+info: Initialize processes.
+debug: Initialize process.
+debug: Construct dof mappings.
+debug: Compute sparsity pattern
+debug: Initialize the extrapolator
+debug: Create local assemblers.
+debug: Create local assemblers.
+debug: Calling local assembler builder for all mesh elements.
+debug: Initialize boundary conditions.
+debug: Constructing DirichletBoundaryCondition from config.
+debug: Using parameter pGR_bc_left
+debug: Found parameter `pGR_bc_left'.
+debug: Found 5 nodes for Dirichlet BCs for the variable 0 and component 0
+debug: Construct reduced local to global index map.
+debug: Constructing DirichletBoundaryCondition from config.
+debug: Using parameter pGR_bc_right
+debug: Found parameter `pGR_bc_right'.
+debug: Found 5 nodes for Dirichlet BCs for the variable 0 and component 0
+debug: Construct reduced local to global index map.
+debug: Constructing DirichletBoundaryCondition from config.
+debug: Using parameter pCap_bc
+debug: Found parameter `pCap_bc'.
+debug: Found 5 nodes for Dirichlet BCs for the variable 1 and component 0
+debug: Construct reduced local to global index map.
+debug: Constructing DirichletBoundaryCondition from config.
+debug: Using parameter T_bc_left
+debug: Found parameter `T_bc_left'.
+debug: Found 5 nodes for Dirichlet BCs for the variable 2 and component 0
+debug: Construct reduced local to global index map.
+debug: Constructing DirichletBoundaryCondition from config.
+debug: Using parameter T_bc_right
+debug: Found parameter `T_bc_right'.
+debug: Found 5 nodes for Dirichlet BCs for the variable 2 and component 0
+debug: Construct reduced local to global index map.
+debug: Constructing DirichletBoundaryCondition from config.
+debug: Using parameter dirichlet0
+debug: Found parameter `dirichlet0'.
+debug: Found 5 nodes for Dirichlet BCs for the variable 3 and component 0
+debug: Construct reduced local to global index map.
+debug: Constructing DirichletBoundaryCondition from config.
+debug: Using parameter dirichlet0
+debug: Found parameter `dirichlet0'.
+debug: Found 5 nodes for Dirichlet BCs for the variable 3 and component 1
+debug: Construct reduced local to global index map.
+info: Solve processes.
+debug: Set the initial condition of variable pGR of process 0.
+debug: Set the initial condition of variable pCap of process 0.
+debug: Set the initial condition of variable T of process 0.
+debug: Set the initial condition of variable u of process 0.
+debug: PreTimestep TH2MProcess.
+debug: Compute the secondary variables for HydroMechanicsProcess.
+debug: Process output data.
+debug:   process variable pGR
+debug:   secondary variable epsilon
+debug: Computing new singular value decomposition
+debug:   secondary variable sigma
+debug: output to drc_v7__pcs_0_ts_0_t_0.000000.vtu
+debug: Writing output to 'drc_v7__pcs_0_ts_0_t_0.000000.vtu'.
+info: [time] Output of timestep 0 took 0.00393081 s.
+info: === Time stepping at step #1 and time 1 with step size 1
+info: Calculate non-equilibrium initial residuum.
+debug: PreTimestep TH2MProcess.
+debug: Assemble the Jacobian o
