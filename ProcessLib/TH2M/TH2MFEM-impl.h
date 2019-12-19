@@ -354,12 +354,13 @@ void TH2MLocalAssembler<ShapeFunctionDisplacement, ShapeFunctionPressure,
         auto& eps = _ip_data[ip].eps;
         auto const& sigma_eff = _ip_data[ip].sigma_eff;
         double const T0 = _process_data.reference_temperature(t, pos)[0];
-#define DEBUG_TH2M
+#define nDEBUG_TH2M
 
         auto const T_int_pt = NT.dot(T);
         auto const pGR_int_pt = Np.dot(pGR);
         auto const pCap_int_pt = Np.dot(pCap);
         auto const pLR_int_pt = pGR_int_pt - pCap_int_pt;
+
 #ifdef DEBUG_TH2M
         std::cout << "-----------------\n";
         std::cout << "--- unknowns: ---\n";
@@ -395,9 +396,11 @@ void TH2MLocalAssembler<ShapeFunctionDisplacement, ShapeFunctionPressure,
         std::cout << " --------------- \n";
         std::cout << " Bu:\n" << Bu << "\n";
         std::cout << " --------------- \n";
-#endif
 
         std::cout << " Calculate constitutive parameters. \n";
+
+#endif
+
 
         MPL::VariableArray vars;
         vars[static_cast<int>(MPL::Variable::temperature)] = T_int_pt;
@@ -612,6 +615,12 @@ void TH2MLocalAssembler<ShapeFunctionDisplacement, ShapeFunctionPressure,
     }
 
     JGpG.noalias() = MGpG / dt + LGpG;
+
+#ifndef DEBUG_TH2M
+        std::cout << " JGpG:\n" << "\n";
+        std::cout << JGpG << "\n";
+#endif
+
     JGpC.noalias() = -MGpC / dt;
     JGT.noalias() = -MGT / dt;
     JGu.noalias() = MGu / dt;
