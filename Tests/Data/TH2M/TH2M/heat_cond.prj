@@ -2,17 +2,19 @@
 <OpenGeoSysProject>
 <meshes>
     <mesh axially_symmetric="false">beam_quad.vtu</mesh>
-    <mesh axially_symmetric="false">beam_geometry_left.vtu</mesh>
-    <mesh axially_symmetric="false">beam_geometry_right.vtu</mesh>
-    <mesh axially_symmetric="false">beam_geometry_top.vtu</mesh>
-    <mesh axially_symmetric="false">beam_geometry_bottom.vtu</mesh>
+    <mesh axially_symmetric="false">beam_quad_surf_front.vtu</mesh>
+    <mesh axially_symmetric="false">beam_quad_surf_back.vtu</mesh>
+    <mesh axially_symmetric="false">beam_quad_surf_left.vtu</mesh>
+    <mesh axially_symmetric="false">beam_quad_surf_right.vtu</mesh>
+    <mesh axially_symmetric="false">beam_quad_surf_top.vtu</mesh>
+    <mesh axially_symmetric="false">beam_quad_surf_bottom.vtu</mesh>
 </meshes>
     <processes>
         <process>
             <name>TH2M</name>
             <type>TH2M</type>
             <integration_order>3</integration_order>
-            <dimension>2</dimension>
+            <dimension>3</dimension>
             <constitutive_relation>
                 <type>LinearElasticIsotropic</type>
                 <youngs_modulus>E</youngs_modulus>
@@ -29,7 +31,7 @@
                 <secondary_variable type="static" internal_name="sigma" output_name="sigma"/>
                 <secondary_variable type="static" internal_name="epsilon" output_name="epsilon"/>
             </secondary_variables>
-            <specific_body_force>0 0</specific_body_force>
+            <specific_body_force>0 0 0</specific_body_force>
         </process>
     </processes>
     <media>
@@ -196,7 +198,7 @@
             <property>
                <name>relative_permeability</name>
                <type>Constant</type>
-               <value>1.0 0.</value>
+               <value>1.0 0.0</value>
             </property>
 
 
@@ -210,7 +212,7 @@
                 <convergence_criterion>
                     <type>PerComponentDeltaX</type>
                     <norm_type>NORM2</norm_type>
-                    <reltols>1e-4 1e-5 1e-5 1e-5 1e-5</reltols>
+                    <reltols>1e-4 1e-5 1e-5 1e-5 1e-5 1e-5</reltols>
                 </convergence_criterion>
                 <time_discretization>
                     <type>BackwardEuler</type>
@@ -220,7 +222,6 @@
                     <t_initial>0</t_initial>
                     <t_end>2.7e8</t_end>
                     <timesteps>
-                        <pair><repeat>2</repeat><delta_t>1</delta_t></pair>
                         <pair><repeat>50</repeat><delta_t>1728</delta_t></pair>
                         <pair><repeat>10</repeat><delta_t>8640</delta_t></pair>
                         <pair><repeat>8</repeat><delta_t>86400</delta_t></pair>
@@ -269,32 +270,23 @@
         <parameter>
             <name>T0</name>
             <type>Constant</type>
-            <value>300</value>
+            <value>280</value>
         </parameter>
         <parameter>
             <name>displacement0</name>
             <type>Constant</type>
-            <values>0 0</values>
+            <values>0 0 0</values>
         </parameter>
         <parameter>
             <name>pGR_ic</name>
             <type>Constant</type>
             <value>100000</value>
         </parameter>
-
         <parameter>
-            <name>pGR_bc_left</name>
+            <name>pGR_bc</name>
             <type>Constant</type>
             <value>100000</value>
         </parameter>
-        <parameter>
-            <name>pGR_bc_right</name>
-            <type>Constant</type>
-            <value>100000</value>
-        </parameter>
-
-
-
         <parameter>
             <name>pCap_ic</name>
             <type>Constant</type>
@@ -310,19 +302,19 @@
         <parameter>
             <name>T_ic</name>
             <type>Constant</type>
-            <value>300</value>
+            <value>289.15</value>
         </parameter>
 
         <parameter>
             <name>T_bc_left</name>
             <type>Constant</type>
-            <value>300</value>
+            <value>333.15</value>
         </parameter>
 
         <parameter>
             <name>T_bc_right</name>
             <type>Constant</type>
-            <value>300</value>
+            <value>289.15</value>
         </parameter>
 
 
@@ -362,13 +354,13 @@
     <process_variables>
         <process_variable>
             <name>u</name>
-            <components>2</components>
+            <components>3</components>
             <order>2</order>
             <initial_condition>displacement0</initial_condition>
             <boundary_conditions>
           
                 <boundary_condition>
-                    <geometrical_set>beam_geometry</geometrical_set>
+                    <geometrical_set>beam_quad_surf</geometrical_set>
                     <geometry>right</geometry>
                     <type>Dirichlet</type>
                     <component>0</component>
@@ -376,10 +368,18 @@
                 </boundary_condition>
 
                 <boundary_condition>
-                    <geometrical_set>beam_geometry</geometrical_set>
-                    <geometry>bottom</geometry>
+                    <geometrical_set>beam_quad_surf</geometrical_set>
+                    <geometry>back</geometry>
                     <type>Dirichlet</type>
                     <component>1</component>
+                    <parameter>dirichlet0</parameter>
+                </boundary_condition>
+
+                <boundary_condition>
+                    <geometrical_set>beam_quad_surf</geometrical_set>
+                    <geometry>bottom</geometry>
+                    <type>Dirichlet</type>
+                    <component>2</component>
                     <parameter>dirichlet0</parameter>
                 </boundary_condition>
 
@@ -395,19 +395,11 @@
             <boundary_conditions>
 
                  <boundary_condition>
-                    <geometrical_set>beam_geometry</geometrical_set>
+                    <geometrical_set>beam_quad_surf</geometrical_set>
                     <geometry>left</geometry>
                     <type>Dirichlet</type>
                     <component>0</component>
-                    <parameter>pGR_bc_left</parameter>
-                </boundary_condition> 
-
-                 <boundary_condition>
-                    <geometrical_set>beam_geometry</geometrical_set>
-                    <geometry>right</geometry>
-                    <type>Dirichlet</type>
-                    <component>0</component>
-                    <parameter>pGR_bc_right</parameter>
+                    <parameter>pGR_ic</parameter>
                 </boundary_condition> 
 
             </boundary_conditions>
@@ -422,11 +414,11 @@
             <boundary_conditions>
 
                  <boundary_condition>
-                    <geometrical_set>beam_geometry</geometrical_set>
+                    <geometrical_set>beam_quad_surf</geometrical_set>
                     <geometry>left</geometry>
                     <type>Dirichlet</type>
                     <component>0</component>
-                    <parameter>pCap_bc</parameter>
+                    <parameter>pCap_ic</parameter>
                 </boundary_condition> 
 
             </boundary_conditions>
@@ -443,7 +435,7 @@
             <boundary_conditions>
 
                 <boundary_condition>
-                    <geometrical_set>beam_geometry</geometrical_set>
+                    <geometrical_set>beam_quad_surf</geometrical_set>
                     <geometry>left</geometry>
                     <type>Dirichlet</type>
                     <component>0</component>
@@ -451,7 +443,7 @@
                 </boundary_condition>
 
                 <boundary_condition>
-                    <geometrical_set>beam_geometry</geometrical_set>
+                    <geometrical_set>beam_quad_surf</geometrical_set>
                     <geometry>right</geometry>
                     <type>Dirichlet</type>
                     <component>0</component>
