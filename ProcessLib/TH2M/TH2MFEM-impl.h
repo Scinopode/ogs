@@ -208,10 +208,11 @@ void TH2MLocalAssembler<ShapeFunctionDisplacement, ShapeFunctionPressure,
 //    typename ShapeMatricesTypePressure::NodalVectorType fG;
 //    fG.setZero(gas_pressure_size);
 
-    typename ShapeMatricesTypePressure::NodalVectorType fG =
-        ShapeMatricesTypePressure::NodalVectorType::Zero(gas_pressure_size);
-
-
+    typename ShapeMatricesTypePressure::template MatrixType<
+        gas_pressure_size, 1>
+        fG = ShapeMatricesTypePressure::template MatrixType<
+            gas_pressure_size, 1>::Zero(gas_pressure_size,
+                                                    1);
 
     // capillary pressure equation
     //  - mass submatrices
@@ -269,8 +270,12 @@ typename ShapeMatricesTypePressure::NodalMatrixType LLpC =
 //    typename ShapeMatricesTypePressure::NodalVectorType fL;
 //    fL.setZero(capillary_pressure_size);
 
-typename ShapeMatricesTypePressure::NodalVectorType fL =
-        ShapeMatricesTypePressure::NodalVectorType::Zero(capillary_pressure_size);
+
+    typename ShapeMatricesTypePressure::template MatrixType<
+        capillary_pressure_size, 1>
+        fL = ShapeMatricesTypePressure::template MatrixType<
+            capillary_pressure_size, 1>::Zero(capillary_pressure_size,
+                                                    1);
 
 
     // temperature equation
@@ -331,8 +336,12 @@ typename ShapeMatricesTypePressure::NodalVectorType fL =
 //    typename ShapeMatricesTypePressure::NodalVectorType fT;
 //    fT.setZero(temperature_size);
 
-typename ShapeMatricesTypePressure::NodalVectorType fT =
-        ShapeMatricesTypePressure::NodalVectorType::Zero(temperature_size);
+    typename ShapeMatricesTypePressure::template MatrixType<
+        temperature_size, 1>
+        fT = ShapeMatricesTypePressure::template MatrixType<
+            temperature_size, 1>::Zero(temperature_size,
+                                                    1);
+
 
 
     // displacement equation
@@ -471,7 +480,7 @@ typename ShapeMatricesTypePressure::NodalVectorType fT =
         auto& eps = _ip_data[ip].eps;
         auto const& sigma_eff = _ip_data[ip].sigma_eff;
         double const T0 = _process_data.reference_temperature(t, pos)[0];
-#define DEBUG_TH2M
+#define nDEBUG_TH2M
 
         auto const T_int_pt = NT.dot(T);
         auto const pGR_int_pt = Np.dot(pGR);
@@ -635,7 +644,7 @@ typename ShapeMatricesTypePressure::NodalVectorType fT =
         MGpG.noalias() +=
             (NpT * s_G * (phi * beta_p_GR + (alpha_B - phi) * beta_p_SR) * Np) *
             w;
-        MGpC.noalias() +=
+        MGpC.noalias() += 
             (NpT *
              (s_G * (alpha_B - phi) * beta_p_SR * (s_L + pCap_int_pt * dsLdPc) +
               phi * dsLdPc) *
@@ -645,18 +654,7 @@ typename ShapeMatricesTypePressure::NodalVectorType fT =
             (NpT * s_G * (phi * beta_T_GR + (alpha_B - phi) * beta_T_SR) * Np) *
             w;
 
-		auto const xxx = (NpT * mT * Bu).eval(); 
-
-		Eigen::Matrix<double, gas_pressure_size, displacement_size> M_new;
-
-		M_new = xxx * s_G * alpha_B * w;
-		M_new = xxx * 0.1;
-		M_new = xxx * s_G * alpha_B * w;
-
-		MGu.noalias()= M_new;
-
-
-            MGu.noalias() += (NpT * mT * Bu).eval() * s_G * alpha_B * w;
+       MGu.noalias() += (NpT * mT * Bu).eval() * s_G * alpha_B * w;
 
 
         LGpG.noalias() += (gradNpT * k_over_mu_G * gradNp) * w;
@@ -742,8 +740,8 @@ typename ShapeMatricesTypePressure::NodalVectorType fT =
 		OGS_FATAL("_______________________");
 
 #endif
-   fU.noalias() -= Nu_op.transpose() * rho * b * w;
-   fU.noalias() += (BuT * sigma_eff).eval() *w;
+
+   fU.noalias() += (BuT * sigma_eff - Nu_op.transpose() * rho * b).eval() *w;
      
         // TODO (Wenqing) : Change dT to time step wise increment
         double const delta_T(T_int_pt - T0);
@@ -762,7 +760,7 @@ typename ShapeMatricesTypePressure::NodalVectorType fT =
 
     JGpG.noalias() = MGpG / dt + LGpG;
 
-#ifndef DEBUG_TH2M
+#ifdef DEBUG_TH2M
         std::cout << " JGpG:\n" << "\n";
         std::cout << JGpG << "\n";
 #endif
@@ -783,14 +781,14 @@ typename ShapeMatricesTypePressure::NodalVectorType fT =
     JUpG.noalias() = -KUpG;
     JUpC.noalias() = -KUpC;
 
-/*    rG.noalias() = MGpG * pGR_dot - MGpC * pCap_dot - MGT * T_dot +
-                   MGu * u_dot + LGpG * pGR - fG;
-    rL.noalias() = MLpG * pGR_dot - MLpC * pCap_dot - MLT * T_dot +
-                   MLu * u_dot + LLpG * pGR - LLpC * pCap - fL;
-    rT.noalias() = -MTpG * pGR_dot + MTpC * pCap_dot + MTT * T_dot +
-                   (ATT + LTT) * T - ATpG * pGR + ATpC * pCap + fT;
-    rU.noalias() = fU - KUpG * pGR + KUpC * pCap;
-*/
+    rG.noalias() = -1*(MGpG * pGR_dot - MGpC * pCap_dot - MGT * T_dot +
+                   MGu * u_dot + LGpG * pGR - fG);
+    rL.noalias() = -1*(MLpG * pGR_dot - MLpC * pCap_dot - MLT * T_dot +
+                   MLu * u_dot + LLpG * pGR - LLpC * pCap - fL);
+    rT.noalias() = -1*(-MTpG * pGR_dot + MTpC * pCap_dot + MTT * T_dot +
+                   (ATT + LTT) * T - ATpG * pGR + ATpC * pCap + fT);
+    rU.noalias() = -1*(fU - KUpG * pGR + KUpC * pCap);
+
 #ifdef DEBUG_TH2M
     std::cout << "--------------------------\n";
     std::cout << local_Jac << "\n";
