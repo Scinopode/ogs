@@ -165,9 +165,9 @@
                         <property>
                             <name>biot_coefficient</name>
                             <type>Constant</type>
-                            <value>1.0</value>
+                            <value>0.0</value>
                         </property>
-<!--
+
             <property>
                <name>saturation</name>
                <type>SaturationBrooksCorey</type>
@@ -185,18 +185,6 @@
                <lambda>2</lambda>
                <min_relative_permeability_liquid>0</min_relative_permeability_liquid>
                <min_relative_permeability_gas>1e-9</min_relative_permeability_gas>
-            </property>
--->
-            <property>
-               <name>saturation</name>
-               <type>Constant</type>
-               <value>0.0</value>
-            </property>
-
-            <property>
-               <name>relative_permeability</name>
-               <type>Constant</type>
-               <value>1.0 0.</value>
             </property>
 
 
@@ -298,7 +286,7 @@
         <parameter>
             <name>pCap_ic</name>
             <type>Constant</type>
-            <value>50000</value>
+            <value>5000</value>
         </parameter>
         <parameter>
             <name>pCap_bc</name>
@@ -316,7 +304,7 @@
         <parameter>
             <name>T_bc_left</name>
             <type>Constant</type>
-            <value>300</value>
+            <value>320</value>
         </parameter>
 
         <parameter>
