@@ -24,77 +24,98 @@ namespace ProcessLib
 {
 namespace TH2M
 {
-
 template <int DisplacementDim>
 void checkMPLProperties(MeshLib::Mesh const& mesh,
                         TH2MProcessData<DisplacementDim> const& process_data)
 {
+    std::vector<MaterialPropertyLib::PropertyType> reqiredPropertyMedium = {
+        MaterialPropertyLib::PropertyType::porosity,
+        MaterialPropertyLib::PropertyType::permeability};
+
+    std::vector<MaterialPropertyLib::PropertyType> reqiredPropertyLiquidPhase =
+        {MaterialPropertyLib::PropertyType::density,
+         MaterialPropertyLib::PropertyType::thermal_expansivity};
+
+    std::vector<MaterialPropertyLib::PropertyType> reqiredPropertyGasPhase = {
+        MaterialPropertyLib::PropertyType::density,
+        MaterialPropertyLib::PropertyType::thermal_expansivity};
+
+    std::vector<MaterialPropertyLib::PropertyType> reqiredPropertySolidPhase = {
+        MaterialPropertyLib::PropertyType::density,
+        MaterialPropertyLib::PropertyType::thermal_expansivity};
+
     DBUG("Check the media properties of HT process ...");
-    // for (auto const& element : mesh.getElements())
-    // {
-    //     auto const element_id = element->getID();
+    for (auto const& element : mesh.getElements())
+    {
+        auto const element_id = element->getID();
 
-    //     // check if a definition of the porous media exists
-    //     auto const& medium = *process_data.media_map->getMedium(element_id);
+        // check if a definition of the porous media exists
+        auto const& medium = *process_data.media_map->getMedium(element_id);
 
-    //     // checking general medium properties
-    //     if (!medium.hasProperty(MaterialPropertyLib::PropertyType::porosity))
-    //     {
-    //         OGS_FATAL("The porosity for the porous media isn't specified.");
-    //     }
-    //     if (!medium.hasProperty(
-    //             MaterialPropertyLib::PropertyType::permeability))
-    //     {
-    //         OGS_FATAL("The permeability for the porous media isn't specified.");
-    //     }
+        for (auto const property : reqiredPropertyMedium)
+        {
+            if (!medium.hasProperty(property))
+            {
+                // std::cout << "Property nr: " << property << "\n";
+                // std::cout <<
+                // MaterialPropertyLib::property_enum_to_string[property].c_str()
+                // << "\n";
+                OGS_FATAL("The property '%s' is not specified for the medium.",
+                          MaterialPropertyLib::property_enum_to_string[property]
+                              .c_str());
+            }
+        }
 
-    //     // check if liquid phase definition and the corresponding properties
-    //     // exists
-    //     auto const& liquid_phase = medium.phase("AqueousLiquid");
-    //     if (!liquid_phase.hasProperty(
-    //             MaterialPropertyLib::PropertyType::viscosity))
-    //     {
-    //         OGS_FATAL(
-    //             "The viscosity for the AqueousLiquid phase isn't specified.");
-    //     }
-    //     if (!liquid_phase.hasProperty(
-    //             MaterialPropertyLib::PropertyType::density))
-    //     {
-    //         OGS_FATAL(
-    //             "The density for the AqueousLiquid phase isn't specified.");
-    //     }
-    //     if (!liquid_phase.hasProperty(
-    //             MaterialPropertyLib::PropertyType::specific_heat_capacity))
-    //     {
-    //         OGS_FATAL(
-    //             "The specific heat capacity for the AqueousLiquid phase "
-    //             "isn't specified.");
-    //     }
+        auto const& liquid_phase = medium.phase("AqueousLiquid");
+        for (auto const property : reqiredPropertyLiquidPhase)
+        {
+            if (!liquid_phase.hasProperty(property))
+            {
+                // std::cout << "Property nr: " << property << "\n";
+                // std::cout <<
+                // MaterialPropertyLib::property_enum_to_string[property].c_str()
+                // << "\n";
+                OGS_FATAL(
+                    "The property '%s' is not specified for the liquid phase.",
+                    MaterialPropertyLib::property_enum_to_string[property]
+                        .c_str());
+            }
+        }
 
-    //     // check if solid phase definition and the corresponding properties
-    //     // exists
-    //     auto const& solid_phase = medium.phase("Solid");
-    //     if (!solid_phase.hasProperty(
-    //             MaterialPropertyLib::PropertyType::specific_heat_capacity))
-    //     {
-    //         OGS_FATAL(
-    //             "The specific heat capacity for the Solid phase isn't "
-    //             "specified.");
-    //     }
-    //     if (!solid_phase.hasProperty(
-    //             MaterialPropertyLib::PropertyType::density))
-    //     {
-    //         OGS_FATAL("The density for the Solid phase isn't specified.");
-    //     }
-    //     if (!solid_phase.hasProperty(
-    //             MaterialPropertyLib::PropertyType::storage))
-    //     {
-    //         OGS_FATAL("The storage for the Solid phase isn't specified.");
-    //     }
-    // }
+        auto const& gas_phase = medium.phase("Gas");
+        for (auto const property : reqiredPropertyLiquidPhase)
+        {
+            if (!gas_phase.hasProperty(property))
+            {
+                // std::cout << "Property nr: " << property << "\n";
+                // std::cout <<
+                // MaterialPropertyLib::property_enum_to_string[property].c_str()
+                // << "\n";
+                OGS_FATAL(
+                    "The property '%s' is not specified for the gas phase.",
+                    MaterialPropertyLib::property_enum_to_string[property]
+                        .c_str());
+            }
+        }
+
+        auto const& solid_phase = medium.phase("Solid");
+        for (auto const property : reqiredPropertyLiquidPhase)
+        {
+            if (!solid_phase.hasProperty(property))
+            {
+                // std::cout << "Property nr: " << property << "\n";
+                // std::cout <<
+                // MaterialPropertyLib::property_enum_to_string[property].c_str()
+                // << "\n";
+                OGS_FATAL(
+                    "The property '%s' is not specified for the solid phase.",
+                    MaterialPropertyLib::property_enum_to_string[property]
+                        .c_str());
+            }
+        }
+    }
     DBUG("Media properties verified.");
 }
-
 
 template <int DisplacementDim>
 TH2MProcess<DisplacementDim>::TH2MProcess(
@@ -246,7 +267,6 @@ void TH2MProcess<DisplacementDim>::initializeConcreteProcess(
     MeshLib::Mesh const& mesh,
     unsigned const integration_order)
 {
-
     checkMPLProperties(mesh, _process_data);
 
     const int mechanical_process_id = _use_monolithic_scheme ? 0 : 3;
