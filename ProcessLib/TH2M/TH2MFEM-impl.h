@@ -836,9 +836,9 @@ TH2MLocalAssembler<ShapeFunctionDisplacement, ShapeFunctionPressure,
     ParameterLib::SpatialPosition pos;
     pos.setElementID(_element.getID());
 
-    auto const& medium = _process_data.media_map->getMedium(_element.getID());
-    auto const& gas_phase = medium->phase("NonAqueousLiquid");
-    auto const& solid_phase = medium->phase("Solid");
+    auto const& medium = *_process_data.media_map->getMedium(_element.getID());
+    auto const& gas_phase = medium.phase("Gas");
+
     MPL::VariableArray vars;
 
     for (unsigned ip = 0; ip < n_integration_points; ip++)
@@ -855,7 +855,7 @@ TH2MLocalAssembler<ShapeFunctionDisplacement, ShapeFunctionPressure,
                                    .template value<double>(vars, pos, t);
         GlobalDimMatrixType K_over_mu =
             MPL::formEigenTensor<DisplacementDim>(
-                solid_phase.property(MPL::PropertyType::permeability)
+                medium.property(MPL::PropertyType::permeability)
                     .value(vars, pos, t)) /
             viscosity;
 
@@ -916,9 +916,9 @@ TH2MLocalAssembler<ShapeFunctionDisplacement, ShapeFunctionPressure,
     ParameterLib::SpatialPosition pos;
     pos.setElementID(_element.getID());
 
-    auto const& medium = _process_data.media_map->getMedium(_element.getID());
-    auto const& liquid_phase = medium->phase("AqueousLiquid");
-    auto const& solid_phase = medium->phase("Solid");
+    auto const& medium = *_process_data.media_map->getMedium(_element.getID());
+    auto const& liquid_phase = medium.phase("AqueousLiquid");
+    
     MPL::VariableArray vars;
 
     for (unsigned ip = 0; ip < n_integration_points; ip++)
@@ -936,7 +936,7 @@ TH2MLocalAssembler<ShapeFunctionDisplacement, ShapeFunctionPressure,
                 .template value<double>(vars, pos, t);
         GlobalDimMatrixType K_over_mu =
             MPL::formEigenTensor<DisplacementDim>(
-                solid_phase.property(MPL::PropertyType::permeability)
+                medium.property(MPL::PropertyType::permeability)
                     .value(vars, pos, t)) /
             viscosity;
 
@@ -989,8 +989,9 @@ void TH2MLocalAssembler<ShapeFunctionDisplacement, ShapeFunctionPressure,
 
     ParameterLib::SpatialPosition pos;
     pos.setElementID(_element.getID());
-    auto const& medium = _process_data.media_map->getMedium(_element.getID());
-    auto const& solid_phase = medium->phase("Solid");
+    auto const& medium = *_process_data.media_map->getMedium(_element.getID());
+    auto const& solid_phase = medium.phase("Solid");
+
     MPL::VariableArray vars;
 
     int const n_integration_points = _integration_method.getNumberOfPoints();
