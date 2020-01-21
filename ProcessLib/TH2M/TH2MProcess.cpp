@@ -24,6 +24,78 @@ namespace ProcessLib
 {
 namespace TH2M
 {
+
+template <int DisplacementDim>
+void checkMPLProperties(MeshLib::Mesh const& mesh,
+                        TH2MProcessData<DisplacementDim> const& process_data)
+{
+    DBUG("Check the media properties of HT process ...");
+    // for (auto const& element : mesh.getElements())
+    // {
+    //     auto const element_id = element->getID();
+
+    //     // check if a definition of the porous media exists
+    //     auto const& medium = *process_data.media_map->getMedium(element_id);
+
+    //     // checking general medium properties
+    //     if (!medium.hasProperty(MaterialPropertyLib::PropertyType::porosity))
+    //     {
+    //         OGS_FATAL("The porosity for the porous media isn't specified.");
+    //     }
+    //     if (!medium.hasProperty(
+    //             MaterialPropertyLib::PropertyType::permeability))
+    //     {
+    //         OGS_FATAL("The permeability for the porous media isn't specified.");
+    //     }
+
+    //     // check if liquid phase definition and the corresponding properties
+    //     // exists
+    //     auto const& liquid_phase = medium.phase("AqueousLiquid");
+    //     if (!liquid_phase.hasProperty(
+    //             MaterialPropertyLib::PropertyType::viscosity))
+    //     {
+    //         OGS_FATAL(
+    //             "The viscosity for the AqueousLiquid phase isn't specified.");
+    //     }
+    //     if (!liquid_phase.hasProperty(
+    //             MaterialPropertyLib::PropertyType::density))
+    //     {
+    //         OGS_FATAL(
+    //             "The density for the AqueousLiquid phase isn't specified.");
+    //     }
+    //     if (!liquid_phase.hasProperty(
+    //             MaterialPropertyLib::PropertyType::specific_heat_capacity))
+    //     {
+    //         OGS_FATAL(
+    //             "The specific heat capacity for the AqueousLiquid phase "
+    //             "isn't specified.");
+    //     }
+
+    //     // check if solid phase definition and the corresponding properties
+    //     // exists
+    //     auto const& solid_phase = medium.phase("Solid");
+    //     if (!solid_phase.hasProperty(
+    //             MaterialPropertyLib::PropertyType::specific_heat_capacity))
+    //     {
+    //         OGS_FATAL(
+    //             "The specific heat capacity for the Solid phase isn't "
+    //             "specified.");
+    //     }
+    //     if (!solid_phase.hasProperty(
+    //             MaterialPropertyLib::PropertyType::density))
+    //     {
+    //         OGS_FATAL("The density for the Solid phase isn't specified.");
+    //     }
+    //     if (!solid_phase.hasProperty(
+    //             MaterialPropertyLib::PropertyType::storage))
+    //     {
+    //         OGS_FATAL("The storage for the Solid phase isn't specified.");
+    //     }
+    // }
+    DBUG("Media properties verified.");
+}
+
+
 template <int DisplacementDim>
 TH2MProcess<DisplacementDim>::TH2MProcess(
     std::string name,
@@ -174,6 +246,9 @@ void TH2MProcess<DisplacementDim>::initializeConcreteProcess(
     MeshLib::Mesh const& mesh,
     unsigned const integration_order)
 {
+
+    checkMPLProperties(mesh, _process_data);
+
     const int mechanical_process_id = _use_monolithic_scheme ? 0 : 3;
     const int deformation_variable_id = _use_monolithic_scheme ? 3 : 0;
     ProcessLib::TH2M::createLocalAssemblers<DisplacementDim,
