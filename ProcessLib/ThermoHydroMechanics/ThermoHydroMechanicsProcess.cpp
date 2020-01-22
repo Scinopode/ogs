@@ -191,6 +191,21 @@ void ThermoHydroMechanicsProcess<DisplacementDim>::initializeConcreteProcess(
                          _local_assemblers,
                          &LocalAssemblerInterface::getIntPtDarcyVelocity));
 
+    _secondary_variables.addSecondaryVariable(
+        "porosity",
+        makeExtrapolator(1, getExtrapolator(), _local_assemblers,
+                         &LocalAssemblerInterface::getIntPtPorosity));
+
+    _secondary_variables.addSecondaryVariable(
+        "solid_density",
+        makeExtrapolator(1, getExtrapolator(), _local_assemblers,
+                         &LocalAssemblerInterface::getIntPtSolidDensity));
+
+    _secondary_variables.addSecondaryVariable(
+        "fluid_density",
+        makeExtrapolator(1, getExtrapolator(), _local_assemblers,
+                         &LocalAssemblerInterface::getIntPtFluidDensity));
+
     _process_data.pressure_interpolated =
         MeshLib::getOrCreateMeshProperty<double>(
             const_cast<MeshLib::Mesh&>(mesh), "pressure_interpolated",

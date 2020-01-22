@@ -121,6 +121,21 @@ struct IntegrationPointData final
         return C;
     }
 
+    template <typename DNDX_Type>
+    double divergence(
+        const Eigen::Ref<
+            Eigen::Matrix<double, NPoints * DisplacementDim, 1> const>& u,
+        DNDX_Type const& dNdx)
+    {
+        double divergence = 0;
+        for (int i = 0; i < DisplacementDim; ++i)
+        {
+            divergence += dNdx.template block<1, NPoints>(i, 0) *
+                          u.template segment<NPoints>(i * NPoints);
+        }
+        return divergence;
+    }
+
     EIGEN_MAKE_ALIGNED_OPERATOR_NEW;
 };
 

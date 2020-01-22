@@ -43,7 +43,11 @@ ThermoHydroMechanicsLocalAssembler<ShapeFunctionDisplacement,
       _integration_method(integration_order),
       _element(e),
       _is_axially_symmetric(is_axially_symmetric),
-      _porosity(std::vector<double>(_integration_method.getNumberOfPoints()))
+      _porosity(std::vector<double>(_integration_method.getNumberOfPoints())),
+      _solid_density(
+          std::vector<double>(_integration_method.getNumberOfPoints())),
+      _fluid_density(
+          std::vector<double>(_integration_method.getNumberOfPoints()))
 {
     unsigned const n_integration_points =
         _integration_method.getNumberOfPoints();
@@ -242,10 +246,9 @@ void ThermoHydroMechanicsLocalAssembler<ShapeFunctionDisplacement,
             solid_phase.property(MaterialPropertyLib::PropertyType::porosity)
                 .template value<double>(vars, x_position, t);
 
-        auto const porosity = sigma_eff * (-1.e-4) + porosity_ref;
+        auto const porosity = porosity_ref;
 
         _porosity[ip] = porosity;
-
 
         auto const intrinsic_permeability =
             MaterialPropertyLib::formEigenTensor<DisplacementDim>(
@@ -256,6 +259,8 @@ void ThermoHydroMechanicsLocalAssembler<ShapeFunctionDisplacement,
         auto const fluid_density =
             liquid_phase.property(MaterialPropertyLib::PropertyType::density)
                 .template value<double>(vars, x_position, t);
+
+        _fluid_density[ip] = fluid_density;
 
         double const fluid_volumetric_thermal_expansion_coefficient =
             MaterialPropertyLib::getThermalExpansivity(
@@ -281,6 +286,8 @@ void ThermoHydroMechanicsLocalAssembler<ShapeFunctionDisplacement,
 
         double const rho_s = solid_density * (1 - 3 * thermal_strain);
 
+       _solid_density[ip] = rho_s;
+
         auto velocity = (-K_over_mu * dNdx_p * p).eval();
         velocity += K_over_mu * fluid_density * b;
 
@@ -288,6 +295,13 @@ void ThermoHydroMechanicsLocalAssembler<ShapeFunctionDisplacement,
         // displacement equation, displacement part
         //
         eps.noalias() = B * u;
+
+        // for (int i = 0; i < DisplacementDim; ++i)
+        // {
+        //     divergence += dNdx.template block<1, NPOINTS>(i, 0) *
+        //                   u.template segment<NPOINTS>(i * NPOINTS);
+        // }
+
         auto C = _ip_data[ip].updateConstitutiveRelationThermal(
             t, x_position, dt, u,
             _process_data.reference_temperature(t, x_position)[0],
@@ -306,12 +320,12 @@ void ThermoHydroMechanicsLocalAssembler<ShapeFunctionDisplacement,
         //
         // displacement equation, pressure part (K_up)
         //
-        auto const alpha =
+        auto const alpha_biot =
             solid_phase
                 .property(MaterialPropertyLib::PropertyType::biot_coefficient)
                 .template value<double>(vars, x_position, t);
 
-        Kup.noalias() += B.transpose() * alpha * identity2 * N_p * w;
+        Kup.noalias() += B.transpose() * alpha_biot * identity2 * N_p * w;
 
         //
         // pressure equation, pressure part (K_pp and M_pp).

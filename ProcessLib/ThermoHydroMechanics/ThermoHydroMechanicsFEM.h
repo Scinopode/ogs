@@ -142,12 +142,32 @@ public:
 
     std::vector<double> const& getIntPtPorosity(
         const double /*t*/,
-        GlobalVector const& /*current_solution*/,
-        NumLib::LocalToGlobalIndexMap const& /*dof_table*/,
+        std::vector<GlobalVector*> const& /*x*/,
+        std::vector<NumLib::LocalToGlobalIndexMap const*> const& /*dof_table*/,
         std::vector<double>& /*cache*/) const override
     {
         assert(!_porosity.empty());
         return _porosity;
+    }
+
+    std::vector<double> const& getIntPtSolidDensity(
+        const double /*t*/,
+        std::vector<GlobalVector*> const& /*x*/,
+        std::vector<NumLib::LocalToGlobalIndexMap const*> const& /*dof_table*/,
+        std::vector<double>& /*cache*/) const override
+    {
+        assert(!_solid_density.empty());
+        return _solid_density;
+    }
+
+    std::vector<double> const& getIntPtFluidDensity(
+        const double /*t*/,
+        std::vector<GlobalVector*> const& /*x*/,
+        std::vector<NumLib::LocalToGlobalIndexMap const*> const& /*dof_table*/,
+        std::vector<double>& /*cache*/) const override
+    {
+        assert(!_fluid_density.empty());
+        return _fluid_density;
     }
 
 private:
@@ -272,9 +292,11 @@ private:
         typename ShapeMatricesTypeDisplacement::ShapeMatrices::ShapeType>
         _secondary_data;
 
-    // output vector for wetting phase saturation with
-    // respect to each integration point
+    // output vector for secondary variables with respect to each integration
+    // point
     std::vector<double> _porosity;
+    std::vector<double> _solid_density;
+    std::vector<double> _fluid_density;
 
     // The shape function of pressure has the same form with the shape function
     // of temperature
