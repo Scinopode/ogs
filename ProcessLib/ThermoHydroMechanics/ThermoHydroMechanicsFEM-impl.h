@@ -246,10 +246,6 @@ void ThermoHydroMechanicsLocalAssembler<ShapeFunctionDisplacement,
             solid_phase.property(MaterialPropertyLib::PropertyType::porosity)
                 .template value<double>(vars, x_position, t);
 
-        auto const porosity = porosity_ref;
-
-        _porosity[ip] = porosity;
-
         auto const intrinsic_permeability =
             MaterialPropertyLib::formEigenTensor<DisplacementDim>(
                 solid_phase
@@ -284,23 +280,25 @@ void ThermoHydroMechanicsLocalAssembler<ShapeFunctionDisplacement,
         double const thermal_strain =
             solid_linear_thermal_expansion_coefficient * delta_T;
 
-        double const rho_s = solid_density * (1 - 3 * thermal_strain);
+        eps.noalias() = B * u;
 
-       _solid_density[ip] = rho_s;
+        auto const alpha_biot =
+            solid_phase
+                .property(MaterialPropertyLib::PropertyType::biot_coefficient)
+                .template value<double>(vars, x_position, t);
+
+        auto volume_strain = _ip_data[ip].divergence(u, dNdx_u);
+        auto const porosity =
+            porosity_ref * (1. + 3. * thermal_strain * alpha_biot -
+                            alpha_biot * volume_strain);
+
+        _porosity[ip] = porosity;
+
+        double const rho_s = solid_density * (1 - 3 * thermal_strain);
+        _solid_density[ip] = rho_s;
 
         auto velocity = (-K_over_mu * dNdx_p * p).eval();
         velocity += K_over_mu * fluid_density * b;
-
-        //
-        // displacement equation, displacement part
-        //
-        eps.noalias() = B * u;
-
-        // for (int i = 0; i < DisplacementDim; ++i)
-        // {
-        //     divergence += dNdx.template block<1, NPOINTS>(i, 0) *
-        //                   u.template segment<NPOINTS>(i * NPOINTS);
-        // }
 
         auto C = _ip_data[ip].updateConstitutiveRelationThermal(
             t, x_position, dt, u,
@@ -320,10 +318,6 @@ void ThermoHydroMechanicsLocalAssembler<ShapeFunctionDisplacement,
         //
         // displacement equation, pressure part (K_up)
         //
-        auto const alpha_biot =
-            solid_phase
-                .property(MaterialPropertyLib::PropertyType::biot_coefficient)
-                .template value<double>(vars, x_position, t);
 
         Kup.noalias() += B.transpose() * alpha_biot * identity2 * N_p * w;
 
