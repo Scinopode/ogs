@@ -118,8 +118,7 @@ std::unique_ptr<Process> createTH2MProcess(
     if (variable_pGR->getNumberOfComponents() != 1)
     {
         OGS_FATAL(
-            "Gas pressure process variable '%s' is not a scalar variable but "
-            "has "
+            "Gas pressure process variable '%s' is a scalar variable but has "
             "%d components.",
             variable_pGR->getName().c_str(),
             variable_pGR->getNumberOfComponents());
@@ -130,9 +129,8 @@ std::unique_ptr<Process> createTH2MProcess(
     if (variable_pCap->getNumberOfComponents() != 1)
     {
         OGS_FATAL(
-            "Capillary pressure process variable '%s' is not a scalar variable "
-            "but has "
-            "%d components.",
+            "Capillary pressure process variable '%s' is a scalar variable but "
+            "has %d components.",
             variable_pCap->getName().c_str(),
             variable_pCap->getNumberOfComponents());
     }
@@ -142,7 +140,7 @@ std::unique_ptr<Process> createTH2MProcess(
     if (variable_T->getNumberOfComponents() != 1)
     {
         OGS_FATAL(
-            "temperature process variable '%s' is not a scalar variable but "
+            "temperature process variable '%s' is a scalar variable but "
             "has %d components.",
             variable_T->getName().c_str(),
             variable_T->getNumberOfComponents());
