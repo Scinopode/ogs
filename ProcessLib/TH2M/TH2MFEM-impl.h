@@ -167,22 +167,16 @@ void TH2MLocalAssembler<ShapeFunctionDisplacement, ShapeFunctionPressure,
 
     // gas pressure equation
     //   - mass submatrices
-//    typename ShapeMatricesTypePressure::NodalMatrixType MGpG;
-//    MGpG.setZero(gas_pressure_size, gas_pressure_size);
+    //    typename ShapeMatricesTypePressure::NodalMatrixType MGpG;
+    //    MGpG.setZero(gas_pressure_size, gas_pressure_size);
 
     typename ShapeMatricesTypePressure::NodalMatrixType MGpG =
         ShapeMatricesTypePressure::NodalMatrixType::Zero(gas_pressure_size,
                                                          gas_pressure_size);
 
-//    typename ShapeMatricesTypePressure::NodalMatrixType MGpC;
-//    MGpC.setZero(gas_pressure_size, capillary_pressure_size);
-
     typename ShapeMatricesTypePressure::NodalMatrixType MGpC =
-        ShapeMatricesTypePressure::NodalMatrixType::Zero(gas_pressure_size,
-                                                         capillary_pressure_size);
-
-//    typename ShapeMatricesTypePressure::NodalMatrixType MGT;
-//    MGT.setZero(gas_pressure_size, temperature_size);
+        ShapeMatricesTypePressure::NodalMatrixType::Zero(
+            gas_pressure_size, capillary_pressure_size);
 
     typename ShapeMatricesTypePressure::NodalMatrixType MGT =
         ShapeMatricesTypePressure::NodalMatrixType::Zero(gas_pressure_size,
@@ -192,192 +186,111 @@ void TH2MLocalAssembler<ShapeFunctionDisplacement, ShapeFunctionPressure,
         gas_pressure_size, displacement_size>
         MGu = ShapeMatricesTypeDisplacement::template MatrixType<
             gas_pressure_size, displacement_size>::Zero(gas_pressure_size,
-                                                    displacement_size);
-
-
-    //  - laplace matrix
-//    typename ShapeMatricesTypePressure::NodalMatrixType LGpG;
-//    LGpG.setZero(gas_pressure_size, gas_pressure_size);
+                                                        displacement_size);
 
     typename ShapeMatricesTypePressure::NodalMatrixType LGpG =
         ShapeMatricesTypePressure::NodalMatrixType::Zero(gas_pressure_size,
                                                          gas_pressure_size);
 
-
     //  - rhs vector
-//    typename ShapeMatricesTypePressure::NodalVectorType fG;
-//    fG.setZero(gas_pressure_size);
-
-    typename ShapeMatricesTypePressure::template MatrixType<
-        gas_pressure_size, 1>
+    typename ShapeMatricesTypePressure::template MatrixType<gas_pressure_size,
+                                                            1>
         fG = ShapeMatricesTypePressure::template MatrixType<
-            gas_pressure_size, 1>::Zero(gas_pressure_size,
-                                                    1);
+            gas_pressure_size, 1>::Zero(gas_pressure_size, 1);
 
     // capillary pressure equation
     //  - mass submatrices
-//    typename ShapeMatricesTypePressure::NodalMatrixType MLpG;
-//    MLpG.setZero(capillary_pressure_size, gas_pressure_size);
 
     typename ShapeMatricesTypePressure::NodalMatrixType MLpG =
-        ShapeMatricesTypePressure::NodalMatrixType::Zero(capillary_pressure_size,
-                                                         gas_pressure_size);
-
-
-//    typename ShapeMatricesTypePressure::NodalMatrixType MLpC;
-//    MLpC.setZero(capillary_pressure_size, capillary_pressure_size);
+        ShapeMatricesTypePressure::NodalMatrixType::Zero(
+            capillary_pressure_size, gas_pressure_size);
 
     typename ShapeMatricesTypePressure::NodalMatrixType MLpC =
-        ShapeMatricesTypePressure::NodalMatrixType::Zero(capillary_pressure_size,
-                                                         capillary_pressure_size);
-
-
-//    typename ShapeMatricesTypePressure::NodalMatrixType MLT;
-//    MLT.setZero(capillary_pressure_size, temperature_size);
+        ShapeMatricesTypePressure::NodalMatrixType::Zero(
+            capillary_pressure_size, capillary_pressure_size);
 
     typename ShapeMatricesTypePressure::NodalMatrixType MLT =
-        ShapeMatricesTypePressure::NodalMatrixType::Zero(capillary_pressure_size,
-                                                         temperature_size);
- 
-//    typename ShapeMatricesTypePressure::NodalMatrixType MLu;
-//    MLu.setZero(capillary_pressure_size, displacement_size);
+        ShapeMatricesTypePressure::NodalMatrixType::Zero(
+            capillary_pressure_size, temperature_size);
 
     typename ShapeMatricesTypeDisplacement::template MatrixType<
         capillary_pressure_size, displacement_size>
         MLu = ShapeMatricesTypeDisplacement::template MatrixType<
-            capillary_pressure_size, displacement_size>::Zero(capillary_pressure_size,
-                                                    displacement_size);
-
+            capillary_pressure_size,
+            displacement_size>::Zero(capillary_pressure_size,
+                                     displacement_size);
 
     //  - laplace submatrices
-//    typename ShapeMatricesTypePressure::NodalMatrixType LLpG;
-//    LLpG.setZero(capillary_pressure_size, gas_pressure_size);
-
     typename ShapeMatricesTypePressure::NodalMatrixType LLpG =
-        ShapeMatricesTypePressure::NodalMatrixType::Zero(capillary_pressure_size,
-                                                         gas_pressure_size);
+        ShapeMatricesTypePressure::NodalMatrixType::Zero(
+            capillary_pressure_size, gas_pressure_size);
 
-
-//    typename ShapeMatricesTypePressure::NodalMatrixType LLpC;
-//    LLpC.setZero(capillary_pressure_size, capillary_pressure_size);
-
-typename ShapeMatricesTypePressure::NodalMatrixType LLpC =
-        ShapeMatricesTypePressure::NodalMatrixType::Zero(capillary_pressure_size,
-                                                         capillary_pressure_size);
-
+    typename ShapeMatricesTypePressure::NodalMatrixType LLpC =
+        ShapeMatricesTypePressure::NodalMatrixType::Zero(
+            capillary_pressure_size, capillary_pressure_size);
 
     //  - rhs vector
-//    typename ShapeMatricesTypePressure::NodalVectorType fL;
-//    fL.setZero(capillary_pressure_size);
-
-
     typename ShapeMatricesTypePressure::template MatrixType<
         capillary_pressure_size, 1>
         fL = ShapeMatricesTypePressure::template MatrixType<
-            capillary_pressure_size, 1>::Zero(capillary_pressure_size,
-                                                    1);
-
+            capillary_pressure_size, 1>::Zero(capillary_pressure_size, 1);
 
     // temperature equation
     //  - mass submatrices
-//    typename ShapeMatricesTypePressure::NodalMatrixType MTpG;
-//    MTpG.setZero(temperature_size, gas_pressure_size);
-
     typename ShapeMatricesTypePressure::NodalMatrixType MTpG =
         ShapeMatricesTypePressure::NodalMatrixType::Zero(temperature_size,
                                                          gas_pressure_size);
 
-
-//    typename ShapeMatricesTypePressure::NodalMatrixType MTpC;
-//    MTpC.setZero(temperature_size, capillary_pressure_size);
-
     typename ShapeMatricesTypePressure::NodalMatrixType MTpC =
-        ShapeMatricesTypePressure::NodalMatrixType::Zero(temperature_size,
-                                                         capillary_pressure_size);
-
-    //typename ShapeMatricesTypePressure::NodalMatrixType MTT;
-    //MTT.setZero(temperature_size, temperature_size);
+        ShapeMatricesTypePressure::NodalMatrixType::Zero(
+            temperature_size, capillary_pressure_size);
 
     typename ShapeMatricesTypePressure::NodalMatrixType MTT =
         ShapeMatricesTypePressure::NodalMatrixType::Zero(temperature_size,
                                                          temperature_size);
 
-    //  - advection submatrices
-//    typename ShapeMatricesTypePressure::NodalMatrixType ATpG;
-//    ATpG.setZero(temperature_size, gas_pressure_size);
-
     typename ShapeMatricesTypePressure::NodalMatrixType ATpG =
         ShapeMatricesTypePressure::NodalMatrixType::Zero(temperature_size,
                                                          gas_pressure_size);
 
-//    typename ShapeMatricesTypePressure::NodalMatrixType ATpC;
-//    ATpC.setZero(temperature_size, capillary_pressure_size);
-
     typename ShapeMatricesTypePressure::NodalMatrixType ATpC =
-        ShapeMatricesTypePressure::NodalMatrixType::Zero(temperature_size,
-                                                         capillary_pressure_size);
-
-//    typename ShapeMatricesTypePressure::NodalMatrixType ATT;
-//    ATT.setZero(temperature_size, temperature_size);
+        ShapeMatricesTypePressure::NodalMatrixType::Zero(
+            temperature_size, capillary_pressure_size);
 
     typename ShapeMatricesTypePressure::NodalMatrixType ATT =
         ShapeMatricesTypePressure::NodalMatrixType::Zero(temperature_size,
                                                          temperature_size);
 
     //  - laplace submatrix
-//    typename ShapeMatricesTypePressure::NodalMatrixType LTT;
-//    LTT.setZero(temperature_size, temperature_size);
-
     typename ShapeMatricesTypePressure::NodalMatrixType LTT =
         ShapeMatricesTypePressure::NodalMatrixType::Zero(temperature_size,
                                                          temperature_size);
 
     //  - rhs vector
-//    typename ShapeMatricesTypePressure::NodalVectorType fT;
-//    fT.setZero(temperature_size);
-
-    typename ShapeMatricesTypePressure::template MatrixType<
-        temperature_size, 1>
+    typename ShapeMatricesTypePressure::template MatrixType<temperature_size, 1>
         fT = ShapeMatricesTypePressure::template MatrixType<
-            temperature_size, 1>::Zero(temperature_size,
-                                                    1);
-
-
+            temperature_size, 1>::Zero(temperature_size, 1);
 
     // displacement equation
     //  - stiffness submatrices
-//    typename ShapeMatricesTypePressure::NodalMatrixType KUpG;
-//    KUpG.setZero(displacement_size, gas_pressure_size);
-
     typename ShapeMatricesTypeDisplacement::template MatrixType<
         displacement_size, gas_pressure_size>
         KUpG = ShapeMatricesTypeDisplacement::template MatrixType<
             displacement_size, gas_pressure_size>::Zero(displacement_size,
-                                                    gas_pressure_size);
-
-
-//    typename ShapeMatricesTypePressure::NodalMatrixType KUpC;
-//    KUpC.setZero(displacement_size, capillary_pressure_size);
+                                                        gas_pressure_size);
 
     typename ShapeMatricesTypeDisplacement::template MatrixType<
         displacement_size, capillary_pressure_size>
         KUpC = ShapeMatricesTypeDisplacement::template MatrixType<
-            displacement_size, capillary_pressure_size>::Zero(displacement_size,
-                                                    capillary_pressure_size);
+            displacement_size,
+            capillary_pressure_size>::Zero(displacement_size,
+                                           capillary_pressure_size);
 
     //  - rhs vector
-//    typename ShapeMatricesTypePressure::NodalVectorType fU;
-//    fU.setZero(displacement_size);
-
-//typename ShapeMatricesTypeDisplacement::NodalVectorType fU =
-//        ShapeMatricesTypeDisplacement::NodalVectorType::Zero(displacement_size);
-
     typename ShapeMatricesTypeDisplacement::template MatrixType<
         displacement_size, 1>
         fU = ShapeMatricesTypeDisplacement::template MatrixType<
-            displacement_size, 1>::Zero(displacement_size,
-                                                    1);
-
+            displacement_size, 1>::Zero(displacement_size, 1);
 
     // pointer-matrices to the jacobian matrix
     auto JGpG = local_Jac.template block<gas_pressure_size, gas_pressure_size>(
@@ -527,7 +440,6 @@ typename ShapeMatricesTypePressure::NodalMatrixType LLpC =
 
 #endif
 
-
         MPL::VariableArray vars;
         vars[static_cast<int>(MPL::Variable::temperature)] = T_int_pt;
         vars[static_cast<int>(MPL::Variable::gas_phase_pressure)] = pGR_int_pt;
@@ -644,7 +556,7 @@ typename ShapeMatricesTypePressure::NodalMatrixType LLpC =
         MGpG.noalias() +=
             (NpT * s_G * (phi * beta_p_GR + (alpha_B - phi) * beta_p_SR) * Np) *
             w;
-        MGpC.noalias() += 
+        MGpC.noalias() +=
             (NpT *
              (s_G * (alpha_B - phi) * beta_p_SR * (s_L + pCap_int_pt * dsLdPc) +
               phi * dsLdPc) *
@@ -654,8 +566,7 @@ typename ShapeMatricesTypePressure::NodalMatrixType LLpC =
             (NpT * s_G * (phi * beta_T_GR + (alpha_B - phi) * beta_T_SR) * Np) *
             w;
 
-       MGu.noalias() += (NpT * mT * Bu).eval() * s_G * alpha_B * w;
-
+        MGu.noalias() += (NpT * mT * Bu).eval() * s_G * alpha_B * w;
 
         LGpG.noalias() += (gradNpT * k_over_mu_G * gradNp) * w;
         fG.noalias() += (gradNpT * rho_GR * k_over_mu_G * b) * w;
@@ -723,26 +634,34 @@ typename ShapeMatricesTypePressure::NodalMatrixType LLpC =
         KUpC.noalias() += (BuT * alpha_B * s_L * m * Np) * w;
 
 #ifdef DEBUG_TH2M
-        std::cout << " Bu " << Bu.size() << " " << Bu.rows() << " " << Bu.cols() << "\n";
-        std::cout << " -------------------------------------------------------\n";
-        std::cout << " BuT " << BuT.size() << " " << BuT.rows() << " " << BuT.cols() << "\n";
+        std::cout << " Bu " << Bu.size() << " " << Bu.rows() << " " << Bu.cols()
+                  << "\n";
+        std::cout
+            << " -------------------------------------------------------\n";
+        std::cout << " BuT " << BuT.size() << " " << BuT.rows() << " "
+                  << BuT.cols() << "\n";
         std::cout << " Nu_op " << Nu_op << "\n";
-        std::cout << " Np " << Np.size() << " " << Np.rows() << " " << Np.cols() << "\n";
-        std::cout << " NpT " << NpT.size() << " " << NpT.rows() << " " << NpT.cols() << "\n";
+        std::cout << " Np " << Np.size() << " " << Np.rows() << " " << Np.cols()
+                  << "\n";
+        std::cout << " NpT " << NpT.size() << " " << NpT.rows() << " "
+                  << NpT.cols() << "\n";
         std::cout << " NpT " << NpT << "\n";
         std::cout << " m " << m << "\n";
-        std::cout << " m " << m.size() << " " << m.rows() << " " << m.cols() << "\n";
-        std::cout << " mT " << mT.size() << " " << mT.rows() << " " << mT.cols() << "\n";
+        std::cout << " m " << m.size() << " " << m.rows() << " " << m.cols()
+                  << "\n";
+        std::cout << " mT " << mT.size() << " " << mT.rows() << " " << mT.cols()
+                  << "\n";
 
-
-        std::cout << " MGu " << MGu << "\n" << MGu.rows() << " " << MGu.cols() << "\n";
+        std::cout << " MGu " << MGu << "\n"
+                  << MGu.rows() << " " << MGu.cols() << "\n";
         std::cout << " b " << b << "\n";
-		OGS_FATAL("_______________________");
+        OGS_FATAL("_______________________");
 
 #endif
 
-   fU.noalias() += (BuT * sigma_eff - Nu_op.transpose() * rho * b).eval() *w;
-     
+        fU.noalias() +=
+            (BuT * sigma_eff - Nu_op.transpose() * rho * b).eval() * w;
+
         // TODO (Wenqing) : Change dT to time step wise increment
         double const delta_T(T_int_pt - T0);
         double const thermal_strain = beta_T_SR * delta_T;
@@ -755,14 +674,14 @@ typename ShapeMatricesTypePressure::NodalMatrixType LLpC =
             thermal_strain);
 
         JUu.noalias() += BuT * C * Bu * w;
-
     }
 
     JGpG.noalias() = MGpG / dt + LGpG;
 
 #ifdef DEBUG_TH2M
-        std::cout << " JGpG:\n" << "\n";
-        std::cout << JGpG << "\n";
+    std::cout << " JGpG:\n"
+              << "\n";
+    std::cout << JGpG << "\n";
 #endif
 
     JGpC.noalias() = -MGpC / dt;
@@ -781,13 +700,13 @@ typename ShapeMatricesTypePressure::NodalMatrixType LLpC =
     JUpG.noalias() = -KUpG;
     JUpC.noalias() = -KUpC;
 
-    rG.noalias() = -1*(MGpG * pGR_dot - MGpC * pCap_dot - MGT * T_dot +
-                   MGu * u_dot + LGpG * pGR - fG);
-    rL.noalias() = -1*(MLpG * pGR_dot - MLpC * pCap_dot - MLT * T_dot +
-                   MLu * u_dot + LLpG * pGR - LLpC * pCap - fL);
-    rT.noalias() = -1*(-MTpG * pGR_dot + MTpC * pCap_dot + MTT * T_dot +
-                   (ATT + LTT) * T - ATpG * pGR + ATpC * pCap + fT);
-    rU.noalias() = -1*(fU - KUpG * pGR + KUpC * pCap);
+    rG.noalias() = -1 * (MGpG * pGR_dot - MGpC * pCap_dot - MGT * T_dot +
+                         MGu * u_dot + LGpG * pGR - fG);
+    rL.noalias() = -1 * (MLpG * pGR_dot - MLpC * pCap_dot - MLT * T_dot +
+                         MLu * u_dot + LLpG * pGR - LLpC * pCap - fL);
+    rT.noalias() = -1 * (-MTpG * pGR_dot + MTpC * pCap_dot + MTT * T_dot +
+                         (ATT + LTT) * T - ATpG * pGR + ATpC * pCap + fT);
+    rU.noalias() = -1 * (fU - KUpG * pGR + KUpC * pCap);
 
 #ifdef DEBUG_TH2M
     std::cout << "--------------------------\n";
@@ -795,7 +714,6 @@ typename ShapeMatricesTypePressure::NodalMatrixType LLpC =
     std::cout << "--------------------------\n";
     std::cout << local_rhs << "\n";
 #endif
-
 }
 
 template <typename ShapeFunctionDisplacement, typename ShapeFunctionPressure,
@@ -918,7 +836,7 @@ TH2MLocalAssembler<ShapeFunctionDisplacement, ShapeFunctionPressure,
 
     auto const& medium = *_process_data.media_map->getMedium(_element.getID());
     auto const& liquid_phase = medium.phase("AqueousLiquid");
-    
+
     MPL::VariableArray vars;
 
     for (unsigned ip = 0; ip < n_integration_points; ip++)
@@ -1015,7 +933,7 @@ void TH2MLocalAssembler<ShapeFunctionDisplacement, ShapeFunctionPressure,
 
         double const T0 = _process_data.reference_temperature(t, pos)[0];
 
-        double const T_int_pt = N_T * T;
+        double const T_int_pt = N_T.dot(T);
         vars[static_cast<int>(MPL::Variable::temperature)] = T_int_pt;
         vars[static_cast<int>(MPL::Variable::gas_phase_pressure)] = N_p * pGR;
         vars[static_cast<int>(MPL::Variable::capillary_pressure)] = N_p * pCap;
