@@ -548,6 +548,51 @@ void TH2MLocalAssembler<ShapeFunctionDisplacement, ShapeFunctionPressure,
         auto const phi_S = 1. - phi;
 
 #ifdef DEBUG_TH2M
+        std::cout << "######################################################\n";
+        std::cout << "#    Material properties:\n";
+        std::cout << "#----------------------------------------------------#\n";
+        std::cout << "#         rho_GR:  " << rho_GR << "\n";
+        std::cout << "#         rho_LR:  " << rho_LR << "\n";
+        std::cout << "#         rho_SR:  " << rho_SR << "\n";
+        std::cout << "#            rho:  " << rho << "\n";
+        std::cout << "#----------------------------------------------------#\n";
+        std::cout << "#          c_p_G:  " << c_p_G << "\n";
+        std::cout << "#          c_p_L:  " << c_p_L << "\n";
+        std::cout << "#          c_p_S:  " << c_p_S << "\n";
+        std::cout << "#        rho_c_p:  " << rho_c_p << "\n";
+        std::cout << "#----------------------------------------------------#\n";
+        std::cout << "#      beta_p_GR:  " << beta_p_GR << "\n";
+        std::cout << "#      beta_p_LR:  " << beta_p_LR << "\n";
+        std::cout << "#      beta_p_SR:  " << beta_p_SR << "\n";
+        std::cout << "#      beta_T_GR:  " << beta_T_GR << "\n";
+        std::cout << "#      beta_T_LR:  " << beta_T_LR << "\n";
+        std::cout << "#      beta_T_SR:  " << beta_T_SR << "\n";
+        std::cout << "#----------------------------------------------------#\n";
+        std::cout << "#            k_S:\n" << k_S << "\n";
+        std::cout << "#----------------------------------------------------#\n";
+        std::cout << "#        k_rel_L:  " << k_rel_L << "\n";
+        std::cout << "#        k_rel_G:  " << k_rel_G << "\n";
+        std::cout << "#          mu_GR:  " << mu_GR << "\n";
+        std::cout << "#          mu_LR:  " << mu_LR << "\n";
+        std::cout << "#    k_over_mu_G:  " << k_over_mu_G << "\n";
+        std::cout << "#    k_over_mu_L:  " << k_over_mu_L << "\n";
+        std::cout << "#----------------------------------------------------#\n";
+        std::cout << "#            s_L:  " << s_L << "\n";
+        std::cout << "#            s_G:  " << s_G << "\n";
+        std::cout << "#         dsLdPc:  " << dsLdPc << "\n";
+        std::cout << "#----------------------------------------------------#\n";
+        std::cout << "#        alpha_B:  " << alpha_B << "\n";
+        std::cout << "#----------------------------------------------------#\n";
+        std::cout << "#         lambda:\n" << lambda << "\n";
+        std::cout << "#----------------------------------------------------#\n";
+        std::cout << "#            phi:  " << phi << "\n";
+        std::cout << "#          phi_G:  " << phi_G << "\n";
+        std::cout << "#          phi_L:  " << phi_L << "\n";
+        std::cout << "#          phi_S:  " << phi_S << "\n";
+        std::cout << "######################################################\n";
+#endif
+
+#ifdef DEBUG_TH2M
         std::cout << " assemble sub-matrices: \n";
 #endif
 
