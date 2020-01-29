@@ -755,6 +755,60 @@ void TH2MLocalAssembler<ShapeFunctionDisplacement, ShapeFunctionPressure,
                          (ATT + LTT) * T - ATpG * pGR + ATpC * pCap + fT);
     rU.noalias() = -1 * (fU - KUpG * pGR + KUpC * pCap);
 
+#define nWRITE_MATRICES
+#ifdef WRITE_MATRICES
+    std::cout << "--------------------------\n";
+    std::cout << " MGpG \n" << MGpG << "\n";
+    std::cout << "--------------------------\n";
+    std::cout << " MGpC \n" << MGpC << "\n";
+    std::cout << "--------------------------\n";
+    std::cout << " MGT \n" << MGT << "\n";
+    std::cout << "--------------------------\n";
+    std::cout << " MGu \n" << MGu << "\n";
+    std::cout << "--------------------------\n";
+    std::cout << " LGpG \n" << LGpG << "\n";
+    std::cout << "--------------------------\n";
+    std::cout << " MLpG \n" << MLpG << "\n";
+    std::cout << "--------------------------\n";
+    std::cout << " MLpC \n" << MLpC << "\n";
+    std::cout << "--------------------------\n";
+    std::cout << " MLT \n" << MLT << "\n";
+    std::cout << "--------------------------\n";
+    std::cout << " MLu \n" << MLu << "\n";
+    std::cout << "--------------------------\n";
+    std::cout << " LLpG \n" << LLpG << "\n";
+    std::cout << "--------------------------\n";
+    std::cout << " LLpC \n" << LLpC << "\n";
+    std::cout << "--------------------------\n";
+    std::cout << " MTpG \n" << MTpG << "\n";
+    std::cout << "--------------------------\n";
+    std::cout << " MTpC \n" << MTpC << "\n";
+    std::cout << "--------------------------\n";
+    std::cout << " MTT \n" << MTT << "\n";
+    std::cout << "--------------------------\n";
+    std::cout << " ATT \n" << ATT << "\n";
+    std::cout << "--------------------------\n";
+    std::cout << " LTT \n" << LTT << "\n";
+    std::cout << "--------------------------\n";
+    std::cout << " ATpG \n" << ATpG << "\n";
+    std::cout << "--------------------------\n";
+    std::cout << " ATpC \n" << ATpC << "\n";
+    std::cout << "--------------------------\n";
+    std::cout << " KUpG \n" << KUpG << "\n";
+    std::cout << "--------------------------\n";
+    std::cout << " KUpC \n" << KUpC << "\n";
+    std::cout << "--------------------------\n";
+    std::cout << " fG \n" << fG << "\n";
+    std::cout << "--------------------------\n";
+    std::cout << " fL \n" << fL << "\n";
+    std::cout << "--------------------------\n";
+    std::cout << " fT \n" << fT << "\n";
+    std::cout << "--------------------------\n";
+    std::cout << " fU \n" << fU << "\n";
+    std::cout << "--------------------------\n";
+    OGS_FATAL("#######");
+#endif
+
 #ifdef DEBUG_TH2M
     std::cout << "--------------------------\n";
     std::cout << local_Jac << "\n";
