@@ -307,6 +307,12 @@ void TH2MProcess<DisplacementDim>::initializeConcreteProcess(
             mesh.getDimension(), getExtrapolator(), _local_assemblers,
             &LocalAssemblerInterface::getIntPtDarcyVelocityLiquid));
 
+    _secondary_variables.addSecondaryVariable(
+        "liquid_pressure",
+        makeExtrapolator(
+            1, getExtrapolator(), _local_assemblers,
+            &LocalAssemblerInterface::getIntPtLiquidPressure));
+
     _process_data.gas_pressure_interpolated =
         MeshLib::getOrCreateMeshProperty<double>(
             const_cast<MeshLib::Mesh&>(mesh), "gas_pressure_interpolated",

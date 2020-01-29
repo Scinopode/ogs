@@ -246,6 +246,16 @@ private:
         return cache;
     }
 
+    virtual std::vector<double> const& getIntPtLiquidPressure(
+        const double /*t*/,
+        std::vector<GlobalVector*> const& /*x*/,
+        std::vector<NumLib::LocalToGlobalIndexMap const*> const& /*dof_table*/,
+        std::vector<double>& /*cache*/) const override
+    {
+        assert(!_liquid_pressure.empty());
+        return _liquid_pressure;
+    }
+
 private:
     TH2MProcessData<DisplacementDim>& _process_data;
 
@@ -263,6 +273,8 @@ private:
     SecondaryData<
         typename ShapeMatricesTypeDisplacement::ShapeMatrices::ShapeType>
         _secondary_data;
+
+    std::vector<double> _liquid_pressure;
 
     // The shape function of pressure has the same form with the shape function
     // of temperature
