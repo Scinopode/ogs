@@ -44,7 +44,14 @@ TH2MLocalAssembler<ShapeFunctionDisplacement, ShapeFunctionPressure,
       _integration_method(integration_order),
       _element(e),
       _is_axially_symmetric(is_axially_symmetric),
-      _liquid_pressure(std::vector<double>(_integration_method.getNumberOfPoints()))
+      _liquid_pressure(
+          std::vector<double>(_integration_method.getNumberOfPoints())),
+      _liquid_density(
+          std::vector<double>(_integration_method.getNumberOfPoints())),
+      _gas_density(
+          std::vector<double>(_integration_method.getNumberOfPoints())),
+      _porosity(std::vector<double>(_integration_method.getNumberOfPoints())),
+      _saturation(std::vector<double>(_integration_method.getNumberOfPoints()))
 {
     unsigned const n_integration_points =
         _integration_method.getNumberOfPoints();
@@ -400,7 +407,6 @@ void TH2MLocalAssembler<ShapeFunctionDisplacement, ShapeFunctionPressure,
         auto const pGR_int_pt = Np.dot(pGR);
         auto const pCap_int_pt = Np.dot(pCap);
         auto const pLR_int_pt = pGR_int_pt - pCap_int_pt;
-        _liquid_pressure[ip] = pLR_int_pt;
 
 #ifdef DEBUG_TH2M
         std::cout << "-----------------\n";
@@ -548,6 +554,13 @@ void TH2MLocalAssembler<ShapeFunctionDisplacement, ShapeFunctionPressure,
         auto const phi_G = s_G * phi;
         auto const phi_L = s_L * phi;
         auto const phi_S = 1. - phi;
+
+        // update secondary variables. TODO: Refactoring potential!!
+        _liquid_pressure[ip] = pLR_int_pt;
+        _liquid_density[ip] = rho_LR;
+        _gas_density[ip] = rho_GR;
+        _porosity[ip] = phi;
+        _saturation[ip] = s_L;
 
 #ifdef DEBUG_TH2M
         std::cout << "######################################################\n";
