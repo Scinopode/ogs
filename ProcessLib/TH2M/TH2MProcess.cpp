@@ -281,37 +281,39 @@ void TH2MProcess<DisplacementDim>::initializeConcreteProcess(
         _local_assemblers, mesh.isAxiallySymmetric(), integration_order,
         _process_data);
 
-    _secondary_variables.addSecondaryVariable(
-        "sigma",
-        makeExtrapolator(MathLib::KelvinVector::KelvinVectorType<
-                             DisplacementDim>::RowsAtCompileTime,
-                         getExtrapolator(), _local_assemblers,
-                         &LocalAssemblerInterface::getIntPtSigma));
+    auto add_secondary_variable = [&](std::string const& name,
+                                      int const num_components,
+                                      auto get_ip_values_function) {
+        _secondary_variables.addSecondaryVariable(
+            name,
+            makeExtrapolator(num_components, getExtrapolator(),
+                             _local_assemblers,
+                             std::move(get_ip_values_function)));
+    };
 
-    _secondary_variables.addSecondaryVariable(
-        "epsilon",
-        makeExtrapolator(MathLib::KelvinVector::KelvinVectorType<
-                             DisplacementDim>::RowsAtCompileTime,
-                         getExtrapolator(), _local_assemblers,
-                         &LocalAssemblerInterface::getIntPtEpsilon));
-
-    _secondary_variables.addSecondaryVariable(
-        "velocity_gas",
-        makeExtrapolator(mesh.getDimension(), getExtrapolator(),
-                         _local_assemblers,
-                         &LocalAssemblerInterface::getIntPtDarcyVelocityGas));
-
-    _secondary_variables.addSecondaryVariable(
-        "velocity_liquid",
-        makeExtrapolator(
-            mesh.getDimension(), getExtrapolator(), _local_assemblers,
-            &LocalAssemblerInterface::getIntPtDarcyVelocityLiquid));
-
-    _secondary_variables.addSecondaryVariable(
-        "liquid_pressure",
-        makeExtrapolator(
-            1, getExtrapolator(), _local_assemblers,
-            &LocalAssemblerInterface::getIntPtLiquidPressure));
+    add_secondary_variable("sigma",
+                           MathLib::KelvinVector::KelvinVectorType<
+                               DisplacementDim>::RowsAtCompileTime,
+                           &LocalAssemblerInterface::getIntPtSigma);
+    add_secondary_variable("epsilon",
+                           MathLib::KelvinVector::KelvinVectorType<
+                               DisplacementDim>::RowsAtCompileTime,
+                           &LocalAssemblerInterface::getIntPtEpsilon);
+    add_secondary_variable("velocity_gas", mesh.getDimension(),
+                           &LocalAssemblerInterface::getIntPtDarcyVelocityGas);
+    add_secondary_variable(
+        "velocity_liquid", mesh.getDimension(),
+        &LocalAssemblerInterface::getIntPtDarcyVelocityLiquid);
+    add_secondary_variable("saturation", 1,
+                           &LocalAssemblerInterface::getIntPtSaturation);
+    add_secondary_variable("porosity", 1,
+                           &LocalAssemblerInterface::getIntPtPorosity);
+    add_secondary_variable("gas_density", 1,
+                           &LocalAssemblerInterface::getIntPtGasDensity);
+    add_secondary_variable("liquid_density", 1,
+                           &LocalAssemblerInterface::getIntPtLiquidDensity);
+    add_secondary_variable("liquid_pressure", 1,
+                           &LocalAssemblerInterface::getIntPtLiquidPressure);
 
     _process_data.gas_pressure_interpolated =
         MeshLib::getOrCreateMeshProperty<double>(

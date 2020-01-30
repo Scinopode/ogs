@@ -246,6 +246,10 @@ private:
         return cache;
     }
 
+    // TODO: Here is some refactoring potential. All secondary variables could
+    // be stored in some container to avoid defining one method for each
+    // variable.
+
     virtual std::vector<double> const& getIntPtLiquidPressure(
         const double /*t*/,
         std::vector<GlobalVector*> const& /*x*/,
@@ -254,6 +258,46 @@ private:
     {
         assert(!_liquid_pressure.empty());
         return _liquid_pressure;
+    }
+
+    virtual std::vector<double> const& getIntPtLiquidDensity(
+        const double /*t*/,
+        std::vector<GlobalVector*> const& /*x*/,
+        std::vector<NumLib::LocalToGlobalIndexMap const*> const& /*dof_table*/,
+        std::vector<double>& /*cache*/) const override
+    {
+        assert(!_liquid_density.empty());
+        return _liquid_density;
+    }
+
+    virtual std::vector<double> const& getIntPtGasDensity(
+        const double /*t*/,
+        std::vector<GlobalVector*> const& /*x*/,
+        std::vector<NumLib::LocalToGlobalIndexMap const*> const& /*dof_table*/,
+        std::vector<double>& /*cache*/) const override
+    {
+        assert(!_gas_density.empty());
+        return _gas_density;
+    }
+
+    virtual std::vector<double> const& getIntPtPorosity(
+        const double /*t*/,
+        std::vector<GlobalVector*> const& /*x*/,
+        std::vector<NumLib::LocalToGlobalIndexMap const*> const& /*dof_table*/,
+        std::vector<double>& /*cache*/) const override
+    {
+        assert(!_porosity.empty());
+        return _porosity;
+    }
+
+    virtual std::vector<double> const& getIntPtSaturation(
+        const double /*t*/,
+        std::vector<GlobalVector*> const& /*x*/,
+        std::vector<NumLib::LocalToGlobalIndexMap const*> const& /*dof_table*/,
+        std::vector<double>& /*cache*/) const override
+    {
+        assert(!_saturation.empty());
+        return _saturation;
     }
 
 private:
@@ -275,6 +319,10 @@ private:
         _secondary_data;
 
     std::vector<double> _liquid_pressure;
+    std::vector<double> _liquid_density;
+    std::vector<double> _gas_density;
+    std::vector<double> _porosity;
+    std::vector<double> _saturation;
 
     // The shape function of pressure has the same form with the shape function
     // of temperature
