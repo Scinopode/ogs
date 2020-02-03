@@ -1,0 +1,16 @@
+<?xml version="1.0"?>
+<VTKFile type="Collection" version="0.1" byte_order="LittleEndian" compressor="vtkZLibDataCompressor">
+  <Collection>
+    <DataSet timestep="0" group="" part="0" file="th2m_mcworther_pcs_0_ts_0_t_0.000000.vtu"/>
+    <DataSet timestep="0.5" group="" part="0" file="th2m_mcworther_pcs_0_ts_1_t_0.500000.vtu"/>
+    <DataSet timestep="1" group="" part="0" file="th2m_mcworther_pcs_0_ts_2_t_1.000000.vtu"/>
+    <DataSet timestep="1.5" group="" part="0" file="th2m_mcworther_pcs_0_ts_3_t_1.500000.vtu"/>
+    <DataSet timestep="2" group="" part="0" file="th2m_mcworther_pcs_0_ts_4_t_2.000000.vtu"/>
+    <DataSet timestep="2.5" group="" part="0" file="th2m_mcworther_pcs_0_ts_5_t_2.500000.vtu"/>
+    <DataSet timestep="3" group="" part="0" file="th2m_mcworther_pcs_0_ts_6_t_3.000000.vtu"/>
+    <DataSet timestep="3.5" group="" part="0" file="th2m_mcworther_pcs_0_ts_7_t_3.500000.vtu"/>
+    <DataSet timestep="4" group="" part="0" file="th2m_mcworther_pcs_0_ts_8_t_4.000000.vtu"/>
+    <DataSet timestep="4.5" group="" part="0" file="th2m_mcworther_pcs_0_ts_9_t_4.500000.vtu"/>
+    <DataSet timestep="5" group="" part="0" file="th2m_mcworther_pcs_0_ts_10_t_5.000000.vtu"/>
+  </Collection>
+</VTKFile>
