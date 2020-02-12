@@ -706,18 +706,6 @@ void TH2MLocalAssembler<ShapeFunctionDisplacement, ShapeFunctionPressure,
             (gradNT.transpose() * (beta_T_GR * w_GS + beta_T_LR * w_LS) * NT) *
             w;
 
-        std::cout << "------------------------------------------------------\n";
-        std::cout << "K_over_mu :\n" << k_over_mu_G << "\n";
-        std::cout << "fluid_density   :" << rho_GR << "\n";
-        std::cout << "c_f  :" << c_f << "\n";
-        std::cout << "w :" << w << "\n";
-        std::cout << "N_T:\n" << N_T << "\n";
-        std::cout << "dNdx_T:\n" << dNdx_T << "\n";
-        std::cout << "dNdx_p:\n" << dNdx_p << "\n";
-        std::cout << "------------------------------------------------------\n";
-
-        OGS_FATAL("");    
-
         ATpC.noalias() += (gradNT.transpose() * beta_T_LR * w_LS * NT) * w;
 
         // ATT.noalias() += (NTT *
