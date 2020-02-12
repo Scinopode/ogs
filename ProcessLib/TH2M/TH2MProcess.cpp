@@ -44,7 +44,7 @@ void checkMPLProperties(MeshLib::Mesh const& mesh,
         MaterialPropertyLib::PropertyType::density,
         MaterialPropertyLib::PropertyType::thermal_expansivity};
 
-    DBUG("Check the media properties of HT process ...");
+    DBUG("Check the media properties of TH2M process ...");
     for (auto const& element : mesh.getElements())
     {
         auto const element_id = element->getID();
@@ -493,7 +493,7 @@ void TH2MProcess<DisplacementDim>::postNonLinearSolverConcreteProcess(
         return;
     }
 
-    DBUG("PostNonLinearSolver HydroMechanicsProcess.");
+    DBUG("PostNonLinearSolver TH2MProcess.");
     // Calculate strain, stress or other internal variables of mechanics.
     GlobalExecutor::executeMemberOnDereferenced(
         &LocalAssemblerInterface::postNonLinearSolver, _local_assemblers,
@@ -504,7 +504,7 @@ template <int DisplacementDim>
 void TH2MProcess<DisplacementDim>::computeSecondaryVariableConcrete(
     const double t, GlobalVector const& x, const int process_id)
 {
-    DBUG("Compute the secondary variables for HydroMechanicsProcess.");
+    DBUG("Compute the secondary variables for TH2MProcess.");
     GlobalExecutor::executeMemberOnDereferenced(
         &LocalAssemblerInterface::computeSecondaryVariable, _local_assemblers,
         getDOFTable(process_id), t, x, _coupled_solutions);
