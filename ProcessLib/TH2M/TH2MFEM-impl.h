@@ -10,7 +10,9 @@
 
 #pragma once
 
+#include <iomanip>
 #include <iostream>
+
 #include "TH2MFEM.h"
 
 #include "MaterialLib/SolidModels/SelectSolidConstitutiveRelation.h"
@@ -465,8 +467,8 @@ void TH2MLocalAssembler<ShapeFunctionDisplacement, ShapeFunctionPressure,
             solid_phase.property(MPL::PropertyType::thermal_expansivity)
                 .template value<double>(vars, pos, t);
 
-        auto const rho_SR = solid_phase.property(MPL::PropertyType::density)
-                                .template value<double>(vars, pos, t);
+        auto const rho_SR_0 = solid_phase.property(MPL::PropertyType::density)
+                                  .template value<double>(vars, pos, t);
 
         auto const c_p_S =
             solid_phase.property(MPL::PropertyType::specific_heat_capacity)
@@ -538,11 +540,8 @@ void TH2MLocalAssembler<ShapeFunctionDisplacement, ShapeFunctionPressure,
 
         auto const& b = _process_data.specific_body_force;
 
-        auto const rho = rho_GR + rho_LR + rho_SR;
-        auto const rho_c_p = rho_GR * c_p_G + rho_LR * c_p_L + rho_SR * c_p_S;
-
         auto const lambda = MPL::formEigenTensor<DisplacementDim>(
-            medium.property(MPL::PropertyType::specific_heat_capacity)
+            medium.property(MPL::PropertyType::thermal_conductivity)
                 .template value<double>(vars, pos, t));
 
         auto const k_over_mu_G = k_S * k_rel_G / mu_GR;
@@ -554,6 +553,16 @@ void TH2MLocalAssembler<ShapeFunctionDisplacement, ShapeFunctionPressure,
         auto const phi_G = s_G * phi;
         auto const phi_L = s_L * phi;
         auto const phi_S = 1. - phi;
+
+        // TODO (Wenqing) : Change dT to time step wise increment
+        double const delta_T(T_int_pt - T0);
+        double const thermal_strain = beta_T_SR * delta_T;
+        auto const rho_SR = rho_SR_0 * (1 - 3 * thermal_strain);
+
+        auto const rho = rho_GR + rho_LR + rho_SR;
+        // TODO: change back to rho_SR
+        auto const rho_c_p = phi_G * rho_GR * c_p_G + phi_L * rho_LR * c_p_L +
+                             phi_S * rho_SR_0 * c_p_S;
 
         // update secondary variables. TODO: Refactoring potential!!
         _liquid_pressure[ip] = pLR_int_pt;
@@ -629,6 +638,10 @@ void TH2MLocalAssembler<ShapeFunctionDisplacement, ShapeFunctionPressure,
         MGu.noalias() += (NpT * mT * Bu).eval() * s_G * alpha_B * w;
 
         LGpG.noalias() += (gradNpT * k_over_mu_G * gradNp) * w;
+
+        // std::cout << " gradNpT:\n" << gradNpT << "\n";
+        // std::cout << " k_over_mu_G:\n" << k_over_mu_G << "\n";
+        // OGS_FATAL("TH2M");
         fG.noalias() += (gradNpT * rho_GR * k_over_mu_G * b) * w;
 
         //  - liquid pressure equation
@@ -650,8 +663,14 @@ void TH2MLocalAssembler<ShapeFunctionDisplacement, ShapeFunctionPressure,
         fL.noalias() += (gradNpT * rho_LR * k_over_mu_L * b) * w;
 
         // darcy-velocities
-        auto const w_GS = -k_over_mu_G * (gradNp * pGR - rho_GR * b);
+        //        auto const w_GS = -(k_over_mu_G * (gradNp * pGR - rho_GR *
+        //        b)).eval(); auto const w_GS = -(k_over_mu_G * (gradNp *
+        //        pGR)).eval(); auto const w_GS = -(k_over_mu_G * (gradNp *
+        //        pGR).eval()).eval();
+        auto const w_GS = (k_over_mu_G * rho_GR * b).eval() -
+                          (k_over_mu_G * gradNp * pGR).eval();
 
+        // TODO: this won't work!
         auto const w_LS =
             -k_over_mu_L * (gradNp * pGR - gradNp * pCap - rho_GR * b);
 
@@ -676,19 +695,44 @@ void TH2MLocalAssembler<ShapeFunctionDisplacement, ShapeFunctionPressure,
              NT) *
             w;
         MTT.noalias() += (NTT * rho_c_p * NT) * w;
+
+        // ATpG.noalias() +=
+        //     (NTT *
+        //      (beta_T_GR * w_GS.transpose() + beta_T_LR * w_LS.transpose()) *
+        //      gradNT) *
+        //     w;
+
         ATpG.noalias() +=
-            (NTT *
-             (beta_T_GR * w_GS.transpose() + beta_T_LR * w_LS.transpose()) *
-             gradNT) *
+            (gradNT.transpose() * (beta_T_GR * w_GS + beta_T_LR * w_LS) * NT) *
             w;
-        ATpC.noalias() += (NTT * beta_T_LR * w_LS.transpose() * gradNT) * w;
-        ATT.noalias() += (NTT *
-                          (rho_LR * c_p_L * w_LS.transpose() +
-                           rho_GR * c_p_G * w_GS.transpose()) *
-                          gradNT) *
-                         w;
+
+        std::cout << "------------------------------------------------------\n";
+        std::cout << "K_over_mu :\n" << k_over_mu_G << "\n";
+        std::cout << "fluid_density   :" << rho_GR << "\n";
+        std::cout << "c_f  :" << c_f << "\n";
+        std::cout << "w :" << w << "\n";
+        std::cout << "N_T:\n" << N_T << "\n";
+        std::cout << "dNdx_T:\n" << dNdx_T << "\n";
+        std::cout << "dNdx_p:\n" << dNdx_p << "\n";
+        std::cout << "------------------------------------------------------\n";
+
+        OGS_FATAL("");    
+
+        ATpC.noalias() += (gradNT.transpose() * beta_T_LR * w_LS * NT) * w;
+
+        // ATT.noalias() += (NTT *
+        //                   (rho_LR * c_p_L * w_LS.transpose() +
+        //                    rho_GR * c_p_G * w_GS.transpose()) *
+        //                   gradNT) *
+        //                  w;
+
+        ATT.noalias() +=
+            (gradNT.transpose() *
+             (rho_LR * c_p_L * w_LS + rho_GR * c_p_G * w_GS) * NT) *
+            w;
         LTT.noalias() += (gradNTT * lambda * gradNT) * w;
 
+        
         //  - displacement equation
         KUpG.noalias() += (BuT * alpha_B * m * Np) * w;
         KUpC.noalias() += (BuT * alpha_B * s_L * m * Np) * w;
@@ -718,13 +762,6 @@ void TH2MLocalAssembler<ShapeFunctionDisplacement, ShapeFunctionPressure,
         OGS_FATAL("_______________________");
 
 #endif
-
-        fU.noalias() +=
-            (BuT * sigma_eff - Nu_op.transpose() * rho * b).eval() * w;
-
-        // TODO (Wenqing) : Change dT to time step wise increment
-        double const delta_T(T_int_pt - T0);
-        double const thermal_strain = beta_T_SR * delta_T;
         //
         // displacement equation, displacement part
         //
@@ -733,17 +770,13 @@ void TH2MLocalAssembler<ShapeFunctionDisplacement, ShapeFunctionPressure,
             t, pos, dt, u, _process_data.reference_temperature(t, pos)[0],
             thermal_strain);
 
+        fU.noalias() +=
+            (BuT * sigma_eff - Nu_op.transpose() * rho * b).eval() * w;
+
         JUu.noalias() += BuT * C * Bu * w;
     }
 
     JGpG.noalias() = MGpG / dt + LGpG;
-
-#ifdef DEBUG_TH2M
-    std::cout << " JGpG:\n"
-              << "\n";
-    std::cout << JGpG << "\n";
-#endif
-
     JGpC.noalias() = -MGpC / dt;
     JGT.noalias() = -MGT / dt;
     JGu.noalias() = MGu / dt;
@@ -760,73 +793,131 @@ void TH2MLocalAssembler<ShapeFunctionDisplacement, ShapeFunctionPressure,
     JUpG.noalias() = -KUpG;
     JUpC.noalias() = -KUpC;
 
-    rG.noalias() = -1 * (MGpG * pGR_dot - MGpC * pCap_dot - MGT * T_dot +
-                         MGu * u_dot + LGpG * pGR - fG);
-    rL.noalias() = -1 * (MLpG * pGR_dot - MLpC * pCap_dot - MLT * T_dot +
+    // rG.noalias() = -1 * (MGpG * pGR_dot - MGpC * pCap_dot - MGT * T_dot +
+    //                      MGu * u_dot + LGpG * pGR - fG);
+    // rL.noalias() = -1 * (MLpG * pGR_dot - MLpC * pCap_dot - MLT * T_dot +
+    //                      MLu * u_dot + LLpG * pGR - LLpC * pCap - fL);
+    // rT.noalias() = -1 * (-MTpG * pGR_dot + MTpC * pCap_dot + MTT * T_dot +
+    //                      (ATT + LTT) * T - ATpG * pGR + ATpC * pCap + fT);
+    // rU.noalias() = -1 * (fU - KUpG * pGR + KUpC * pCap);
+
+    rG.noalias() =
+        -1 * (MGpG * pGR_dot - MGT * T_dot + MGu * u_dot + LGpG * pGR - fG);
+
+    std::cout << std::setprecision(16);
+    // std::cout << "--------------------------\n";
+    // std::cout << " MGpG:\n" <<  MGpG << "\n";
+    // std::cout << " MGT:\n" << MGT << "\n";
+    // std::cout << " MGu:\n" << MGu  << "\n";
+    // std::cout << " LGpG:\n" <<  LGpG << "\n";
+    // std::cout << " fG:\n" << fG << "\n";
+    // std::cout << "--------------------------\n";
+    // std::cout << " pGR_dot:\n" << pGR_dot << "\n";
+    // std::cout << " T_dot:\n" << T_dot << "\n";
+    // std::cout << " u_dot:\n" << u_dot << "\n";
+    // std::cout << " pGR :\n" << pGR  << "\n";
+
+    // OGS_FATAL("Stop for Gas Pressure Residuum.");
+
+    rL.noalias() = 0. * (MLpG * pGR_dot - MLpC * pCap_dot - MLT * T_dot +
                          MLu * u_dot + LLpG * pGR - LLpC * pCap - fL);
-    rT.noalias() = -1 * (-MTpG * pGR_dot + MTpC * pCap_dot + MTT * T_dot +
-                         (ATT + LTT) * T - ATpG * pGR + ATpC * pCap + fT);
-    rU.noalias() = -1 * (fU - KUpG * pGR + KUpC * pCap);
 
-#define nWRITE_MATRICES
-#ifdef WRITE_MATRICES
-    std::cout << "--------------------------\n";
-    std::cout << " MGpG \n" << MGpG << "\n";
-    std::cout << "--------------------------\n";
-    std::cout << " MGpC \n" << MGpC << "\n";
-    std::cout << "--------------------------\n";
-    std::cout << " MGT \n" << MGT << "\n";
-    std::cout << "--------------------------\n";
-    std::cout << " MGu \n" << MGu << "\n";
-    std::cout << "--------------------------\n";
-    std::cout << " LGpG \n" << LGpG << "\n";
-    std::cout << "--------------------------\n";
-    std::cout << " MLpG \n" << MLpG << "\n";
-    std::cout << "--------------------------\n";
-    std::cout << " MLpC \n" << MLpC << "\n";
-    std::cout << "--------------------------\n";
-    std::cout << " MLT \n" << MLT << "\n";
-    std::cout << "--------------------------\n";
-    std::cout << " MLu \n" << MLu << "\n";
-    std::cout << "--------------------------\n";
-    std::cout << " LLpG \n" << LLpG << "\n";
-    std::cout << "--------------------------\n";
-    std::cout << " LLpC \n" << LLpC << "\n";
-    std::cout << "--------------------------\n";
-    std::cout << " MTpG \n" << MTpG << "\n";
-    std::cout << "--------------------------\n";
-    std::cout << " MTpC \n" << MTpC << "\n";
-    std::cout << "--------------------------\n";
-    std::cout << " MTT \n" << MTT << "\n";
-    std::cout << "--------------------------\n";
-    std::cout << " ATT \n" << ATT << "\n";
-    std::cout << "--------------------------\n";
-    std::cout << " LTT \n" << LTT << "\n";
-    std::cout << "--------------------------\n";
-    std::cout << " ATpG \n" << ATpG << "\n";
-    std::cout << "--------------------------\n";
-    std::cout << " ATpC \n" << ATpC << "\n";
-    std::cout << "--------------------------\n";
-    std::cout << " KUpG \n" << KUpG << "\n";
-    std::cout << "--------------------------\n";
-    std::cout << " KUpC \n" << KUpC << "\n";
-    std::cout << "--------------------------\n";
-    std::cout << " fG \n" << fG << "\n";
-    std::cout << "--------------------------\n";
-    std::cout << " fL \n" << fL << "\n";
-    std::cout << "--------------------------\n";
-    std::cout << " fT \n" << fT << "\n";
-    std::cout << "--------------------------\n";
-    std::cout << " fU \n" << fU << "\n";
-    std::cout << "--------------------------\n";
-    OGS_FATAL("#######");
-#endif
+    rT.noalias() = -1 * (-MTpG * pGR_dot + MTT * T_dot + (ATT + LTT) * T -
+                         ATpG * pGR + fT);
+    rU.noalias() = -1 * (fU - KUpG * pGR);
 
-#ifdef DEBUG_TH2M
-    std::cout << "--------------------------\n";
-    std::cout << local_Jac << "\n";
-    std::cout << "--------------------------\n";
-    std::cout << local_rhs << "\n";
+#define JACOBIAN
+#ifdef JACOBIAN
+
+    const auto KTT = ATT + LTT;
+
+    std::cout << "---  storage_p -------------------------------------------\n";
+    for (int i = 0; i < gas_pressure_size; i++)
+    {
+        for (int j = 0; j < gas_pressure_size; j++)
+            std::cout << MGpG(i, j) << " ";
+        std::cout << "\n";
+    }
+
+    std::cout << "---  storage_T -------------------------------------------\n";
+    for (int i = 0; i < gas_pressure_size; i++)
+    {
+        for (int j = 0; j < temperature_size; j++)
+            std::cout << MGT(i, j) << " ";
+        std::cout << "\n";
+    }
+
+    std::cout << "---  MTT -------------------------------------------------\n";
+    for (int i = 0; i < temperature_size; i++)
+    {
+        for (int j = 0; j < temperature_size; j++)
+            std::cout << MTT(i, j) << " ";
+        std::cout << "\n";
+    }
+
+    std::cout << "---  KTT -------------------------------------------------\n";
+    for (int i = 0; i < temperature_size; i++)
+    {
+        for (int j = 0; j < temperature_size; j++)
+            std::cout << KTT(i, j) << " ";
+        std::cout << "\n";
+    }
+
+    std::cout << "---  Kup -------------------------------------------------\n";
+    for (int i = 0; i < displacement_size; i++)
+    {
+        for (int j = 0; j < gas_pressure_size; j++)
+            std::cout << KUpG(i, j) << " ";
+        std::cout << "\n";
+    }
+
+    std::cout << "---  KTp -------------------------------------------------\n";
+    for (int i = 0; i < temperature_size; i++)
+    {
+        for (int j = 0; j < gas_pressure_size; j++)
+            std::cout << ATpG(i, j) << " ";
+        std::cout << "\n";
+    }
+
+    std::cout
+        << "---  Laplace_p -------------------------------------------------\n";
+    for (int i = 0; i < gas_pressure_size; i++)
+    {
+        for (int j = 0; j < gas_pressure_size; j++)
+            std::cout << LGpG(i, j) << " ";
+        std::cout << "\n";
+    }
+
+    std::cout << "----------------------------------------------------------\n";
+    std::cout << "gas_pressure_index: " << gas_pressure_index << "\n";
+    std::cout << "gas_pressure_size: " << gas_pressure_size << "\n";
+    std::cout << "capillary_pressure_index: " << capillary_pressure_index
+              << "\n";
+    std::cout << "capillary_pressure_size: " << capillary_pressure_size << "\n";
+    std::cout << "temperature_index: " << temperature_index << "\n";
+    std::cout << "temperature_size: " << temperature_size << "\n";
+    std::cout << "displacement_index: " << displacement_index << "\n";
+    std::cout << "displacement_size: " << displacement_size << "\n";
+    std::cout << "----------------------------------------------------------\n";
+
+    for (int i = 0; i < matrix_size; i++)
+        std::cout << local_rhs[i] << "\n";
+
+    std::cout << "++++++++++++++++++++++++++++++++++++++++++++++++++++++++++\n";
+
+    for (int i = 0; i < matrix_size; i++)
+    {
+        for (int j = 0; j < matrix_size; j++)
+        {
+            std::cout << local_Jac(i, j) << " ";
+        }
+        std::cout << "\n";
+    }
+
+    std::cout << "---------------------------------------------------------\n";
+
+    OGS_FATAL("STOP IT!");
+
 #endif
 }
 
@@ -994,10 +1085,6 @@ void TH2MLocalAssembler<ShapeFunctionDisplacement, ShapeFunctionPressure,
                                 double const t, double const dt,
                                 bool const use_monolithic_scheme)
 {
-    DBUG(
-        "Warning(TODO): postNonLinearSolverConcrete is not fully "
-        "configurated for TH2M!");
-
     const int displacement_offset =
         use_monolithic_scheme ? displacement_index : 0;
 
@@ -1021,7 +1108,10 @@ void TH2MLocalAssembler<ShapeFunctionDisplacement, ShapeFunctionPressure,
 
     ParameterLib::SpatialPosition pos;
     pos.setElementID(_element.getID());
+
     auto const& medium = *_process_data.media_map->getMedium(_element.getID());
+    auto const& liquid_phase = medium.phase("AqueousLiquid");
+    auto const& gas_phase = medium.phase("Gas");
     auto const& solid_phase = medium.phase("Solid");
 
     MPL::VariableArray vars;
@@ -1030,27 +1120,30 @@ void TH2MLocalAssembler<ShapeFunctionDisplacement, ShapeFunctionPressure,
     for (int ip = 0; ip < n_integration_points; ip++)
     {
         pos.setIntegrationPoint(ip);
-        auto const& N_u = _ip_data[ip].N_u;
-        auto const& N_p = _ip_data[ip].N_p;
-        auto const& N_T = N_p;
+        auto const& Nu = _ip_data[ip].N_u;
+        auto const& Np = _ip_data[ip].N_p;
+        auto const& NT = Np;
         auto const& dNdx_u = _ip_data[ip].dNdx_u;
 
         auto const x_coord =
             interpolateXCoordinate<ShapeFunctionDisplacement,
-                                   ShapeMatricesTypeDisplacement>(_element,
-                                                                  N_u);
+                                   ShapeMatricesTypeDisplacement>(_element, Nu);
         auto const B =
             LinearBMatrix::computeBMatrix<DisplacementDim,
                                           ShapeFunctionDisplacement::NPOINTS,
                                           typename BMatricesType::BMatrixType>(
-                dNdx_u, N_u, x_coord, _is_axially_symmetric);
+                dNdx_u, Nu, x_coord, _is_axially_symmetric);
 
         double const T0 = _process_data.reference_temperature(t, pos)[0];
 
-        double const T_int_pt = N_T.dot(T);
+        auto const T_int_pt = NT.dot(T);
+        auto const pGR_int_pt = Np.dot(pGR);
+        auto const pCap_int_pt = Np.dot(pCap);
+        auto const pLR_int_pt = pGR_int_pt - pCap_int_pt;
+
         vars[static_cast<int>(MPL::Variable::temperature)] = T_int_pt;
-        vars[static_cast<int>(MPL::Variable::gas_phase_pressure)] = N_p * pGR;
-        vars[static_cast<int>(MPL::Variable::capillary_pressure)] = N_p * pCap;
+        vars[static_cast<int>(MPL::Variable::gas_phase_pressure)] = pGR_int_pt;
+        vars[static_cast<int>(MPL::Variable::capillary_pressure)] = pCap_int_pt;
 
         auto const solid_linear_thermal_expansion_coefficient =
             solid_phase.property(MPL::PropertyType::thermal_expansivity)
@@ -1066,6 +1159,24 @@ void TH2MLocalAssembler<ShapeFunctionDisplacement, ShapeFunctionPressure,
         _ip_data[ip].updateConstitutiveRelationThermal(
             t, pos, dt, u, _process_data.reference_temperature(t, pos)[0],
             thermal_strain);
+
+        auto const rho_LR = liquid_phase.property(MPL::PropertyType::density)
+                                .template value<double>(vars, pos, t);
+
+        auto const phi = medium.property(MPL::PropertyType::porosity)
+                             .template value<double>(vars, pos, t);
+
+        auto const rho_GR = gas_phase.property(MPL::PropertyType::density)
+                                .template value<double>(vars, pos, t);
+
+        auto const s_L = medium.property(MPL::PropertyType::saturation)
+                             .template value<double>(vars, pos, t);
+
+        _liquid_pressure[ip] = pLR_int_pt;
+        _liquid_density[ip] = rho_LR;
+        _gas_density[ip] = rho_GR;
+        _porosity[ip] = phi;
+        _saturation[ip] = s_L;
     }
 }
 

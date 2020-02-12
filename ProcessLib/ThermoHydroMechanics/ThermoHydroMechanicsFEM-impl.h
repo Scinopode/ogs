@@ -24,6 +24,9 @@
 #include "NumLib/Function/Interpolation.h"
 #include "ProcessLib/CoupledSolutionsForStaggeredScheme.h"
 
+#include <iomanip>
+#include <iostream>
+
 namespace ProcessLib
 {
 namespace ThermoHydroMechanics
@@ -282,6 +285,7 @@ void ThermoHydroMechanicsLocalAssembler<ShapeFunctionDisplacement,
         // displacement equation, displacement part
         //
         eps.noalias() = B * u;
+
         auto C = _ip_data[ip].updateConstitutiveRelationThermal(
             t, x_position, dt, u,
             _process_data.reference_temperature(t, x_position)[0],
@@ -311,6 +315,10 @@ void ThermoHydroMechanicsLocalAssembler<ShapeFunctionDisplacement,
         // pressure equation, pressure part (K_pp and M_pp).
         //
         laplace_p.noalias() += dNdx_p.transpose() * K_over_mu * dNdx_p * w;
+
+        // std::cout << "dNdx_p.transpose() :\n" <<dNdx_p.transpose() << "\n";
+        // std::cout << "K_over_mu :\n" << K_over_mu << "\n";
+        // OGS_FATAL("THM");
 
         storage_p.noalias() += N_p.transpose() * specific_storage * N_p * w;
         //
@@ -358,6 +366,14 @@ void ThermoHydroMechanicsLocalAssembler<ShapeFunctionDisplacement,
              dNdx_T.transpose() * velocity * N_p * fluid_density * c_f) *
             w;
 
+        // std::cout << "------------------------------------------------------\n";
+        // std::cout << "lambda :\n" << effective_thermal_condictivity << "\n";
+        // std::cout << "velocity   :\n" << velocity << "\n";
+        // std::cout << "fluid_density   :" << fluid_density << "\n";
+        // std::cout << "c_f  :" << c_f << "\n";
+        // std::cout << "------------------------------------------------------\n";
+        // OGS_FATAL("");
+
         auto const effective_volumetric_heat_capacity =
             porosity * fluid_density * c_f +
             (1.0 - porosity) * solid_density *
@@ -374,7 +390,25 @@ void ThermoHydroMechanicsLocalAssembler<ShapeFunctionDisplacement,
         //
         KTp.noalias() += fluid_density * c_f * N_T.transpose() *
                          (dNdx_T * T).transpose() * K_over_mu * dNdx_p * w;
+
+
+        std::cout << "------------------------------------------------------\n";
+        std::cout << "K_over_mu:\n" << K_over_mu << "\n";
+        std::cout << "fluid_density:\n" << fluid_density << "\n";
+        std::cout << "c_f:\n" << c_f << "\n";
+        std::cout << "w:\n" << w << "\n";
+        std::cout << "N_T:\n" << N_T << "\n";
+        std::cout << "T:\n" << T << "\n";
+        std::cout << "dNdx_T:\n" << dNdx_T << "\n";
+        std::cout << "dNdx_p:\n" << dNdx_p << "\n";
+        std::cout << "------------------------------------------------------\n";
+        std::cout << "dNdx_T * T:\n" << dNdx_T * T << "\n";
+
+
+        OGS_FATAL("");    
+
     }
+
     // temperature equation, temperature part
     local_Jac
         .template block<temperature_size, temperature_size>(temperature_index,
@@ -421,6 +455,8 @@ void ThermoHydroMechanicsLocalAssembler<ShapeFunctionDisplacement,
         laplace_p * p + storage_p * p_dot - storage_T * T_dot +
         Kup.transpose() * u_dot;
 
+    std::cout << std::setprecision(16);
+
     // displacement equation (f_u)
     local_rhs.template segment<displacement_size>(displacement_index)
         .noalias() += Kup * p;
@@ -428,6 +464,97 @@ void ThermoHydroMechanicsLocalAssembler<ShapeFunctionDisplacement,
     // temperature equation (f_T)
     local_rhs.template segment<temperature_size>(temperature_index).noalias() -=
         KTT * T + MTT * T_dot;
+
+#define WRITE_RESIDUA
+#ifdef WRITE_RESIDUA
+
+    std::cout << "---  storage_p -------------------------------------------\n";
+    for (int i = 0; i < pressure_size; i++)
+    {
+        for (int j = 0; j < pressure_size; j++)
+            std::cout << storage_p(i, j) << " ";
+        std::cout << "\n";
+    }
+
+    std::cout << "---  storage_T -------------------------------------------\n";
+    for (int i = 0; i < pressure_size; i++)
+    {
+        for (int j = 0; j < temperature_size; j++)
+            std::cout << storage_T(i, j) << " ";
+        std::cout << "\n";
+    }
+
+    std::cout << "---  MTT -------------------------------------------------\n";
+    for (int i = 0; i < temperature_size; i++)
+    {
+        for (int j = 0; j < temperature_size; j++)
+            std::cout << MTT(i, j) << " ";
+        std::cout << "\n";
+    }
+
+    std::cout << "---  KTT -------------------------------------------------\n";
+    for (int i = 0; i < temperature_size; i++)
+    {
+        for (int j = 0; j < temperature_size; j++)
+            std::cout << KTT(i, j) << " ";
+        std::cout << "\n";
+    }
+
+    std::cout << "---  Kup -------------------------------------------------\n";
+    for (int i = 0; i < displacement_size; i++)
+    {
+        for (int j = 0; j < pressure_size; j++)
+            std::cout << Kup(i, j) << " ";
+        std::cout << "\n";
+    }
+
+    std::cout << "---  KTp -------------------------------------------------\n";
+    for (int i = 0; i < temperature_size; i++)
+    {
+        for (int j = 0; j < pressure_size; j++)
+            std::cout << KTp(i, j) << " ";
+        std::cout << "\n";
+    }
+
+    std::cout
+        << "---  Laplace_p -------------------------------------------------\n";
+    for (int i = 0; i < pressure_size; i++)
+    {
+        for (int j = 0; j < pressure_size; j++)
+            std::cout << laplace_p(i, j) << " ";
+        std::cout << "\n";
+    }
+
+    std::cout << "---------------------------------------------------------\n";
+    std::cout << "pressure_index: " << pressure_index << "\n";
+    std::cout << "pressure_size: " << pressure_size << "\n";
+    std::cout << "temperature_index: " << temperature_index << "\n";
+    std::cout << "temperature_size: " << temperature_size << "\n";
+    std::cout << "displacement_index: " << displacement_index << "\n";
+    std::cout << "displacement_size: " << displacement_size << "\n";
+    std::cout << "---------------------------------------------------------\n";
+
+    const int matrix_size =
+        pressure_size + temperature_size + displacement_size;
+
+    for (int i = 0; i < matrix_size; i++)
+        std::cout << local_rhs[i] << "\n";
+
+    std::cout << "+++++++++++++++++++++++++++++++++++++++++++++++++++++++++\n";
+
+    for (int i = 0; i < matrix_size; i++)
+    {
+        for (int j = 0; j < matrix_size; j++)
+        {
+            std::cout << local_Jac(i, j) << " ";
+        }
+        std::cout << "\n";
+    }
+
+    std::cout << "---------------------------------------------------------\n";
+
+    OGS_FATAL("STOP IT!");
+#endif
 }
 
 template <typename ShapeFunctionDisplacement, typename ShapeFunctionPressure,

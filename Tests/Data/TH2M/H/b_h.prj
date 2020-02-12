@@ -1,11 +1,11 @@
 <?xml version="1.0" encoding="ISO-8859-1"?>
 <OpenGeoSysProject>
 <meshes>
-    <mesh axially_symmetric="false">beam_quad8.vtu</mesh>
-    <mesh axially_symmetric="false">beam_quad_geometry_left.vtu</mesh>
-    <mesh axially_symmetric="false">beam_quad_geometry_right.vtu</mesh>
-    <mesh axially_symmetric="false">beam_quad_geometry_top.vtu</mesh>
-    <mesh axially_symmetric="false">beam_quad_geometry_bottom.vtu</mesh>
+    <mesh axially_symmetric="false">quad8.vtu</mesh>
+    <mesh axially_symmetric="false">boundary_left.vtu</mesh>
+    <mesh axially_symmetric="false">boundary_right.vtu</mesh>
+    <mesh axially_symmetric="false">boundary_top.vtu</mesh>
+    <mesh axially_symmetric="false">boundary_bottom.vtu</mesh>
 </meshes>
     <processes>
         <process>
@@ -178,13 +178,13 @@
             <property>
                <name>saturation</name>
                <type>Constant</type>
-               <value>1. 0.</value>
+               <value>0.</value>
             </property>
 
             <property>
                <name>relative_permeability</name>
                <type>Constant</type>
-               <value>1. 0.</value>
+               <value>1. 1.</value>
             </property>
 
 
@@ -206,22 +206,20 @@
                 <time_stepping>
                     <type>FixedTimeStepping</type>
                     <t_initial>0</t_initial>
-                    <t_end>1000000</t_end>
+                    <t_end>5</t_end>
                     <timesteps>
-                        <pair><repeat>10</repeat><delta_t>0.05</delta_t></pair>
-                        <pair><repeat>10</repeat><delta_t>0.1</delta_t></pair>
-                        <pair><repeat>10</repeat><delta_t>0.2</delta_t></pair>
+                        <pair><repeat>10</repeat><delta_t>0.5</delta_t></pair>
                     </timesteps>
                 </time_stepping>
             </process>
         </processes>
         <output>
             <type>VTK</type>
-            <prefix>th2m_mcworther</prefix>
+            <prefix>th2m_liquid</prefix>
             <timesteps>
                 <pair>
                     <repeat>1</repeat>
-                    <each_steps>100</each_steps>
+                    <each_steps>1</each_steps>
                 </pair>
             </timesteps>
             <variables>
@@ -359,13 +357,13 @@
             <boundary_conditions>
           
                 <boundary_condition>
-                    <mesh>beam_quad_geometry_left</mesh>
+                    <mesh>boundary_left</mesh>
                     <type>Dirichlet</type>
                     <component>0</component>
                     <parameter>dirichlet0</parameter>
                 </boundary_condition>
                 <boundary_condition>
-                    <mesh>beam_quad_geometry_bottom</mesh>
+                    <mesh>boundary_bottom</mesh>
                     <type>Dirichlet</type>
                     <component>1</component>
                     <parameter>dirichlet0</parameter>
@@ -384,14 +382,14 @@
                 
 
                 <boundary_condition>
-                    <mesh>beam_quad_geometry_left</mesh>
+                    <mesh>boundary_left</mesh>
                     <type>Dirichlet</type>
                     <component>0</component>
                     <parameter>pGR_bc_left</parameter>
                 </boundary_condition>
 
                 <boundary_condition>
-                    <mesh>beam_quad_geometry_right</mesh>
+                    <mesh>boundary_right</mesh>
                     <type>Dirichlet</type>
                     <component>0</component>
                     <parameter>pGR_bc_right</parameter>
@@ -410,7 +408,7 @@
             <boundary_conditions>
 
                 <boundary_condition>
-                    <mesh>beam_quad_geometry_left</mesh>
+                    <mesh>boundary_left</mesh>
                     <type>Dirichlet</type>
                     <component>0</component>
                     <parameter>pCap_bc_left</parameter>
@@ -431,7 +429,7 @@
             <boundary_conditions>
 
                 <boundary_condition>
-                    <mesh>beam_quad_geometry_left</mesh>
+                    <mesh>boundary_left</mesh>
                     <type>Dirichlet</type>
                     <component>0</component>
                     <parameter>T_ic</parameter>
