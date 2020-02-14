@@ -109,6 +109,483 @@ TH2MLocalAssembler<ShapeFunctionDisplacement, ShapeFunctionPressure,
 // not considered as that in HT process.
 template <typename ShapeFunctionDisplacement, typename ShapeFunctionPressure,
           typename IntegrationMethod, int DisplacementDim>
+void TH2MLocalAssembler<
+    ShapeFunctionDisplacement, ShapeFunctionPressure, IntegrationMethod,
+    DisplacementDim>::assemble(double const t, double const dt,
+                               std::vector<double> const& local_x,
+                               std::vector<double>& local_M_data,
+                               std::vector<double>& local_K_data,
+                               std::vector<double>& local_rhs_data)
+{
+    auto const matrix_size = gas_pressure_size + capillary_pressure_size +
+                             temperature_size + displacement_size;
+
+    assert(local_x.size() == matrix_size);
+
+    auto pGR =
+        Eigen::Map<typename ShapeMatricesTypePressure::template VectorType<
+            gas_pressure_size> const>(local_x.data() + gas_pressure_index,
+                                      gas_pressure_size);
+
+    auto pCap =
+        Eigen::Map<typename ShapeMatricesTypePressure::template VectorType<
+            capillary_pressure_size> const>(
+            local_x.data() + capillary_pressure_index, capillary_pressure_size);
+
+    auto T = Eigen::Map<typename ShapeMatricesTypePressure::template VectorType<
+        temperature_size> const>(local_x.data() + temperature_index,
+                                 temperature_size);
+
+    auto u =
+        Eigen::Map<typename ShapeMatricesTypeDisplacement::template VectorType<
+            displacement_size> const>(local_x.data() + displacement_index,
+                                      displacement_size);
+
+    // pointer to local_M_data vector
+    auto M = MathLib::createZeroedMatrix<
+        typename ShapeMatricesTypeDisplacement::template MatrixType<
+            matrix_size, matrix_size>>(local_M_data, matrix_size, matrix_size);
+
+    // pointer to local_K_data vector
+    auto K = MathLib::createZeroedMatrix<
+        typename ShapeMatricesTypeDisplacement::template MatrixType<
+            matrix_size, matrix_size>>(local_K_data, matrix_size, matrix_size);
+
+    // pointer to local_K_data vector
+    auto f =
+        MathLib::createZeroedVector<typename ShapeMatricesTypeDisplacement::
+                                        template VectorType<matrix_size>>(
+            local_rhs_data, matrix_size);
+
+    // pointer-matrices to the mass matrix - gas phase equation
+    auto MGpG = M.template block<gas_pressure_size, gas_pressure_size>(
+        gas_pressure_index, gas_pressure_index);
+    auto MGpC = M.template block<gas_pressure_size, capillary_pressure_size>(
+        gas_pressure_index, capillary_pressure_index);
+    auto MGT = M.template block<gas_pressure_size, temperature_size>(
+        gas_pressure_index, temperature_index);
+    auto MGu = M.template block<gas_pressure_size, displacement_size>(
+        gas_pressure_index, displacement_index);
+
+    // pointer-matrices to the mass matrix - liquid phase equation
+    auto MLpG = M.template block<capillary_pressure_size, gas_pressure_size>(
+        capillary_pressure_index, gas_pressure_index);
+    auto MLpC =
+        M.template block<capillary_pressure_size, capillary_pressure_size>(
+            capillary_pressure_index, capillary_pressure_index);
+    auto MLT = M.template block<capillary_pressure_size, temperature_size>(
+        capillary_pressure_index, temperature_index);
+    auto MLu = M.template block<capillary_pressure_size, displacement_size>(
+        capillary_pressure_index, displacement_index);
+
+    // pointer-matrices to the mass matrix - temperature equation
+    auto MTpG = M.template block<temperature_size, gas_pressure_size>(
+        temperature_index, gas_pressure_index);
+    auto MTpC = M.template block<temperature_size, capillary_pressure_size>(
+        temperature_index, capillary_pressure_index);
+    auto MTT = M.template block<temperature_size, temperature_size>(
+        temperature_index, temperature_index);
+
+    // pointer-matrices to the stiffness matrix - gas phase equation
+    auto KGpG = K.template block<gas_pressure_size, gas_pressure_size>(
+        gas_pressure_index, gas_pressure_index);
+
+    // pointer-matrices to the stiffness matrix - liquid phase equation
+    auto KLpG = K.template block<capillary_pressure_size, gas_pressure_size>(
+        capillary_pressure_index, gas_pressure_index);
+    auto KLpC =
+        K.template block<capillary_pressure_size, capillary_pressure_size>(
+            capillary_pressure_index, capillary_pressure_index);
+
+    // pointer-matrices to the stiffness matrix - temperature equation
+    auto KTpG = K.template block<temperature_size, gas_pressure_size>(
+        temperature_index, gas_pressure_index);
+    auto KTpC = K.template block<temperature_size, capillary_pressure_size>(
+        temperature_index, capillary_pressure_index);
+    auto KTT = K.template block<temperature_size, temperature_size>(
+        temperature_index, temperature_index);
+
+    // pointer-matrices to the stiffness matrix - displacement equation
+    auto KUpG = K.template block<displacement_size, gas_pressure_size>(
+        displacement_index, gas_pressure_index);
+    auto KUpC = K.template block<displacement_size, capillary_pressure_size>(
+        displacement_index, capillary_pressure_index);
+    auto KUU = K.template block<displacement_size, displacement_size>(
+        displacement_index, displacement_index);
+
+    // pointer-vectors to the right hand side terms - gas phase equation
+    auto fG = f.template segment<gas_pressure_size>(gas_pressure_index);
+    // pointer-vectors to the right hand side terms - liquid phase equation
+    auto fL =
+        f.template segment<capillary_pressure_size>(capillary_pressure_index);
+    // pointer-vectors to the right hand side terms - displacement equation
+    auto fU = f.template segment<displacement_size>(displacement_index);
+
+    ParameterLib::SpatialPosition pos;
+    pos.setElementID(_element.getID());
+
+    auto const& medium = *_process_data.media_map->getMedium(_element.getID());
+    auto const& liquid_phase = medium.phase("AqueousLiquid");
+    auto const& gas_phase = medium.phase("Gas");
+    auto const& solid_phase = medium.phase("Solid");
+
+    unsigned const n_integration_points =
+        _integration_method.getNumberOfPoints();
+
+    for (unsigned ip = 0; ip < n_integration_points; ip++)
+    {
+        pos.setIntegrationPoint(ip);
+
+        auto const& Np = _ip_data[ip].N_p;
+        auto const& NT = Np;
+        auto const& Nu = _ip_data[ip].N_u;
+
+        auto const& NpT = Np.transpose();
+        auto const& NTT = NT.transpose();
+
+        auto const& gradNp = _ip_data[ip].dNdx_p;
+        auto const& gradNT = gradNp;
+        auto const& gradNu = _ip_data[ip].dNdx_u;
+
+        auto const& gradNpT = gradNp.transpose();
+        auto const& gradNTT = gradNT.transpose();
+
+        auto const& Nu_op = _ip_data[ip].N_u_op;
+        auto const& w = _ip_data[ip].integration_weight;
+
+        auto const& m = MathLib::KelvinVector::Invariants<
+            MathLib::KelvinVector::KelvinVectorDimensions<
+                DisplacementDim>::value>::identity2;
+
+        auto const mT = m.transpose();
+
+        auto const x_coord =
+            interpolateXCoordinate<ShapeFunctionDisplacement,
+                                   ShapeMatricesTypeDisplacement>(_element, Nu);
+
+        auto const Bu =
+            LinearBMatrix::computeBMatrix<DisplacementDim,
+                                          ShapeFunctionDisplacement::NPOINTS,
+                                          typename BMatricesType::BMatrixType>(
+                gradNu, Nu, x_coord, _is_axially_symmetric);
+
+        auto const BuT = Bu.transpose();
+
+        auto& eps = _ip_data[ip].eps;
+        double const T0 = _process_data.reference_temperature(t, pos)[0];
+
+        auto const T_int_pt = NT.dot(T);
+        auto const pGR_int_pt = Np.dot(pGR);
+        auto const pCap_int_pt = Np.dot(pCap);
+        auto const pLR_int_pt = pGR_int_pt - pCap_int_pt;
+
+#define nUNKNOWNS
+#ifdef UNKNOWNS
+        std::cout << "-----------------\n";
+        std::cout << "--- unknowns: ---\n";
+        std::cout << "pGR: " << pGR << "\n";
+        std::cout << "pCap: " << pCap << "\n";
+        std::cout << "T: " << T << "\n";
+        std::cout << "--------------------\n";
+
+        std::cout << "---------------------\n";
+        std::cout << "--- unknowns(IP): ---\n";
+        std::cout << "pGR_int_pt: " << pGR_int_pt << "\n";
+        std::cout << "pCap_int_pt: " << pCap_int_pt << "\n";
+        std::cout << "T_int_pt: " << T_int_pt << "\n";
+        std::cout << "--------------------\n";
+#endif
+
+#define nSHAPE_MATRICES
+#ifdef SHAPE_MATRICES
+        std::cout << "*************************************\n";
+        std::cout << " Shape matrices: \n";
+        std::cout << " --------------- \n";
+        std::cout << " Np:\n" << Np << "\n";
+        std::cout << " --------------- \n";
+        std::cout << " Nu:\n" << Nu << "\n";
+        std::cout << " --------------- \n";
+        std::cout << " Nu_op:\n" << Nu_op << "\n";
+        std::cout << " --------------- \n";
+        std::cout << " gradNp:\n" << gradNp << "\n";
+        std::cout << " --------------- \n";
+        std::cout << " Bu:\n" << Bu << "\n";
+        std::cout << " --------------- \n";
+        std::cout << "*************************************\n";
+        std::cout << " Process variables: \n";
+        std::cout << " --------------- \n";
+        std::cout << " Bu:\n" << Bu << "\n";
+        std::cout << " --------------- \n";
+        std::cout << " Calculate constitutive parameters. \n";
+#endif
+
+        MPL::VariableArray vars;
+        vars[static_cast<int>(MPL::Variable::temperature)] = T_int_pt;
+        vars[static_cast<int>(MPL::Variable::gas_phase_pressure)] = pGR_int_pt;
+        vars[static_cast<int>(MPL::Variable::capillary_pressure)] = pCap_int_pt;
+        vars[static_cast<int>(MPL::Variable::liquid_phase_pressure)] =
+            pLR_int_pt;
+
+        // Material properties
+        //  - solid phase properties
+        auto const beta_p_SR =
+            solid_phase.property(MPL::PropertyType::compressibility)
+                .template value<double>(vars, pos, t);
+
+        auto const beta_T_SR =
+            solid_phase.property(MPL::PropertyType::thermal_expansivity)
+                .template value<double>(vars, pos, t);
+
+        auto const rho_SR_0 = solid_phase.property(MPL::PropertyType::density)
+                                  .template value<double>(vars, pos, t);
+
+        auto const c_p_S =
+            solid_phase.property(MPL::PropertyType::specific_heat_capacity)
+                .template value<double>(vars, pos, t);
+
+        //  - gas phase properties
+        auto const beta_p_GR =
+            gas_phase.property(MPL::PropertyType::compressibility)
+                .template value<double>(vars, pos, t);
+
+        auto const beta_T_GR =
+            gas_phase.property(MPL::PropertyType::thermal_expansivity)
+                .template value<double>(vars, pos, t);
+
+        auto const mu_GR = gas_phase.property(MPL::PropertyType::viscosity)
+                               .template value<double>(vars, pos, t);
+
+        auto const rho_GR = gas_phase.property(MPL::PropertyType::density)
+                                .template value<double>(vars, pos, t);
+
+        auto const c_p_G =
+            gas_phase.property(MPL::PropertyType::specific_heat_capacity)
+                .template value<double>(vars, pos, t);
+
+        //  - liquid phase properties
+        auto const beta_p_LR =
+            liquid_phase.property(MPL::PropertyType::compressibility)
+                .template value<double>(vars, pos, t);
+
+        auto const beta_T_LR =
+            liquid_phase.property(MPL::PropertyType::thermal_expansivity)
+                .template value<double>(vars, pos, t);
+
+        auto const mu_LR = liquid_phase.property(MPL::PropertyType::viscosity)
+                               .template value<double>(vars, pos, t);
+
+        auto const rho_LR = liquid_phase.property(MPL::PropertyType::density)
+                                .template value<double>(vars, pos, t);
+
+        auto const c_p_L =
+            liquid_phase.property(MPL::PropertyType::specific_heat_capacity)
+                .template value<double>(vars, pos, t);
+
+        //  - medium properties
+        auto const k_S = MPL::formEigenTensor<DisplacementDim>(
+            medium.property(MPL::PropertyType::permeability)
+                .value(vars, pos, t));
+
+        auto const s_L = medium.property(MPL::PropertyType::saturation)
+                             .template value<double>(vars, pos, t);
+
+        auto const s_G = 1. - s_L;
+
+        auto const dsLdPc =
+            medium.property(MPL::PropertyType::saturation)
+                .template dValue<double>(
+                    vars, MPL::Variable::capillary_pressure, pos, t);
+
+        auto const alpha_B =
+            medium.property(MPL::PropertyType::biot_coefficient)
+                .template value<double>(vars, pos, t);
+
+        auto const k_rel =
+            medium.property(MPL::PropertyType::relative_permeability)
+                .template value<MPL::Pair>(vars, pos, t);
+
+        auto const k_rel_L = k_rel[0];
+        auto const k_rel_G = k_rel[1];
+
+        auto const& b = _process_data.specific_body_force;
+
+        auto const lambda = MPL::formEigenTensor<DisplacementDim>(
+            medium.property(MPL::PropertyType::thermal_conductivity)
+                .template value<double>(vars, pos, t));
+
+        auto const k_over_mu_G = k_S * k_rel_G / mu_GR;
+        auto const k_over_mu_L = k_S * k_rel_L / mu_LR;
+
+        auto const phi = medium.property(MPL::PropertyType::porosity)
+                             .template value<double>(vars, pos, t);
+
+        auto const phi_G = s_G * phi;
+        auto const phi_L = s_L * phi;
+        auto const phi_S = 1. - phi;
+
+        // TODO (Wenqing) : Change dT to time step wise increment
+        double const delta_T(T_int_pt - T0);
+        double const thermal_strain = beta_T_SR * delta_T;
+        auto const rho_SR = rho_SR_0 * (1 - 3 * thermal_strain);
+
+        auto const rho = rho_GR + rho_LR + rho_SR;
+        // TODO: change back to rho_SR
+        auto const rho_c_p = phi_G * rho_GR * c_p_G + phi_L * rho_LR * c_p_L +
+                             phi_S * rho_SR_0 * c_p_S;
+
+        // update secondary variables. TODO: Refactoring potential!!
+        _liquid_pressure[ip] = pLR_int_pt;
+        _liquid_density[ip] = rho_LR;
+        _gas_density[ip] = rho_GR;
+        _porosity[ip] = phi;
+        _saturation[ip] = s_L;
+
+#define nMATERIAL_PROPERTIES
+#ifdef MATERIAL_PROPERTIES
+        std::cout << "######################################################\n";
+        std::cout << "#    Material properties:\n";
+        std::cout << "#----------------------------------------------------#\n";
+        std::cout << "#         rho_GR:  " << rho_GR << "\n";
+        std::cout << "#         rho_LR:  " << rho_LR << "\n";
+        std::cout << "#         rho_SR:  " << rho_SR << "\n";
+        std::cout << "#            rho:  " << rho << "\n";
+        std::cout << "#----------------------------------------------------#\n";
+        std::cout << "#          c_p_G:  " << c_p_G << "\n";
+        std::cout << "#          c_p_L:  " << c_p_L << "\n";
+        std::cout << "#          c_p_S:  " << c_p_S << "\n";
+        std::cout << "#        rho_c_p:  " << rho_c_p << "\n";
+        std::cout << "#----------------------------------------------------#\n";
+        std::cout << "#      beta_p_GR:  " << beta_p_GR << "\n";
+        std::cout << "#      beta_p_LR:  " << beta_p_LR << "\n";
+        std::cout << "#      beta_p_SR:  " << beta_p_SR << "\n";
+        std::cout << "#      beta_T_GR:  " << beta_T_GR << "\n";
+        std::cout << "#      beta_T_LR:  " << beta_T_LR << "\n";
+        std::cout << "#      beta_T_SR:  " << beta_T_SR << "\n";
+        std::cout << "#----------------------------------------------------#\n";
+        std::cout << "#            k_S:\n" << k_S << "\n";
+        std::cout << "#----------------------------------------------------#\n";
+        std::cout << "#        k_rel_L:  " << k_rel_L << "\n";
+        std::cout << "#        k_rel_G:  " << k_rel_G << "\n";
+        std::cout << "#          mu_GR:  " << mu_GR << "\n";
+        std::cout << "#          mu_LR:  " << mu_LR << "\n";
+        std::cout << "#    k_over_mu_G:  " << k_over_mu_G << "\n";
+        std::cout << "#    k_over_mu_L:  " << k_over_mu_L << "\n";
+        std::cout << "#----------------------------------------------------#\n";
+        std::cout << "#            s_L:  " << s_L << "\n";
+        std::cout << "#            s_G:  " << s_G << "\n";
+        std::cout << "#         dsLdPc:  " << dsLdPc << "\n";
+        std::cout << "#----------------------------------------------------#\n";
+        std::cout << "#        alpha_B:  " << alpha_B << "\n";
+        std::cout << "#----------------------------------------------------#\n";
+        std::cout << "#         lambda:\n" << lambda << "\n";
+        std::cout << "#----------------------------------------------------#\n";
+        std::cout << "#            phi:  " << phi << "\n";
+        std::cout << "#          phi_G:  " << phi_G << "\n";
+        std::cout << "#          phi_L:  " << phi_L << "\n";
+        std::cout << "#          phi_S:  " << phi_S << "\n";
+        std::cout << "######################################################\n";
+#endif
+
+        // coefficient matrices
+        //  - gas pressure equation
+        MGpG.noalias() +=
+            (NpT * s_G * (phi * beta_p_GR + (alpha_B - phi) * beta_p_SR) * Np) *
+            w;
+        MGpC.noalias() -=
+            (NpT *
+             (s_G * (alpha_B - phi) * beta_p_SR * (s_L + pCap_int_pt * dsLdPc) +
+              phi * dsLdPc) *
+             Np) *
+            w;
+
+        MGT.noalias() -=
+            (NpT * s_G * (phi * beta_T_GR + (alpha_B - phi) * beta_T_SR) * Np) *
+            w;
+
+        MGu.noalias() += (NpT * mT * Bu).eval() * s_G * alpha_B * w;
+
+        KGpG.noalias() += (gradNpT * k_over_mu_G * gradNp) * w;
+
+        fG.noalias() += (gradNpT * rho_GR * k_over_mu_G * b) * w;
+
+        //  - liquid pressure equation
+        MLpG.noalias() +=
+            (NpT * s_L * (phi * beta_p_LR + (alpha_B - phi) * beta_p_SR) * Np) *
+            w;
+
+        MLpC.noalias() -=
+            (NpT *
+             (s_L * (alpha_B - phi) * beta_p_SR * (s_L + pCap_int_pt * dsLdPc) +
+              phi_L * beta_p_LR - phi * dsLdPc) *
+             Np) *
+            w;
+
+        MLT.noalias() -=
+            (NpT * s_L * (phi * beta_T_LR + (alpha_B - phi) * beta_T_SR) * Np) *
+            w;
+        MLu.noalias() += (NpT * s_L * alpha_B * mT * Bu) * w;
+        KLpG.noalias() += (gradNpT * k_over_mu_L * gradNp) * w;
+        KLpC.noalias() -= (gradNpT * k_over_mu_L * gradNp) * w;
+        fL.noalias() += (gradNpT * rho_LR * k_over_mu_L * b) * w;
+
+        auto const w_GS = (k_over_mu_G * rho_GR * b).eval() -
+                          (k_over_mu_G * gradNp * pGR).eval();
+
+        // TODO: this won't work!
+
+        auto const w_LS = (k_over_mu_L * (gradNp * pCap)).eval() +
+                            (k_over_mu_L * (rho_GR * b)).eval() -
+                            (k_over_mu_L * (gradNp * pGR)).eval();
+
+        //  - temperature equation
+        MTpG.noalias() -=
+            (NTT * (phi_G * beta_T_GR + phi_L * beta_T_LR + phi_S * beta_T_SR) *
+             T_int_pt * NT) *
+            w;
+        MTpC.noalias() +=
+            (NTT *
+             ((phi_L * beta_T_LR +
+               phi_S * beta_T_SR * (s_L + pCap_int_pt * dsLdPc) * T_int_pt) +
+              phi * pCap_int_pt * dsLdPc) *
+             NT) *
+            w;
+        MTT.noalias() += (NTT * rho_c_p * NT) * w;
+
+        KTpG.noalias() -=
+            (gradNT.transpose() * (beta_T_GR * w_GS + beta_T_LR * w_LS) * NT) *
+            w;
+
+        KTpC.noalias() += (gradNT.transpose() * beta_T_LR * w_LS * NT) * w;
+
+        // ATT
+        KTT.noalias() +=
+            (gradNT.transpose() *
+             (rho_LR * c_p_L * w_LS + rho_GR * c_p_G * w_GS) * NT) *
+            w;
+        // LTT
+        KTT.noalias() += (gradNTT * lambda * gradNT) * w;
+
+        //  - displacement equation
+        KUpG.noalias() -= (BuT * alpha_B * m * Np) * w;
+        KUpC.noalias() += (BuT * alpha_B * s_L * m * Np) * w;
+
+        //
+        // displacement equation, displacement part
+        //
+        eps.noalias() = Bu * u;
+        auto C = _ip_data[ip].updateConstitutiveRelationThermal(
+            t, pos, dt, u, _process_data.reference_temperature(t, pos)[0],
+            thermal_strain);
+
+        KUU.noalias() += BuT * C * Bu * w;
+        fU.noalias() += Nu_op.transpose() * rho * b * w;
+    }
+}
+
+// Assembles the local Jacobian matrix. So far, the linearisation of HT part is
+// not considered as that in HT process.
+template <typename ShapeFunctionDisplacement, typename ShapeFunctionPressure,
+          typename IntegrationMethod, int DisplacementDim>
 void TH2MLocalAssembler<ShapeFunctionDisplacement, ShapeFunctionPressure,
                         IntegrationMethod, DisplacementDim>::
     assembleWithJacobian(double const t, double const dt,
