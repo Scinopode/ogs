@@ -72,16 +72,11 @@ public:
                        unsigned const integration_order,
                        TH2MProcessData<DisplacementDim>& process_data);
 
-    void assemble(double const /*t*/, double const /*dt*/,
-                  std::vector<double> const& /*local_x*/,
-                  std::vector<double>& /*local_M_data*/,
-                  std::vector<double>& /*local_K_data*/,
-                  std::vector<double>& /*local_rhs_data*/) override
-    {
-        OGS_FATAL(
-            "TH2MLocalAssembler: assembly without Jacobian is "
-            "not implemented.");
-    }
+    void assemble(double const t, double const dt,
+                  std::vector<double> const& local_x,
+                  std::vector<double>& local_M_data,
+                  std::vector<double>& local_K_data,
+                  std::vector<double>& local_rhs_data) override;
 
     void assembleWithJacobian(double const t, double const dt,
                               std::vector<double> const& local_x,
