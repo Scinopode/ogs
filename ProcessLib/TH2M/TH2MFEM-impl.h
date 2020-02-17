@@ -235,23 +235,24 @@ void TH2MLocalAssembler<
     for (unsigned ip = 0; ip < n_integration_points; ip++)
     {
         pos.setIntegrationPoint(ip);
+        auto& ip_data = _ip_data[ip];
 
-        auto const& Np = _ip_data[ip].N_p;
+        auto const& Np = ip_data.N_p;
         auto const& NT = Np;
-        auto const& Nu = _ip_data[ip].N_u;
+        auto const& Nu = ip_data.N_u;
 
         auto const& NpT = Np.transpose();
         auto const& NTT = NT.transpose();
 
-        auto const& gradNp = _ip_data[ip].dNdx_p;
+        auto const& gradNp = ip_data.dNdx_p;
         auto const& gradNT = gradNp;
-        auto const& gradNu = _ip_data[ip].dNdx_u;
+        auto const& gradNu = ip_data.dNdx_u;
 
         auto const& gradNpT = gradNp.transpose();
         auto const& gradNTT = gradNT.transpose();
 
-        auto const& Nu_op = _ip_data[ip].N_u_op;
-        auto const& w = _ip_data[ip].integration_weight;
+        auto const& Nu_op = ip_data.N_u_op;
+        auto const& w = ip_data.integration_weight;
 
         auto const& m = MathLib::KelvinVector::Invariants<
             MathLib::KelvinVector::KelvinVectorDimensions<
@@ -271,7 +272,7 @@ void TH2MLocalAssembler<
 
         auto const BuT = Bu.transpose();
 
-        auto& eps = _ip_data[ip].eps;
+        auto& eps = ip_data.eps;
         double const T0 = _process_data.reference_temperature(t, pos)[0];
 
         auto const T_int_pt = NT.dot(T);
@@ -343,6 +344,10 @@ void TH2MLocalAssembler<
             solid_phase.property(MPL::PropertyType::specific_heat_capacity)
                 .template value<double>(vars, pos, t);
 
+        auto const lambda_SR =
+            solid_phase.property(MPL::PropertyType::thermal_conductivity)
+                .template value<double>(vars, pos, t);
+
         //  - gas phase properties
         auto const beta_p_GR =
             gas_phase.property(MPL::PropertyType::compressibility)
@@ -362,6 +367,10 @@ void TH2MLocalAssembler<
             gas_phase.property(MPL::PropertyType::specific_heat_capacity)
                 .template value<double>(vars, pos, t);
 
+        auto const lambda_GR =
+            gas_phase.property(MPL::PropertyType::thermal_conductivity)
+                .template value<double>(vars, pos, t);
+
         //  - liquid phase properties
         auto const beta_p_LR =
             liquid_phase.property(MPL::PropertyType::compressibility)
@@ -379,6 +388,10 @@ void TH2MLocalAssembler<
 
         auto const c_p_L =
             liquid_phase.property(MPL::PropertyType::specific_heat_capacity)
+                .template value<double>(vars, pos, t);
+
+        auto const lambda_LR =
+            liquid_phase.property(MPL::PropertyType::thermal_conductivity)
                 .template value<double>(vars, pos, t);
 
         //  - medium properties
@@ -409,10 +422,6 @@ void TH2MLocalAssembler<
 
         auto const& b = _process_data.specific_body_force;
 
-        auto const lambda = MPL::formEigenTensor<DisplacementDim>(
-            medium.property(MPL::PropertyType::thermal_conductivity)
-                .template value<double>(vars, pos, t));
-
         auto const k_over_mu_G = k_S * k_rel_G / mu_GR;
         auto const k_over_mu_L = k_S * k_rel_L / mu_LR;
 
@@ -422,6 +431,12 @@ void TH2MLocalAssembler<
         auto const phi_G = s_G * phi;
         auto const phi_L = s_L * phi;
         auto const phi_S = 1. - phi;
+
+        // TODO (Grunwald) replace effective thermal conductivity by a more
+        // sophisticated law, maybe even allow the law to be chosen in the
+        // project file as medium property
+        auto const lambda = MPL::formEigenTensor<DisplacementDim>(
+            phi_S * lambda_SR + phi_L * lambda_LR + phi_G * lambda_GR);
 
         // TODO (Wenqing) : Change dT to time step wise increment
         double const delta_T(T_int_pt - T0);
@@ -486,11 +501,28 @@ void TH2MLocalAssembler<
         std::cout << "######################################################\n";
 #endif
 
+        auto const w_GS = (k_over_mu_G * rho_GR * b).eval() -
+                          (k_over_mu_G * gradNp * pGR).eval();
+
+        auto const w_LS = (k_over_mu_L * (gradNp * pCap)).eval() +
+                          (k_over_mu_L * (rho_GR * b)).eval() -
+                          (k_over_mu_L * (gradNp * pGR)).eval();
+
+#undef DEBUG_OUTPUT
+#ifdef DEBUG_OUTPUT
+        std::cout << "------------------------------------------------------\n";
+#endif
         // coefficient matrices
         //  - gas pressure equation
         MGpG.noalias() +=
             (NpT * s_G * (phi * beta_p_GR + (alpha_B - phi) * beta_p_SR) * Np) *
             w;
+
+#ifdef DEBUG_OUTPUT
+        std::cout << " MGpG:\n" << MGpG << "\n";
+        std::cout << "------------------------------------------------------\n";
+#endif
+
         MGpC.noalias() -=
             (NpT *
              (s_G * (alpha_B - phi) * beta_p_SR * (s_L + pCap_int_pt * dsLdPc) +
@@ -498,20 +530,49 @@ void TH2MLocalAssembler<
              Np) *
             w;
 
+#ifdef DEBUG_OUTPUT
+        std::cout << " MGpC:\n" << MGpC << "\n";
+        std::cout << "------------------------------------------------------\n";
+#endif
+
         MGT.noalias() -=
             (NpT * s_G * (phi * beta_T_GR + (alpha_B - phi) * beta_T_SR) * Np) *
             w;
 
+#ifdef DEBUG_OUTPUT
+        std::cout << " MGT:\n" << MGT << "\n";
+        std::cout << "------------------------------------------------------\n";
+#endif
+
         MGu.noalias() += (NpT * mT * Bu).eval() * s_G * alpha_B * w;
+
+#ifdef DEBUG_OUTPUT
+        std::cout << " MGu:\n" << MGu << "\n";
+        std::cout << "------------------------------------------------------\n";
+#endif
 
         KGpG.noalias() += (gradNpT * k_over_mu_G * gradNp) * w;
 
+#ifdef DEBUG_OUTPUT
+        std::cout << " KGpG:\n" << KGpG << "\n";
+        std::cout << "------------------------------------------------------\n";
+#endif
+
         fG.noalias() += (gradNpT * rho_GR * k_over_mu_G * b) * w;
 
+#ifdef DEBUG_OUTPUT
+        std::cout << " fG:\n" << fG << "\n";
+        std::cout << "------------------------------------------------------\n";
+#endif
         //  - liquid pressure equation
         MLpG.noalias() +=
             (NpT * s_L * (phi * beta_p_LR + (alpha_B - phi) * beta_p_SR) * Np) *
             w;
+
+#ifdef DEBUG_OUTPUT
+        std::cout << " MLpG:\n" << MLpG << "\n";
+        std::cout << "------------------------------------------------------\n";
+#endif
 
         MLpC.noalias() -=
             (NpT *
@@ -520,28 +581,58 @@ void TH2MLocalAssembler<
              Np) *
             w;
 
+#ifdef DEBUG_OUTPUT
+        std::cout << " MLpC:\n" << MLpC << "\n";
+        std::cout << "------------------------------------------------------\n";
+#endif
+
         MLT.noalias() -=
             (NpT * s_L * (phi * beta_T_LR + (alpha_B - phi) * beta_T_SR) * Np) *
             w;
+
+#ifdef DEBUG_OUTPUT
+        std::cout << " MLT:\n" << MLT << "\n";
+        std::cout << "------------------------------------------------------\n";
+#endif
+
         MLu.noalias() += (NpT * s_L * alpha_B * mT * Bu) * w;
+
+#ifdef DEBUG_OUTPUT
+        std::cout << " MLu:\n" << MLu << "\n";
+        std::cout << "------------------------------------------------------\n";
+#endif
+
         KLpG.noalias() += (gradNpT * k_over_mu_L * gradNp) * w;
+
+#ifdef DEBUG_OUTPUT
+        std::cout << " KLpG:\n" << KLpG << "\n";
+        std::cout << "------------------------------------------------------\n";
+#endif
+
         KLpC.noalias() -= (gradNpT * k_over_mu_L * gradNp) * w;
+
+#ifdef DEBUG_OUTPUT
+        std::cout << " KLpC:\n" << KLpC << "\n";
+        std::cout << "------------------------------------------------------\n";
+#endif
+
         fL.noalias() += (gradNpT * rho_LR * k_over_mu_L * b) * w;
 
-        auto const w_GS = (k_over_mu_G * rho_GR * b).eval() -
-                          (k_over_mu_G * gradNp * pGR).eval();
-
-        // TODO: this won't work!
-
-        auto const w_LS = (k_over_mu_L * (gradNp * pCap)).eval() +
-                            (k_over_mu_L * (rho_GR * b)).eval() -
-                            (k_over_mu_L * (gradNp * pGR)).eval();
-
+#ifdef DEBUG_OUTPUT
+        std::cout << " fL:\n" << fL << "\n";
+        std::cout << "------------------------------------------------------\n";
+#endif
         //  - temperature equation
         MTpG.noalias() -=
             (NTT * (phi_G * beta_T_GR + phi_L * beta_T_LR + phi_S * beta_T_SR) *
              T_int_pt * NT) *
             w;
+
+#ifdef DEBUG_OUTPUT
+        std::cout << " MTpG:\n" << MTpG << "\n";
+        std::cout << "------------------------------------------------------\n";
+#endif
+
         MTpC.noalias() +=
             (NTT *
              ((phi_L * beta_T_LR +
@@ -549,36 +640,84 @@ void TH2MLocalAssembler<
               phi * pCap_int_pt * dsLdPc) *
              NT) *
             w;
+
+#ifdef DEBUG_OUTPUT
+        std::cout << " MTpC:\n" << MTpC << "\n";
+        std::cout << "------------------------------------------------------\n";
+#endif
+
         MTT.noalias() += (NTT * rho_c_p * NT) * w;
+
+#ifdef DEBUG_OUTPUT
+        std::cout << " MTT:\n" << MTT << "\n";
+        std::cout << "------------------------------------------------------\n";
+#endif
 
         KTpG.noalias() -=
             (gradNT.transpose() * (beta_T_GR * w_GS + beta_T_LR * w_LS) * NT) *
             w;
 
+#ifdef DEBUG_OUTPUT
+        std::cout << " KTpG:\n" << KTpG << "\n";
+        std::cout << "------------------------------------------------------\n";
+#endif
+
         KTpC.noalias() += (gradNT.transpose() * beta_T_LR * w_LS * NT) * w;
 
+#ifdef DEBUG_OUTPUT
+        std::cout << " KTpC:\n" << KTpC << "\n";
+        std::cout << "------------------------------------------------------\n";
+#endif
         // ATT
         KTT.noalias() +=
             (gradNT.transpose() *
              (rho_LR * c_p_L * w_LS + rho_GR * c_p_G * w_GS) * NT) *
             w;
+
+#ifdef DEBUG_OUTPUT
+        std::cout << " ATT:\n" << KTT << "\n";
+        std::cout << "------------------------------------------------------\n";
+#endif
         // LTT
         KTT.noalias() += (gradNTT * lambda * gradNT) * w;
 
+#ifdef DEBUG_OUTPUT
+        std::cout << " ATT+LTT:\n" << KTT << "\n";
+        std::cout << "------------------------------------------------------\n";
+#endif
         //  - displacement equation
         KUpG.noalias() -= (BuT * alpha_B * m * Np) * w;
+
+#ifdef DEBUG_OUTPUT
+        std::cout << " KUpG:\n" << KUpG << "\n";
+#endif
+
         KUpC.noalias() += (BuT * alpha_B * s_L * m * Np) * w;
 
+#ifdef DEBUG_OUTPUT
+        std::cout << " KUpC:\n" << KUpC << "\n";
+#endif
         //
         // displacement equation, displacement part
         //
         eps.noalias() = Bu * u;
-        auto C = _ip_data[ip].updateConstitutiveRelationThermal(
+        auto C = ip_data.updateConstitutiveRelationThermal(
             t, pos, dt, u, _process_data.reference_temperature(t, pos)[0],
             thermal_strain);
 
         KUU.noalias() += BuT * C * Bu * w;
+
+#ifdef DEBUG_OUTPUT
+        std::cout << " KUU:\n" << KUU << "\n";
+        std::cout << "------------------------------------------------------\n";
+#endif
+
         fU.noalias() += Nu_op.transpose() * rho * b * w;
+
+#ifdef DEBUG_OUTPUT
+        std::cout << " fU:\n" << fU << "\n";
+        std::cout << "------------------------------------------------------\n";
+#endif
     }
 }
 
@@ -1197,7 +1336,6 @@ void TH2MLocalAssembler<ShapeFunctionDisplacement, ShapeFunctionPressure,
             w;
         LTT.noalias() += (gradNTT * lambda * gradNT) * w;
 
-        
         //  - displacement equation
         KUpG.noalias() += (BuT * alpha_B * m * Np) * w;
         KUpC.noalias() += (BuT * alpha_B * s_L * m * Np) * w;
