@@ -545,7 +545,7 @@ void TH2MLocalAssembler<
         std::cout << "------------------------------------------------------\n";
 #endif
 
-        MGu.noalias() += (NpT * mT * Bu).eval() * s_G * alpha_B * w;
+        MGu.noalias() += NpT * mT * Bu * s_G * alpha_B * w;
 
 #ifdef DEBUG_OUTPUT
         std::cout << " MGu:\n" << MGu << "\n";
@@ -1252,7 +1252,7 @@ void TH2MLocalAssembler<ShapeFunctionDisplacement, ShapeFunctionPressure,
             (NpT * s_G * (phi * beta_T_GR + (alpha_B - phi) * beta_T_SR) * Np) *
             w;
 
-        MGu.noalias() += (NpT * mT * Bu).eval() * s_G * alpha_B * w;
+        MGu.noalias() += NpT * mT * Bu * s_G * alpha_B * w;
 
         LGpG.noalias() += (gradNpT * k_over_mu_G * gradNp) * w;
 
@@ -1375,7 +1375,7 @@ void TH2MLocalAssembler<ShapeFunctionDisplacement, ShapeFunctionPressure,
             thermal_strain);
 
         fU.noalias() +=
-            (BuT * sigma_eff - Nu_op.transpose() * rho * b).eval() * w;
+            (BuT * sigma_eff - Nu_op.transpose() * rho * b) * w;
 
         JUu.noalias() += BuT * C * Bu * w;
     }
