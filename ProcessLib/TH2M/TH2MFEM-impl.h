@@ -502,12 +502,12 @@ void TH2MLocalAssembler<
         std::cout << "######################################################\n";
 #endif
 
-        auto const w_GS = (k_over_mu_G * rho_GR * b).eval() -
-                          (k_over_mu_G * gradNp * pGR).eval();
+        GlobalDimVectorType const w_GS =
+            k_over_mu_G * rho_GR * b - k_over_mu_G * gradNp * pGR;
 
-        auto const w_LS = (k_over_mu_L * (gradNp * pCap)).eval() +
-                          (k_over_mu_L * (rho_GR * b)).eval() -
-                          (k_over_mu_L * (gradNp * pGR)).eval();
+        GlobalDimVectorType const w_LS = k_over_mu_L * gradNp * pCap +
+                                         k_over_mu_L * rho_GR * b -
+                                         k_over_mu_L * gradNp * pGR;
 
 #undef DEBUG_OUTPUT
 #ifdef DEBUG_OUTPUT
@@ -1279,18 +1279,12 @@ void TH2MLocalAssembler<ShapeFunctionDisplacement, ShapeFunctionPressure,
         LLpC.noalias() += (gradNpT * k_over_mu_L * gradNp) * w;
         fL.noalias() += (gradNpT * rho_LR * k_over_mu_L * b) * w;
 
-        // darcy-velocities
-        //        auto const w_GS = -(k_over_mu_G * (gradNp * pGR - rho_GR *
-        //        b)).eval(); auto const w_GS = -(k_over_mu_G * (gradNp *
-        //        pGR)).eval(); auto const w_GS = -(k_over_mu_G * (gradNp *
-        //        pGR).eval()).eval();
-        auto const w_GS = (k_over_mu_G * rho_GR * b).eval() -
-                          (k_over_mu_G * gradNp * pGR).eval();
+        GlobalDimVectorType const w_GS =
+            k_over_mu_G * rho_GR * b - k_over_mu_G * gradNp * pGR;
 
-        // TODO: this won't work!
-        auto const w_LS =
-            -k_over_mu_L * (gradNp * pGR - gradNp * pCap - rho_GR * b);
-
+        GlobalDimVectorType const w_LS = k_over_mu_L * gradNp * pCap +
+                                         k_over_mu_L * rho_GR * b -
+                                         k_over_mu_L * gradNp * pGR;
 #ifdef DEBUG_TH2M
         std::cout << "--------------------\n";
         std::cout << "--- velocities:  ---\n";
@@ -1581,23 +1575,28 @@ TH2MLocalAssembler<ShapeFunctionDisplacement, ShapeFunctionPressure,
         // TODO (naumov) Temporary value not used by current material models.
         // Need extension of secondary variables interface.
         double const dt = std::numeric_limits<double>::quiet_NaN();
-        auto const viscosity = gas_phase.property(MPL::PropertyType::viscosity)
-                                   .template value<double>(vars, pos, t, dt);
-        GlobalDimMatrixType K_over_mu =
-            MPL::formEigenTensor<DisplacementDim>(
-                medium.property(MPL::PropertyType::permeability)
-                    .value(vars, pos, t, dt)) /
-            viscosity;
 
-        auto const fluid_density =
-            gas_phase.property(MPL::PropertyType::density)
-                .template value<double>(vars, pos, t, dt);
+        auto const mu_GR = gas_phase.property(MPL::PropertyType::viscosity)
+                               .template value<double>(vars, pos, t, dt);
+
+        GlobalDimMatrixType k_S = MPL::formEigenTensor<DisplacementDim>(
+            medium.property(MPL::PropertyType::permeability)
+                .value(vars, pos, t, dt));
+
+        auto const k_rel =
+            medium.property(MPL::PropertyType::relative_permeability)
+                .template value<Eigen::Vector2d>(vars, pos, t, dt)[1];
+
+        auto const k_over_mu = k_S * k_rel / mu_GR;
+
+        auto const rho_GR = gas_phase.property(MPL::PropertyType::density)
+                                .template value<double>(vars, pos, t, dt);
         auto const& b = _process_data.specific_body_force;
 
         // Compute the velocity
         auto const& dNdx_p = _ip_data[ip].dNdx_p;
         cache_matrix.col(ip).noalias() =
-            -K_over_mu * dNdx_p * pGR + K_over_mu * fluid_density * b;
+            -k_over_mu * dNdx_p * pGR + k_over_mu * rho_GR * b;
     }
 
     return cache;
@@ -1664,24 +1663,26 @@ TH2MLocalAssembler<ShapeFunctionDisplacement, ShapeFunctionPressure,
         // Need extension of secondary variables interface.
         double const dt = std::numeric_limits<double>::quiet_NaN();
 
-        auto const viscosity =
-            liquid_phase.property(MPL::PropertyType::viscosity)
-                .template value<double>(vars, pos, t, dt);
-        GlobalDimMatrixType K_over_mu =
-            MPL::formEigenTensor<DisplacementDim>(
-                medium.property(MPL::PropertyType::permeability)
-                    .value(vars, pos, t, dt)) /
-            viscosity;
+        auto const mu_LR = liquid_phase.property(MPL::PropertyType::viscosity)
+                               .template value<double>(vars, pos, t, dt);
+        GlobalDimMatrixType k_S = MPL::formEigenTensor<DisplacementDim>(
+            medium.property(MPL::PropertyType::permeability)
+                .value(vars, pos, t, dt));
 
-        auto const fluid_density =
-            liquid_phase.property(MPL::PropertyType::density)
-                .template value<double>(vars, pos, t, dt);
+        auto const k_rel_L =
+            medium.property(MPL::PropertyType::relative_permeability)
+                .template value<Eigen::Vector2d>(vars, pos, t, dt)[0];
+
+        auto const k_over_mu = k_S * k_rel_L / mu_LR;
+
+        auto const rho_LR = liquid_phase.property(MPL::PropertyType::density)
+                                .template value<double>(vars, pos, t, dt);
         auto const& b = _process_data.specific_body_force;
 
         // Compute the velocity
         auto const& dNdx_p = _ip_data[ip].dNdx_p;
         cache_matrix.col(ip).noalias() =
-            -K_over_mu * dNdx_p * pLR + K_over_mu * fluid_density * b;
+            -k_over_mu * dNdx_p * pLR + k_over_mu * rho_LR * b;
     }
 
     return cache;
