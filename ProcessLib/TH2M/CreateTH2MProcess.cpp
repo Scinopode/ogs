@@ -37,7 +37,7 @@ std::unique_ptr<Process> createTH2MProcess(
     boost::optional<ParameterLib::CoordinateSystem> const&
         local_coordinate_system,
     unsigned const integration_order, BaseLib::ConfigTree const& config,
-    std::map<int, std::unique_ptr<MaterialPropertyLib::Medium>> const& media)
+    std::map<int, std::shared_ptr<MaterialPropertyLib::Medium>> const& media)
 {
     //! \ogs_file_param{prj__processes__process__type}
     config.checkConfigParameter("type", "TH2M");
@@ -206,7 +206,7 @@ template std::unique_ptr<Process> createTH2MProcess<2>(
         local_coordinate_system,
     unsigned const integration_order,
     BaseLib::ConfigTree const& config,
-    std::map<int, std::unique_ptr<MaterialPropertyLib::Medium>> const& media);
+    std::map<int, std::shared_ptr<MaterialPropertyLib::Medium>> const& media);
 
 template std::unique_ptr<Process> createTH2MProcess<3>(
     std::string name,
@@ -218,6 +218,6 @@ template std::unique_ptr<Process> createTH2MProcess<3>(
         local_coordinate_system,
     unsigned const integration_order,
     BaseLib::ConfigTree const& config,
-    std::map<int, std::unique_ptr<MaterialPropertyLib::Medium>> const& media);
+    std::map<int, std::shared_ptr<MaterialPropertyLib::Medium>> const& media);
 }  // namespace TH2M
 }  // namespace ProcessLib
