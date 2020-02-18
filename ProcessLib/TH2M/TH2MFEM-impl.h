@@ -416,7 +416,7 @@ void TH2MLocalAssembler<
 
         auto const k_rel =
             medium.property(MPL::PropertyType::relative_permeability)
-                .template value<MPL::Pair>(vars, pos, t, dt);
+                .template value<Eigen::Vector2d>(vars, pos, t, dt);
 
         auto const k_rel_L = k_rel[0];
         auto const k_rel_G = k_rel[1];
@@ -1150,7 +1150,7 @@ void TH2MLocalAssembler<ShapeFunctionDisplacement, ShapeFunctionPressure,
 
         auto const k_rel =
             medium.property(MPL::PropertyType::relative_permeability)
-                .template value<MPL::Pair>(vars, pos, t, dt);
+                .template value<Eigen::Vector2d>(vars, pos, t, dt);
 
         auto const k_rel_L = k_rel[0];
         auto const k_rel_G = k_rel[1];
