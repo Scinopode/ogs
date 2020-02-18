@@ -69,8 +69,9 @@ private:
 
     void assembleConcreteProcess(const double t, double const dt,
                                  std::vector<GlobalVector*> const& x,
-                                 int const process_id, GlobalMatrix& M,
-                                 GlobalMatrix& K, GlobalVector& b) override;
+                                 GlobalVector const& xdot, int const process_id,
+                                 GlobalMatrix& M, GlobalMatrix& K,
+                                 GlobalVector& b) override;
 
     void assembleWithJacobianConcreteProcess(
         const double t, double const dt, std::vector<GlobalVector*> const& x,
