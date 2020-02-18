@@ -113,6 +113,7 @@ void TH2MLocalAssembler<
     ShapeFunctionDisplacement, ShapeFunctionPressure, IntegrationMethod,
     DisplacementDim>::assemble(double const t, double const dt,
                                std::vector<double> const& local_x,
+                               std::vector<double> const& local_xdot,
                                std::vector<double>& local_M_data,
                                std::vector<double>& local_K_data,
                                std::vector<double>& local_rhs_data)
@@ -331,91 +332,91 @@ void TH2MLocalAssembler<
         //  - solid phase properties
         auto const beta_p_SR =
             solid_phase.property(MPL::PropertyType::compressibility)
-                .template value<double>(vars, pos, t);
+                .template value<double>(vars, pos, t, dt);
 
         auto const beta_T_SR =
             solid_phase.property(MPL::PropertyType::thermal_expansivity)
-                .template value<double>(vars, pos, t);
+                .template value<double>(vars, pos, t, dt);
 
         auto const rho_SR_0 = solid_phase.property(MPL::PropertyType::density)
-                                  .template value<double>(vars, pos, t);
+                                  .template value<double>(vars, pos, t, dt);
 
         auto const c_p_S =
             solid_phase.property(MPL::PropertyType::specific_heat_capacity)
-                .template value<double>(vars, pos, t);
+                .template value<double>(vars, pos, t, dt);
 
         auto const lambda_SR =
             solid_phase.property(MPL::PropertyType::thermal_conductivity)
-                .template value<double>(vars, pos, t);
+                .template value<double>(vars, pos, t, dt);
 
         //  - gas phase properties
         auto const beta_p_GR =
             gas_phase.property(MPL::PropertyType::compressibility)
-                .template value<double>(vars, pos, t);
+                .template value<double>(vars, pos, t, dt);
 
         auto const beta_T_GR =
             gas_phase.property(MPL::PropertyType::thermal_expansivity)
-                .template value<double>(vars, pos, t);
+                .template value<double>(vars, pos, t, dt);
 
         auto const mu_GR = gas_phase.property(MPL::PropertyType::viscosity)
-                               .template value<double>(vars, pos, t);
+                               .template value<double>(vars, pos, t, dt);
 
         auto const rho_GR = gas_phase.property(MPL::PropertyType::density)
-                                .template value<double>(vars, pos, t);
+                                .template value<double>(vars, pos, t, dt);
 
         auto const c_p_G =
             gas_phase.property(MPL::PropertyType::specific_heat_capacity)
-                .template value<double>(vars, pos, t);
+                .template value<double>(vars, pos, t, dt);
 
         auto const lambda_GR =
             gas_phase.property(MPL::PropertyType::thermal_conductivity)
-                .template value<double>(vars, pos, t);
+                .template value<double>(vars, pos, t, dt);
 
         //  - liquid phase properties
         auto const beta_p_LR =
             liquid_phase.property(MPL::PropertyType::compressibility)
-                .template value<double>(vars, pos, t);
+                .template value<double>(vars, pos, t, dt);
 
         auto const beta_T_LR =
             liquid_phase.property(MPL::PropertyType::thermal_expansivity)
-                .template value<double>(vars, pos, t);
+                .template value<double>(vars, pos, t, dt);
 
         auto const mu_LR = liquid_phase.property(MPL::PropertyType::viscosity)
-                               .template value<double>(vars, pos, t);
+                               .template value<double>(vars, pos, t, dt);
 
         auto const rho_LR = liquid_phase.property(MPL::PropertyType::density)
-                                .template value<double>(vars, pos, t);
+                                .template value<double>(vars, pos, t, dt);
 
         auto const c_p_L =
             liquid_phase.property(MPL::PropertyType::specific_heat_capacity)
-                .template value<double>(vars, pos, t);
+                .template value<double>(vars, pos, t, dt);
 
         auto const lambda_LR =
             liquid_phase.property(MPL::PropertyType::thermal_conductivity)
-                .template value<double>(vars, pos, t);
+                .template value<double>(vars, pos, t, dt);
 
         //  - medium properties
         auto const k_S = MPL::formEigenTensor<DisplacementDim>(
             medium.property(MPL::PropertyType::permeability)
-                .value(vars, pos, t));
+                .value(vars, pos, t, dt));
 
         auto const s_L = medium.property(MPL::PropertyType::saturation)
-                             .template value<double>(vars, pos, t);
+                             .template value<double>(vars, pos, t, dt);
 
         auto const s_G = 1. - s_L;
 
         auto const dsLdPc =
             medium.property(MPL::PropertyType::saturation)
                 .template dValue<double>(
-                    vars, MPL::Variable::capillary_pressure, pos, t);
+                    vars, MPL::Variable::capillary_pressure, pos, t, dt);
 
         auto const alpha_B =
             medium.property(MPL::PropertyType::biot_coefficient)
-                .template value<double>(vars, pos, t);
+                .template value<double>(vars, pos, t, dt);
 
         auto const k_rel =
             medium.property(MPL::PropertyType::relative_permeability)
-                .template value<MPL::Pair>(vars, pos, t);
+                .template value<MPL::Pair>(vars, pos, t, dt);
 
         auto const k_rel_L = k_rel[0];
         auto const k_rel_G = k_rel[1];
@@ -426,7 +427,7 @@ void TH2MLocalAssembler<
         auto const k_over_mu_L = k_S * k_rel_L / mu_LR;
 
         auto const phi = medium.property(MPL::PropertyType::porosity)
-                             .template value<double>(vars, pos, t);
+                             .template value<double>(vars, pos, t, dt);
 
         auto const phi_G = s_G * phi;
         auto const phi_L = s_L * phi;
@@ -1077,79 +1078,79 @@ void TH2MLocalAssembler<ShapeFunctionDisplacement, ShapeFunctionPressure,
         //  - solid phase properties
         auto const beta_p_SR =
             solid_phase.property(MPL::PropertyType::compressibility)
-                .template value<double>(vars, pos, t);
+                .template value<double>(vars, pos, t, dt);
 
         auto const beta_T_SR =
             solid_phase.property(MPL::PropertyType::thermal_expansivity)
-                .template value<double>(vars, pos, t);
+                .template value<double>(vars, pos, t, dt);
 
         auto const rho_SR_0 = solid_phase.property(MPL::PropertyType::density)
-                                  .template value<double>(vars, pos, t);
+                                  .template value<double>(vars, pos, t, dt);
 
         auto const c_p_S =
             solid_phase.property(MPL::PropertyType::specific_heat_capacity)
-                .template value<double>(vars, pos, t);
+                .template value<double>(vars, pos, t, dt);
 
         //  - gas phase properties
         auto const beta_p_GR =
             gas_phase.property(MPL::PropertyType::compressibility)
-                .template value<double>(vars, pos, t);
+                .template value<double>(vars, pos, t, dt);
 
         auto const beta_T_GR =
             gas_phase.property(MPL::PropertyType::thermal_expansivity)
-                .template value<double>(vars, pos, t);
+                .template value<double>(vars, pos, t, dt);
 
         auto const mu_GR = gas_phase.property(MPL::PropertyType::viscosity)
-                               .template value<double>(vars, pos, t);
+                               .template value<double>(vars, pos, t, dt);
 
         auto const rho_GR = gas_phase.property(MPL::PropertyType::density)
-                                .template value<double>(vars, pos, t);
+                                .template value<double>(vars, pos, t, dt);
 
         auto const c_p_G =
             gas_phase.property(MPL::PropertyType::specific_heat_capacity)
-                .template value<double>(vars, pos, t);
+                .template value<double>(vars, pos, t, dt);
 
         //  - liquid phase properties
         auto const beta_p_LR =
             liquid_phase.property(MPL::PropertyType::compressibility)
-                .template value<double>(vars, pos, t);
+                .template value<double>(vars, pos, t, dt);
 
         auto const beta_T_LR =
             liquid_phase.property(MPL::PropertyType::thermal_expansivity)
-                .template value<double>(vars, pos, t);
+                .template value<double>(vars, pos, t, dt);
 
         auto const mu_LR = liquid_phase.property(MPL::PropertyType::viscosity)
-                               .template value<double>(vars, pos, t);
+                               .template value<double>(vars, pos, t, dt);
 
         auto const rho_LR = liquid_phase.property(MPL::PropertyType::density)
-                                .template value<double>(vars, pos, t);
+                                .template value<double>(vars, pos, t, dt);
 
         auto const c_p_L =
             liquid_phase.property(MPL::PropertyType::specific_heat_capacity)
-                .template value<double>(vars, pos, t);
+                .template value<double>(vars, pos, t, dt);
 
         //  - medium properties
         auto const k_S = MPL::formEigenTensor<DisplacementDim>(
             medium.property(MPL::PropertyType::permeability)
-                .value(vars, pos, t));
+                .value(vars, pos, t, dt));
 
         auto const s_L = medium.property(MPL::PropertyType::saturation)
-                             .template value<double>(vars, pos, t);
+                             .template value<double>(vars, pos, t, dt);
 
         auto const s_G = 1. - s_L;
 
         auto const dsLdPc =
             medium.property(MPL::PropertyType::saturation)
                 .template dValue<double>(
-                    vars, MPL::Variable::capillary_pressure, pos, t);
+                    vars, MPL::Variable::capillary_pressure, pos, t, dt);
 
         auto const alpha_B =
             medium.property(MPL::PropertyType::biot_coefficient)
-                .template value<double>(vars, pos, t);
+                .template value<double>(vars, pos, t, dt);
 
         auto const k_rel =
             medium.property(MPL::PropertyType::relative_permeability)
-                .template value<MPL::Pair>(vars, pos, t);
+                .template value<MPL::Pair>(vars, pos, t, dt);
 
         auto const k_rel_L = k_rel[0];
         auto const k_rel_G = k_rel[1];
@@ -1158,13 +1159,13 @@ void TH2MLocalAssembler<ShapeFunctionDisplacement, ShapeFunctionPressure,
 
         auto const lambda = MPL::formEigenTensor<DisplacementDim>(
             medium.property(MPL::PropertyType::thermal_conductivity)
-                .template value<double>(vars, pos, t));
+                .template value<double>(vars, pos, t, dt));
 
         auto const k_over_mu_G = k_S * k_rel_G / mu_GR;
         auto const k_over_mu_L = k_S * k_rel_L / mu_LR;
 
         auto const phi = medium.property(MPL::PropertyType::porosity)
-                             .template value<double>(vars, pos, t);
+                             .template value<double>(vars, pos, t, dt);
 
         auto const phi_G = s_G * phi;
         auto const phi_L = s_L * phi;
@@ -1578,16 +1579,16 @@ TH2MLocalAssembler<ShapeFunctionDisplacement, ShapeFunctionPressure,
         vars[static_cast<int>(MPL::Variable::phase_pressure)] = N_p * pGR;
 
         auto const viscosity = gas_phase.property(MPL::PropertyType::viscosity)
-                                   .template value<double>(vars, pos, t);
+                                   .template value<double>(vars, pos, t, dt);
         GlobalDimMatrixType K_over_mu =
             MPL::formEigenTensor<DisplacementDim>(
                 medium.property(MPL::PropertyType::permeability)
-                    .value(vars, pos, t)) /
+                    .value(vars, pos, t, dt)) /
             viscosity;
 
         auto const fluid_density =
             gas_phase.property(MPL::PropertyType::density)
-                .template value<double>(vars, pos, t);
+                .template value<double>(vars, pos, t, dt);
         auto const& b = _process_data.specific_body_force;
 
         // Compute the velocity
@@ -1659,16 +1660,16 @@ TH2MLocalAssembler<ShapeFunctionDisplacement, ShapeFunctionPressure,
 
         auto const viscosity =
             liquid_phase.property(MPL::PropertyType::viscosity)
-                .template value<double>(vars, pos, t);
+                .template value<double>(vars, pos, t, dt);
         GlobalDimMatrixType K_over_mu =
             MPL::formEigenTensor<DisplacementDim>(
                 medium.property(MPL::PropertyType::permeability)
-                    .value(vars, pos, t)) /
+                    .value(vars, pos, t, dt)) /
             viscosity;
 
         auto const fluid_density =
             liquid_phase.property(MPL::PropertyType::density)
-                .template value<double>(vars, pos, t);
+                .template value<double>(vars, pos, t, dt);
         auto const& b = _process_data.specific_body_force;
 
         // Compute the velocity
@@ -1750,7 +1751,7 @@ void TH2MLocalAssembler<ShapeFunctionDisplacement, ShapeFunctionPressure,
 
         auto const solid_linear_thermal_expansion_coefficient =
             solid_phase.property(MPL::PropertyType::thermal_expansivity)
-                .template value<double>(vars, pos, t);
+                .template value<double>(vars, pos, t, dt);
 
         double const delta_T(T_int_pt - T0);
         double const thermal_strain =
@@ -1764,16 +1765,16 @@ void TH2MLocalAssembler<ShapeFunctionDisplacement, ShapeFunctionPressure,
             thermal_strain);
 
         auto const rho_LR = liquid_phase.property(MPL::PropertyType::density)
-                                .template value<double>(vars, pos, t);
+                                .template value<double>(vars, pos, t, dt);
 
         auto const phi = medium.property(MPL::PropertyType::porosity)
-                             .template value<double>(vars, pos, t);
+                             .template value<double>(vars, pos, t, dt);
 
         auto const rho_GR = gas_phase.property(MPL::PropertyType::density)
-                                .template value<double>(vars, pos, t);
+                                .template value<double>(vars, pos, t, dt);
 
         auto const s_L = medium.property(MPL::PropertyType::saturation)
-                             .template value<double>(vars, pos, t);
+                             .template value<double>(vars, pos, t, dt);
 
         _liquid_pressure[ip] = pLR_int_pt;
         _liquid_density[ip] = rho_LR;
