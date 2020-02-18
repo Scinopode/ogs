@@ -1575,9 +1575,12 @@ TH2MLocalAssembler<ShapeFunctionDisplacement, ShapeFunctionPressure,
         auto const& N_p = _ip_data[ip].N_p;
 
         vars[static_cast<int>(MPL::Variable::temperature)] =
-            N_p * T;  // N_p = N_T
-        vars[static_cast<int>(MPL::Variable::phase_pressure)] = N_p * pGR;
+            N_p.dot(T);  // N_p = N_T
+        vars[static_cast<int>(MPL::Variable::phase_pressure)] = N_p.dot(pGR);
 
+        // TODO (naumov) Temporary value not used by current material models.
+        // Need extension of secondary variables interface.
+        double const dt = std::numeric_limits<double>::quiet_NaN();
         auto const viscosity = gas_phase.property(MPL::PropertyType::viscosity)
                                    .template value<double>(vars, pos, t, dt);
         GlobalDimMatrixType K_over_mu =
@@ -1654,9 +1657,12 @@ TH2MLocalAssembler<ShapeFunctionDisplacement, ShapeFunctionPressure,
 
         auto const& N_p = _ip_data[ip].N_p;
 
-        vars[static_cast<int>(MPL::Variable::temperature)] =
-            N_p * T;  // N_p = N_T
-        vars[static_cast<int>(MPL::Variable::phase_pressure)] = N_p * pLR;
+        vars[static_cast<int>(MPL::Variable::temperature)] = N_p.dot(T);
+        vars[static_cast<int>(MPL::Variable::phase_pressure)] = N_p.dot(pLR);
+
+        // TODO (naumov) Temporary value not used by current material models.
+        // Need extension of secondary variables interface.
+        double const dt = std::numeric_limits<double>::quiet_NaN();
 
         auto const viscosity =
             liquid_phase.property(MPL::PropertyType::viscosity)
