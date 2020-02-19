@@ -13,6 +13,9 @@
 #include "MathLib/LinAlg/Eigen/EigenMapTools.h"
 #include "LocalAssemblerInterface.h"
 
+#include <iostream>
+#include <iomanip>
+
 namespace ProcessLib
 {
 CentralDifferencesJacobianAssembler::CentralDifferencesJacobianAssembler(
@@ -130,6 +133,90 @@ void CentralDifferencesJacobianAssembler::assembleWithJacobian(
         auto local_K = MathLib::toMatrix(local_K_data, num_r_c, num_r_c);
         local_Jac.noalias() += local_K * dx_dx;
     }
+
+    auto local_M = MathLib::toMatrix(local_M_data, num_r_c, num_r_c);
+    auto local_K = MathLib::toMatrix(local_K_data, num_r_c, num_r_c);
+    auto const local_b = MathLib::toVector<Eigen::VectorXd>(local_b_data, num_r_c);
+    
+    const auto residuum  = local_M * local_xdot + local_K * local_x - local_b;
+
+#define nOUTPUT_J_R
+
+#ifdef OUTPUT_J_R
+std::cout << std::setprecision(23);
+    std::cout << "##########################################################\n";
+    std::cout << "#  M:                                                    #\n";
+    std::cout << "# ------------------------------------------------------ #\n";
+    std::cout << "#                                                        #\n";
+    for (int i=0; i< num_r_c; i++)
+    {
+    for (int j=0; j< num_r_c; j++)
+        {
+            std::cout << local_M(i,j) << " ";
+        }
+        std::cout << "\n";
+    }
+    std::cout << "##########################################################\n";
+    std::cout << "#  xdot:                                             #\n";
+    std::cout << "# ------------------------------------------------------ #\n";
+    std::cout << "#                                                        #\n";
+    for (int i=0; i< num_r_c; i++)
+    {
+            std::cout << local_xdot[i] << "\n";
+    }
+    std::cout << "##########################################################\n";
+    std::cout << "#  K:                                                    #\n";
+    std::cout << "# ------------------------------------------------------ #\n";
+    std::cout << "#                                                        #\n";
+    for (int i=0; i< num_r_c; i++)
+    {
+    for (int j=0; j< num_r_c; j++)
+        {
+            std::cout << local_K(i,j) << " ";
+        }
+        std::cout << "\n";
+    }
+    std::cout << "##########################################################\n";
+    std::cout << "#  x:                                             #\n";
+    std::cout << "# ------------------------------------------------------ #\n";
+    std::cout << "#                                                        #\n";
+    for (int i=0; i< num_r_c; i++)
+    {
+            std::cout << local_x[i] << "\n";
+    }
+    std::cout << "##########################################################\n";
+    std::cout << "#  b:                                             #\n";
+    std::cout << "# ------------------------------------------------------ #\n";
+    std::cout << "#                                                        #\n";
+    for (int i=0; i< num_r_c; i++)
+    {
+            std::cout << local_b[i] << "\n";
+    }
+    std::cout << "##########################################################\n";
+    std::cout << "#  Jacobian:                                             #\n";
+    std::cout << "# ------------------------------------------------------ #\n";
+    std::cout << "#                                                        #\n";
+    for (int i=0; i< num_r_c; i++)
+    {
+    for (int j=0; j< num_r_c; j++)
+        {
+            std::cout << local_Jac(i,j) << " ";
+        }
+        std::cout << "\n";
+    }
+    std::cout << "##########################################################\n";
+    std::cout << "#  Residuals:                                            #\n";
+    std::cout << "# ------------------------------------------------------ #\n";
+    std::cout << "#                                                        #\n";
+    for (int i=0; i< num_r_c; i++)
+    {
+            std::cout << residuum[i] << "\n";
+    }
+    std::cout << "##########################################################\n";
+    OGS_FATAL("Stop_intented.");
+#endif
+
+
 }
 
 std::unique_ptr<CentralDifferencesJacobianAssembler>
