@@ -146,7 +146,7 @@
                         <property>
                             <name>specific_heat_capacity</name>
                             <type>Constant</type>
-                            <value>14</value>
+                            <value>1000</value>
                         </property>
 
                         <property>
@@ -170,7 +170,6 @@
                             <value>2.5e-12</value>
                         </property>
 
-
                         <property>
                             <name>biot_coefficient</name>
                             <type>Constant</type>
@@ -186,7 +185,7 @@
             <property>
                <name>relative_permeability</name>
                <type>Constant</type>
-               <value>1.e-16 1.</value>
+               <value>1.e-30 1.</value>
             </property>
 
             <property>
@@ -202,11 +201,19 @@
         <processes>
             <process ref="TH2M">
                 <nonlinear_solver>basic_newton</nonlinear_solver>
+
+            <convergence_criterion>
+                    <type>PerComponentResidual</type>
+                    <norm_type>NORM2</norm_type>
+                    <abstols>1e-9 1e-9 1e-9 1e-0 1e-0</abstols>
+                </convergence_criterion> 
+<!--
                 <convergence_criterion>
                     <type>PerComponentDeltaX</type>
                     <norm_type>NORM2</norm_type>
-                    <reltols>1e0 1e-10 1e-10 1e-0 1e-0</reltols>
+                    <reltols>1e-10 1e-10 1e-10 1e-0 1e-0</reltols>
                 </convergence_criterion>
+-->
                 <time_discretization>
                     <type>BackwardEuler</type>
                 </time_discretization>
@@ -463,13 +470,13 @@
             <initial_condition>T_ic</initial_condition>
             <boundary_conditions>
 
-<!--                <boundary_condition>
+                <boundary_condition>
                     <mesh>boundary8_left</mesh>
                     <type>Dirichlet</type>
                     <component>0</component>
                     <parameter>T_ic</parameter>
                 </boundary_condition>
--->
+
 
             </boundary_conditions>
         </process_variable>
