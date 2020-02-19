@@ -274,6 +274,7 @@ void TH2MLocalAssembler<
         auto const BuT = Bu.transpose();
 
         auto& eps = ip_data.eps;
+        auto const& sigma_eff = _ip_data[ip].sigma_eff;
         double const T0 = _process_data.reference_temperature(t, pos)[0];
 
         auto const T_int_pt = NT.dot(T);
@@ -281,7 +282,13 @@ void TH2MLocalAssembler<
         auto const pCap_int_pt = Np.dot(pCap);
         auto const pLR_int_pt = pGR_int_pt - pCap_int_pt;
 
-#define nUNKNOWNS
+#define nDEBUG_OUTPUT
+#ifdef DEBUG_OUTPUT
+#define UNKNOWNS
+#define SHAPE_MATRICES
+#define MATERIAL_PROPERTIES
+#endif
+
 #ifdef UNKNOWNS
         std::cout << "-----------------\n";
         std::cout << "--- unknowns: ---\n";
@@ -298,7 +305,6 @@ void TH2MLocalAssembler<
         std::cout << "--------------------\n";
 #endif
 
-#define nSHAPE_MATRICES
 #ifdef SHAPE_MATRICES
         std::cout << "*************************************\n";
         std::cout << " Shape matrices: \n";
@@ -318,7 +324,7 @@ void TH2MLocalAssembler<
         std::cout << " --------------- \n";
         std::cout << " Bu:\n" << Bu << "\n";
         std::cout << " --------------- \n";
-        std::cout << " Calculate constitutive parameters. \n";
+        std::cout << "*************************************\n";
 #endif
 
         MPL::VariableArray vars;
@@ -450,13 +456,21 @@ void TH2MLocalAssembler<
                              phi_S * rho_SR_0 * c_p_S;
 
         // update secondary variables. TODO: Refactoring potential!!
-        _liquid_pressure[ip] = pLR_int_pt;
+
+        _liquid_pressure[ip] = rho_c_p;
+        // _liquid_pressure[ip] = pLR_int_pt;
         _liquid_density[ip] = rho_LR;
         _gas_density[ip] = rho_GR;
         _porosity[ip] = phi;
         _saturation[ip] = s_L;
 
-#define nMATERIAL_PROPERTIES
+        GlobalDimVectorType const w_GS =
+            k_over_mu_G * rho_GR * b - k_over_mu_G * gradNp * pGR;
+
+        GlobalDimVectorType const w_LS = k_over_mu_L * gradNp * pCap +
+                                         k_over_mu_L * rho_GR * b -
+                                         k_over_mu_L * gradNp * pGR;
+
 #ifdef MATERIAL_PROPERTIES
         std::cout << "######################################################\n";
         std::cout << "#    Material properties:\n";
@@ -500,16 +514,14 @@ void TH2MLocalAssembler<
         std::cout << "#          phi_L:  " << phi_L << "\n";
         std::cout << "#          phi_S:  " << phi_S << "\n";
         std::cout << "######################################################\n";
+        std::cout << "#  Darcy-Velocities: "
+                  << "\n";
+        std::cout << "#----------------------------------------------------#\n";
+        std::cout << "#           w_LS:\n" << w_LS << "\n";
+        std::cout << "#           w_GS:\n" << w_GS << "\n";
+        std::cout << "######################################################\n";
 #endif
 
-        GlobalDimVectorType const w_GS =
-            k_over_mu_G * rho_GR * b - k_over_mu_G * gradNp * pGR;
-
-        GlobalDimVectorType const w_LS = k_over_mu_L * gradNp * pCap +
-                                         k_over_mu_L * rho_GR * b -
-                                         k_over_mu_L * gradNp * pGR;
-
-#undef DEBUG_OUTPUT
 #ifdef DEBUG_OUTPUT
         std::cout << "------------------------------------------------------\n";
 #endif
@@ -555,7 +567,7 @@ void TH2MLocalAssembler<
         KGpG.noalias() += (gradNpT * k_over_mu_G * gradNp) * w;
 
 #ifdef DEBUG_OUTPUT
-        std::cout << " KGpG:\n" << KGpG << "\n";
+        std::cout << " KGpG (LGpG):\n" << KGpG << "\n";
         std::cout << "------------------------------------------------------\n";
 #endif
 
@@ -591,6 +603,10 @@ void TH2MLocalAssembler<
             (NpT * s_L * (phi * beta_T_LR + (alpha_B - phi) * beta_T_SR) * Np) *
             w;
 
+        // if ((_element.getID() == 0) && (ip == 0))
+        // {
+        // }
+
 #ifdef DEBUG_OUTPUT
         std::cout << " MLT:\n" << MLT << "\n";
         std::cout << "------------------------------------------------------\n";
@@ -606,14 +622,14 @@ void TH2MLocalAssembler<
         KLpG.noalias() += (gradNpT * k_over_mu_L * gradNp) * w;
 
 #ifdef DEBUG_OUTPUT
-        std::cout << " KLpG:\n" << KLpG << "\n";
+        std::cout << " KLpG (LLpG):\n" << KLpG << "\n";
         std::cout << "------------------------------------------------------\n";
 #endif
 
         KLpC.noalias() -= (gradNpT * k_over_mu_L * gradNp) * w;
 
 #ifdef DEBUG_OUTPUT
-        std::cout << " KLpC:\n" << KLpC << "\n";
+        std::cout << " KLpC (LLpC):\n" << KLpC << "\n";
         std::cout << "------------------------------------------------------\n";
 #endif
 
@@ -659,14 +675,14 @@ void TH2MLocalAssembler<
             w;
 
 #ifdef DEBUG_OUTPUT
-        std::cout << " KTpG:\n" << KTpG << "\n";
+        std::cout << " KTpG (ATpG):\n" << KTpG << "\n";
         std::cout << "------------------------------------------------------\n";
 #endif
 
         KTpC.noalias() += (gradNT.transpose() * beta_T_LR * w_LS * NT) * w;
 
 #ifdef DEBUG_OUTPUT
-        std::cout << " KTpC:\n" << KTpC << "\n";
+        std::cout << " KTpC (ATpC):\n" << KTpC << "\n";
         std::cout << "------------------------------------------------------\n";
 #endif
         // ATT
@@ -676,14 +692,14 @@ void TH2MLocalAssembler<
             w;
 
 #ifdef DEBUG_OUTPUT
-        std::cout << " ATT:\n" << KTT << "\n";
+        std::cout << " KTT (ATT):\n" << KTT << "\n";
         std::cout << "------------------------------------------------------\n";
 #endif
         // LTT
         KTT.noalias() += (gradNTT * lambda * gradNT) * w;
 
 #ifdef DEBUG_OUTPUT
-        std::cout << " ATT+LTT:\n" << KTT << "\n";
+        std::cout << " KTT (ATT+LTT):\n" << KTT << "\n";
         std::cout << "------------------------------------------------------\n";
 #endif
         //  - displacement equation
@@ -719,11 +735,24 @@ void TH2MLocalAssembler<
         std::cout << "------------------------------------------------------\n";
 #endif
 
-        fU.noalias() += Nu_op.transpose() * rho * b * w;
-
 #ifdef DEBUG_OUTPUT
         std::cout << " fU:\n" << fU << "\n";
         std::cout << "------------------------------------------------------\n";
+#endif
+
+#ifdef DEBUG_OUTPUT
+        std::cout << " eps:\n" << eps << "\n";
+        std::cout << "------------------------------------------------------\n";
+        std::cout << " C:\n" << C << "\n";
+        std::cout << "------------------------------------------------------\n";
+        std::cout << " thermal_strain:\n" << thermal_strain << "\n";
+        std::cout << "------------------------------------------------------\n";
+        std::cout << " sigma_eff:\n" << sigma_eff << "\n";
+        std::cout << "------------------------------------------------------\n";
+#endif
+
+#ifdef DEBUG_OUTPUT
+        OGS_FATAL("Stop intended.");
 #endif
     }
 }
@@ -1374,8 +1403,7 @@ void TH2MLocalAssembler<ShapeFunctionDisplacement, ShapeFunctionPressure,
             t, pos, dt, u, _process_data.reference_temperature(t, pos)[0],
             thermal_strain);
 
-        fU.noalias() +=
-            (BuT * sigma_eff - Nu_op.transpose() * rho * b) * w;
+        fU.noalias() += (BuT * sigma_eff - Nu_op.transpose() * rho * b) * w;
 
         JUu.noalias() += BuT * C * Bu * w;
     }
