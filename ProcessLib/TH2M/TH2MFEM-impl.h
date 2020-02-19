@@ -706,7 +706,13 @@ void TH2MLocalAssembler<
             t, pos, dt, u, _process_data.reference_temperature(t, pos)[0],
             thermal_strain);
 
+#define SIGMA
+#ifdef SIGMA
+        fU.noalias() -= (BuT * sigma_eff + Nu_op.transpose() * rho * b) * w;
+#else
         KUU.noalias() += BuT * C * Bu * w;
+        fU.noalias() += Nu_op.transpose() * rho * b * w;
+#endif
 
 #ifdef DEBUG_OUTPUT
         std::cout << " KUU:\n" << KUU << "\n";
