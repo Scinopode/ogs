@@ -457,8 +457,7 @@ void TH2MLocalAssembler<
 
         // update secondary variables. TODO: Refactoring potential!!
 
-        _liquid_pressure[ip] = rho_c_p;
-        // _liquid_pressure[ip] = pLR_int_pt;
+        _liquid_pressure[ip] = pLR_int_pt;
         _liquid_density[ip] = rho_LR;
         _gas_density[ip] = rho_GR;
         _porosity[ip] = phi;
