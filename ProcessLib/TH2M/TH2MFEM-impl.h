@@ -336,7 +336,8 @@ void TH2MLocalAssembler<
 
         // Material properties
         //  - solid phase properties
-        auto const beta_p_SR =
+
+        auto const beta_p_S =
             solid_phase.property(MPL::PropertyType::compressibility)
                 .template value<double>(vars, pos, t, dt);
 
@@ -419,6 +420,8 @@ void TH2MLocalAssembler<
         auto const alpha_B =
             medium.property(MPL::PropertyType::biot_coefficient)
                 .template value<double>(vars, pos, t, dt);
+
+        auto const beta_p_SR = (1. - alpha_B) * beta_p_S;
 
         auto const k_rel =
             medium.property(MPL::PropertyType::relative_permeability)
