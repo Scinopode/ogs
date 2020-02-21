@@ -1,0 +1,10 @@
+<?xml version="1.0"?>
+<VTKFile type="Collection" version="0.1" byte_order="LittleEndian" compressor="vtkZLibDataCompressor">
+  <Collection>
+    <DataSet timestep="0" group="" part="0" file="th2m_hm_pcs_0_ts_0_t_0.000000.vtu"/>
+    <DataSet timestep="1000" group="" part="0" file="th2m_hm_pcs_0_ts_10_t_1000.000000.vtu"/>
+    <DataSet timestep="2000" group="" part="0" file="th2m_hm_pcs_0_ts_20_t_2000.000000.vtu"/>
+    <DataSet timestep="3000" group="" part="0" file="th2m_hm_pcs_0_ts_30_t_3000.000000.vtu"/>
+    <DataSet timestep="4000" group="" part="0" file="th2m_hm_pcs_0_ts_40_t_4000.000000.vtu"/>
+  </Collection>
+</VTKFile>
