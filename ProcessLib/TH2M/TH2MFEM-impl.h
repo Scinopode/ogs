@@ -672,26 +672,25 @@ void TH2MLocalAssembler<
         std::cout << "------------------------------------------------------\n";
 #endif
 
-        KTpG.noalias() -=
-            (gradNT.transpose() * (beta_T_GR * w_GS + beta_T_LR * w_LS) * NT) *
-            w;
+        KTpG.noalias() -= (NTT * beta_T_GR * w_GS.transpose() * gradNT +
+                           NTT * beta_T_LR * w_LS.transpose() * gradNT) *
+                          w;
 
 #ifdef DEBUG_OUTPUT
         std::cout << " KTpG (ATpG):\n" << KTpG << "\n";
         std::cout << "------------------------------------------------------\n";
 #endif
 
-        KTpC.noalias() += (gradNT.transpose() * beta_T_LR * w_LS * NT) * w;
+        KTpC.noalias() += (NTT * beta_T_LR * w_LS.transpose() * gradNT) * w;
 
 #ifdef DEBUG_OUTPUT
         std::cout << " KTpC (ATpC):\n" << KTpC << "\n";
         std::cout << "------------------------------------------------------\n";
 #endif
         // ATT
-        KTT.noalias() +=
-            (gradNT.transpose() *
-             (rho_LR * c_p_L * w_LS + rho_GR * c_p_G * w_GS) * NT) *
-            w;
+        KTT.noalias() += (NTT * w_LS.transpose() * gradNT * rho_LR * c_p_L +
+                          NTT * w_GS.transpose() * gradNT * rho_GR * c_p_G) *
+                         w;
 
 #ifdef DEBUG_OUTPUT
         std::cout << " KTT (ATT):\n" << KTT << "\n";
