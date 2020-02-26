@@ -18,7 +18,7 @@ namespace ProcessLib
 {
 namespace TH2M
 {
-struct LocalAssemblerInterface;
+//struct LocalAssemblerInterface;
 
 template <int DisplacementDim>
 class TH2MProcess final : public Process
@@ -58,6 +58,7 @@ public:
         const int process_id) const override;
 
 private:
+    using LocalAssemblerIF = LocalAssemblerInterface<DisplacementDim>;
     void constructDofTable() override;
 
     void initializeConcreteProcess(
@@ -66,6 +67,9 @@ private:
         unsigned const integration_order) override;
 
     void initializeBoundaryConditions() override;
+
+    void setInitialConditionsConcreteProcess(
+        GlobalVector const& x, double const t) override;
 
     void assembleConcreteProcess(const double t, double const dt,
                                  std::vector<GlobalVector*> const& x,
@@ -99,7 +103,7 @@ private:
     std::unique_ptr<MeshLib::MeshSubset const> _mesh_subset_base_nodes;
     TH2MProcessData<DisplacementDim> _process_data;
 
-    std::vector<std::unique_ptr<LocalAssemblerInterface>> _local_assemblers;
+    std::vector<std::unique_ptr<LocalAssemblerIF>> _local_assemblers;
 
     std::unique_ptr<NumLib::LocalToGlobalIndexMap>
         _local_to_global_index_map_single_component;
@@ -133,6 +137,7 @@ private:
     }
 
     MeshLib::PropertyVector<double>* _nodal_forces = nullptr;
+    MeshLib::PropertyVector<double>* _aeraulic_flow = nullptr;
     MeshLib::PropertyVector<double>* _hydraulic_flow = nullptr;
 };
 

@@ -137,6 +137,9 @@ TH2MProcess<DisplacementDim>::TH2MProcess(
     _nodal_forces = MeshLib::getOrCreateMeshProperty<double>(
         mesh, "NodalForces", MeshLib::MeshItemType::Node, DisplacementDim);
 
+    _aeraulic_flow = MeshLib::getOrCreateMeshProperty<double>(
+        mesh, "AeraulicFlow", MeshLib::MeshItemType::Node, 1);
+
     _hydraulic_flow = MeshLib::getOrCreateMeshProperty<double>(
         mesh, "HydraulicFlow", MeshLib::MeshItemType::Node, 1);
 }
@@ -294,26 +297,26 @@ void TH2MProcess<DisplacementDim>::initializeConcreteProcess(
     add_secondary_variable("sigma",
                            MathLib::KelvinVector::KelvinVectorType<
                                DisplacementDim>::RowsAtCompileTime,
-                           &LocalAssemblerInterface::getIntPtSigma);
+                           &LocalAssemblerIF::getIntPtSigma);
     add_secondary_variable("epsilon",
                            MathLib::KelvinVector::KelvinVectorType<
                                DisplacementDim>::RowsAtCompileTime,
-                           &LocalAssemblerInterface::getIntPtEpsilon);
+                           &LocalAssemblerIF::getIntPtEpsilon);
     add_secondary_variable("velocity_gas", mesh.getDimension(),
-                           &LocalAssemblerInterface::getIntPtDarcyVelocityGas);
+                           &LocalAssemblerIF::getIntPtDarcyVelocityGas);
     add_secondary_variable(
         "velocity_liquid", mesh.getDimension(),
-        &LocalAssemblerInterface::getIntPtDarcyVelocityLiquid);
+        &LocalAssemblerIF::getIntPtDarcyVelocityLiquid);
     add_secondary_variable("saturation", 1,
-                           &LocalAssemblerInterface::getIntPtSaturation);
+                           &LocalAssemblerIF::getIntPtSaturation);
     add_secondary_variable("porosity", 1,
-                           &LocalAssemblerInterface::getIntPtPorosity);
+                           &LocalAssemblerIF::getIntPtPorosity);
     add_secondary_variable("gas_density", 1,
-                           &LocalAssemblerInterface::getIntPtGasDensity);
+                           &LocalAssemblerIF::getIntPtGasDensity);
     add_secondary_variable("liquid_density", 1,
-                           &LocalAssemblerInterface::getIntPtLiquidDensity);
+                           &LocalAssemblerIF::getIntPtLiquidDensity);
     add_secondary_variable("liquid_pressure", 1,
-                           &LocalAssemblerInterface::getIntPtLiquidPressure);
+                           &LocalAssemblerIF::getIntPtLiquidPressure);
 
     _process_data.gas_pressure_interpolated =
         MeshLib::getOrCreateMeshProperty<double>(
@@ -332,7 +335,7 @@ void TH2MProcess<DisplacementDim>::initializeConcreteProcess(
 
     // Initialize local assemblers after all variables have been set.
     GlobalExecutor::executeMemberOnDereferenced(
-        &LocalAssemblerInterface::initialize, _local_assemblers,
+        &LocalAssemblerIF::initialize, _local_assemblers,
         *_local_to_global_index_map);
 }
 
@@ -362,6 +365,18 @@ void TH2MProcess<DisplacementDim>::initializeBoundaryConditions()
     const int mechanical_process_id = 2;
     initializeProcessBoundaryConditionsAndSourceTerms(
         *_local_to_global_index_map, mechanical_process_id);
+}
+
+template <int DisplacementDim>
+void TH2MProcess<
+    DisplacementDim>::setInitialConditionsConcreteProcess(GlobalVector const& x,
+                                                          double const t)
+{
+    DBUG("SetInitialConditions TH2MProcess.");
+
+    GlobalExecutor::executeMemberOnDereferenced(
+        &LocalAssemblerIF::setInitialConditions, _local_assemblers,
+        *_local_to_global_index_map, x, t);
 }
 
 template <int DisplacementDim>
@@ -446,13 +461,19 @@ void TH2MProcess<DisplacementDim>::assembleWithJacobianConcreteProcess(
                                               std::negate<double>());
         }
     };
+    if (_use_monolithic_scheme || process_id == 0)
+    {
+        copyRhs(0, *_aeraulic_flow);
+    }
+
     if (_use_monolithic_scheme || process_id == 1)
     {
-        copyRhs(0, *_hydraulic_flow);
+        copyRhs(1, *_hydraulic_flow);
     }
-    if (_use_monolithic_scheme || process_id == 2)
+
+    if (_use_monolithic_scheme || process_id == 3)
     {
-        copyRhs(1, *_nodal_forces);
+        copyRhs(3, *_nodal_forces);
     }
 }
 
@@ -466,7 +487,7 @@ void TH2MProcess<DisplacementDim>::preTimestepConcreteProcess(
     if (hasMechanicalProcess(process_id))
     {
         GlobalExecutor::executeMemberOnDereferenced(
-            &LocalAssemblerInterface::preTimestep, _local_assemblers,
+            &LocalAssemblerIF::preTimestep, _local_assemblers,
             *_local_to_global_index_map, *x[process_id], t, dt);
     }
 }
@@ -478,7 +499,7 @@ void TH2MProcess<DisplacementDim>::postTimestepConcreteProcess(
 {
     DBUG("PostTimestep TH2MProcess.");
     GlobalExecutor::executeMemberOnDereferenced(
-        &LocalAssemblerInterface::postTimestep, _local_assemblers,
+        &LocalAssemblerIF::postTimestep, _local_assemblers,
         getDOFTable(process_id), *x[process_id], t, dt);
 }
 
@@ -497,7 +518,7 @@ void TH2MProcess<DisplacementDim>::postNonLinearSolverConcreteProcess(
     DBUG("PostNonLinearSolver TH2MProcess.");
     // Calculate strain, stress or other internal variables of mechanics.
     GlobalExecutor::executeMemberOnDereferenced(
-        &LocalAssemblerInterface::postNonLinearSolver, _local_assemblers,
+        &LocalAssemblerIF::postNonLinearSolver, _local_assemblers,
         getDOFTable(process_id), x, t, dt, _use_monolithic_scheme);
 }
 
@@ -507,7 +528,7 @@ void TH2MProcess<DisplacementDim>::computeSecondaryVariableConcrete(
 {
     DBUG("Compute the secondary variables for TH2MProcess.");
     GlobalExecutor::executeMemberOnDereferenced(
-        &LocalAssemblerInterface::computeSecondaryVariable, _local_assemblers,
+        &LocalAssemblerIF::computeSecondaryVariable, _local_assemblers,
         getDOFTable(process_id), t, x, _coupled_solutions);
 }
 
