@@ -137,6 +137,9 @@ TH2MProcess<DisplacementDim>::TH2MProcess(
     _nodal_forces = MeshLib::getOrCreateMeshProperty<double>(
         mesh, "NodalForces", MeshLib::MeshItemType::Node, DisplacementDim);
 
+    _aeraulic_flow = MeshLib::getOrCreateMeshProperty<double>(
+        mesh, "AeraulicFlow", MeshLib::MeshItemType::Node, 1);
+
     _hydraulic_flow = MeshLib::getOrCreateMeshProperty<double>(
         mesh, "HydraulicFlow", MeshLib::MeshItemType::Node, 1);
 }
@@ -446,13 +449,19 @@ void TH2MProcess<DisplacementDim>::assembleWithJacobianConcreteProcess(
                                               std::negate<double>());
         }
     };
+    if (_use_monolithic_scheme || process_id == 0)
+    {
+        copyRhs(0, *_aeraulic_flow);
+    }
+
     if (_use_monolithic_scheme || process_id == 1)
     {
-        copyRhs(0, *_hydraulic_flow);
+        copyRhs(1, *_hydraulic_flow);
     }
-    if (_use_monolithic_scheme || process_id == 2)
+
+    if (_use_monolithic_scheme || process_id == 3)
     {
-        copyRhs(1, *_nodal_forces);
+        copyRhs(3, *_nodal_forces);
     }
 }
 

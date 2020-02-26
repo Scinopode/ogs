@@ -133,6 +133,7 @@ private:
     }
 
     MeshLib::PropertyVector<double>* _nodal_forces = nullptr;
+    MeshLib::PropertyVector<double>* _aeraulic_flow = nullptr;
     MeshLib::PropertyVector<double>* _hydraulic_flow = nullptr;
 };
 
