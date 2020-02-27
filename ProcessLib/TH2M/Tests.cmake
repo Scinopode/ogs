@@ -130,3 +130,22 @@ AddTest(
     GLOB th2m_hm_pcs_0_ts_*.vtu porosity porosity 1e-15 0
     GLOB th2m_hm_pcs_0_ts_*.vtu sigma sigma 5e-10 0
 )
+
+AddTest(
+    NAME TH2M_TH2M_Liakopoulos
+    PATH TH2M/numerical_jacobian/TH2M_Liakopoulos
+    EXECUTABLE ogs
+    EXECUTABLE_ARGS TH2M_Liakopoulos.prj
+    WRAPPER time
+    TESTER vtkdiff
+    REQUIREMENTS NOT OGS_USE_MPI
+    DIFF_DATA
+    GLOB th2m_liakopoulos_pcs_0_ts_*.vtu displacement displacement 1e-15 0
+    GLOB th2m_liakopoulos_pcs_0_ts_*.vtu gas_pressure gas_pressure 1e-15 0
+    GLOB th2m_liakopoulos_pcs_0_ts_*.vtu capillary_pressure capillary_pressure 1e-15 0
+    GLOB th2m_liakopoulos_pcs_0_ts_*.vtu saturation saturation 1e-15 0
+    GLOB th2m_liakopoulos_pcs_0_ts_*.vtu temperature temperature 1e-15 0
+    GLOB th2m_liakopoulos_pcs_0_ts_*.vtu epsilon epsilon 1e-15 0
+    GLOB th2m_liakopoulos_pcs_0_ts_*.vtu porosity porosity 1e-15 0
+    GLOB th2m_liakopoulos_pcs_0_ts_*.vtu sigma sigma 5e-10 0
+)
