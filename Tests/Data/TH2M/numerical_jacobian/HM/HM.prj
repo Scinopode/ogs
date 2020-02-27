@@ -205,7 +205,7 @@
                 <convergence_criterion>
                     <type>PerComponentDeltaX</type>
                     <norm_type>NORM2</norm_type>
-                    <reltols>1e-10 1e-10 1e-10 1e-0 1e-0</reltols>
+                    <reltols>1e-10 1e-10 1e-10 1e-10 1e-1</reltols>
                 </convergence_criterion>
                 <time_discretization>
                     <type>BackwardEuler</type>
