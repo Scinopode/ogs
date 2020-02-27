@@ -718,15 +718,19 @@ void TH2MLocalAssembler<
         //
         // displacement equation, displacement part
         //
+
+#define SIGMA
+#ifdef SIGMA
+        eps.noalias() = Bu * u;
+        ip_data.updateConstitutiveRelationThermal(
+            t, pos, dt, u, _process_data.reference_temperature(t, pos)[0],
+            thermal_strain);
+        fU.noalias() -= (BuT * sigma_eff - Nu_op.transpose() * rho * b) * w;
+#else
         eps.noalias() = Bu * u;
         auto C = ip_data.updateConstitutiveRelationThermal(
             t, pos, dt, u, _process_data.reference_temperature(t, pos)[0],
             thermal_strain);
-
-#define SIGMA
-#ifdef SIGMA
-        fU.noalias() -= (BuT * sigma_eff + Nu_op.transpose() * rho * b) * w;
-#else
         KUU.noalias() += BuT * C * Bu * w;
         fU.noalias() += Nu_op.transpose() * rho * b * w;
 #endif
@@ -1224,6 +1228,14 @@ void TH2MLocalAssembler<ShapeFunctionDisplacement, ShapeFunctionPressure,
         _porosity[ip] = phi;
         _saturation[ip] = s_L;
 
+        GlobalDimVectorType const w_GS =
+            k_over_mu_G * rho_GR * b - k_over_mu_G * gradNp * pGR;
+
+        GlobalDimVectorType const w_LS = k_over_mu_L * gradNp * pCap +
+                                         k_over_mu_L * rho_GR * b -
+                                         k_over_mu_L * gradNp * pGR;
+
+
 #ifdef DEBUG_TH2M
         std::cout << "######################################################\n";
         std::cout << "#    Material properties:\n";
@@ -1315,12 +1327,6 @@ void TH2MLocalAssembler<ShapeFunctionDisplacement, ShapeFunctionPressure,
         LLpC.noalias() += (gradNpT * k_over_mu_L * gradNp) * w;
         fL.noalias() += (gradNpT * rho_LR * k_over_mu_L * b) * w;
 
-        GlobalDimVectorType const w_GS =
-            k_over_mu_G * rho_GR * b - k_over_mu_G * gradNp * pGR;
-
-        GlobalDimVectorType const w_LS = k_over_mu_L * gradNp * pCap +
-                                         k_over_mu_L * rho_GR * b -
-                                         k_over_mu_L * gradNp * pGR;
 #ifdef DEBUG_TH2M
         std::cout << "--------------------\n";
         std::cout << "--- velocities:  ---\n";
@@ -1459,7 +1465,7 @@ void TH2MLocalAssembler<ShapeFunctionDisplacement, ShapeFunctionPressure,
                          ATpG * pGR + fT);
     rU.noalias() = -1 * (fU - KUpG * pGR);
 
-#define JACOBIAN
+#define nJACOBIAN
 #ifdef JACOBIAN
 
     const auto KTT = ATT + LTT;
