@@ -718,15 +718,19 @@ void TH2MLocalAssembler<
         //
         // displacement equation, displacement part
         //
+
+#define SIGMA
+#ifdef SIGMA
+        eps.noalias() = Bu * u;
+        ip_data.updateConstitutiveRelationThermal(
+            t, pos, dt, u, _process_data.reference_temperature(t, pos)[0],
+            thermal_strain);
+        fU.noalias() -= (BuT * sigma_eff - Nu_op.transpose() * rho * b) * w;
+#else
         eps.noalias() = Bu * u;
         auto C = ip_data.updateConstitutiveRelationThermal(
             t, pos, dt, u, _process_data.reference_temperature(t, pos)[0],
             thermal_strain);
-
-#define SIGMA
-#ifdef SIGMA
-        fU.noalias() -= (BuT * sigma_eff + Nu_op.transpose() * rho * b) * w;
-#else
         KUU.noalias() += BuT * C * Bu * w;
         fU.noalias() += Nu_op.transpose() * rho * b * w;
 #endif
