@@ -320,11 +320,6 @@ void TH2MLocalAssembler<
         std::cout << " Bu:\n" << Bu << "\n";
         std::cout << " --------------- \n";
         std::cout << "*************************************\n";
-        std::cout << " Process variables: \n";
-        std::cout << " --------------- \n";
-        std::cout << " Bu:\n" << Bu << "\n";
-        std::cout << " --------------- \n";
-        std::cout << "*************************************\n";
 #endif
 
         MPL::VariableArray vars;
