@@ -1228,6 +1228,14 @@ void TH2MLocalAssembler<ShapeFunctionDisplacement, ShapeFunctionPressure,
         _porosity[ip] = phi;
         _saturation[ip] = s_L;
 
+        GlobalDimVectorType const w_GS =
+            k_over_mu_G * rho_GR * b - k_over_mu_G * gradNp * pGR;
+
+        GlobalDimVectorType const w_LS = k_over_mu_L * gradNp * pCap +
+                                         k_over_mu_L * rho_GR * b -
+                                         k_over_mu_L * gradNp * pGR;
+
+
 #ifdef DEBUG_TH2M
         std::cout << "######################################################\n";
         std::cout << "#    Material properties:\n";
@@ -1319,12 +1327,6 @@ void TH2MLocalAssembler<ShapeFunctionDisplacement, ShapeFunctionPressure,
         LLpC.noalias() += (gradNpT * k_over_mu_L * gradNp) * w;
         fL.noalias() += (gradNpT * rho_LR * k_over_mu_L * b) * w;
 
-        GlobalDimVectorType const w_GS =
-            k_over_mu_G * rho_GR * b - k_over_mu_G * gradNp * pGR;
-
-        GlobalDimVectorType const w_LS = k_over_mu_L * gradNp * pCap +
-                                         k_over_mu_L * rho_GR * b -
-                                         k_over_mu_L * gradNp * pGR;
 #ifdef DEBUG_TH2M
         std::cout << "--------------------\n";
         std::cout << "--- velocities:  ---\n";
@@ -1463,7 +1465,7 @@ void TH2MLocalAssembler<ShapeFunctionDisplacement, ShapeFunctionPressure,
                          ATpG * pGR + fT);
     rU.noalias() = -1 * (fU - KUpG * pGR);
 
-#define JACOBIAN
+#define nJACOBIAN
 #ifdef JACOBIAN
 
     const auto KTT = ATT + LTT;
