@@ -1131,6 +1131,10 @@ void TH2MLocalAssembler<ShapeFunctionDisplacement, ShapeFunctionPressure,
             solid_phase.property(MPL::PropertyType::specific_heat_capacity)
                 .template value<double>(vars, pos, t, dt);
 
+        auto const lambda_SR =
+            solid_phase.property(MPL::PropertyType::thermal_conductivity)
+                .template value<double>(vars, pos, t, dt);
+
         //  - gas phase properties
         auto const beta_p_GR =
             gas_phase.property(MPL::PropertyType::compressibility)
@@ -1150,6 +1154,10 @@ void TH2MLocalAssembler<ShapeFunctionDisplacement, ShapeFunctionPressure,
             gas_phase.property(MPL::PropertyType::specific_heat_capacity)
                 .template value<double>(vars, pos, t, dt);
 
+        auto const lambda_GR =
+            gas_phase.property(MPL::PropertyType::thermal_conductivity)
+                .template value<double>(vars, pos, t, dt);
+
         //  - liquid phase properties
         auto const beta_p_LR =
             liquid_phase.property(MPL::PropertyType::compressibility)
@@ -1167,6 +1175,10 @@ void TH2MLocalAssembler<ShapeFunctionDisplacement, ShapeFunctionPressure,
 
         auto const c_p_L =
             liquid_phase.property(MPL::PropertyType::specific_heat_capacity)
+                .template value<double>(vars, pos, t, dt);
+
+        auto const lambda_LR =
+            liquid_phase.property(MPL::PropertyType::thermal_conductivity)
                 .template value<double>(vars, pos, t, dt);
 
         //  - medium properties
@@ -1197,10 +1209,6 @@ void TH2MLocalAssembler<ShapeFunctionDisplacement, ShapeFunctionPressure,
 
         auto const& b = _process_data.specific_body_force;
 
-        auto const lambda = MPL::formEigenTensor<DisplacementDim>(
-            medium.property(MPL::PropertyType::thermal_conductivity)
-                .template value<double>(vars, pos, t, dt));
-
         auto const k_over_mu_G = k_S * k_rel_G / mu_GR;
         auto const k_over_mu_L = k_S * k_rel_L / mu_LR;
 
@@ -1210,6 +1218,12 @@ void TH2MLocalAssembler<ShapeFunctionDisplacement, ShapeFunctionPressure,
         auto const phi_G = s_G * phi;
         auto const phi_L = s_L * phi;
         auto const phi_S = 1. - phi;
+
+        // TODO (Grunwald) replace effective thermal conductivity by a more
+        // sophisticated law, maybe even allow the law to be chosen in the
+        // project file as medium property
+        auto const lambda = MPL::formEigenTensor<DisplacementDim>(
+            phi_S * lambda_SR + phi_L * lambda_LR + phi_G * lambda_GR);
 
         // TODO (Wenqing) : Change dT to time step wise increment
         double const delta_T(T_int_pt - T0);
