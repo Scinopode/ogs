@@ -392,20 +392,22 @@ void ThermoHydroMechanicsLocalAssembler<ShapeFunctionDisplacement,
                          (dNdx_T * T).transpose() * K_over_mu * dNdx_p * w;
 
 
-        std::cout << "------------------------------------------------------\n";
-        std::cout << "K_over_mu:\n" << K_over_mu << "\n";
-        std::cout << "fluid_density:\n" << fluid_density << "\n";
-        std::cout << "c_f:\n" << c_f << "\n";
-        std::cout << "w:\n" << w << "\n";
-        std::cout << "N_T:\n" << N_T << "\n";
-        std::cout << "T:\n" << T << "\n";
-        std::cout << "dNdx_T:\n" << dNdx_T << "\n";
-        std::cout << "dNdx_p:\n" << dNdx_p << "\n";
-        std::cout << "------------------------------------------------------\n";
-        std::cout << "dNdx_T * T:\n" << dNdx_T * T << "\n";
+        // std::cout << "------------------------------------------------------\n";
+        // std::cout << "K_over_mu:\n" << K_over_mu << "\n";
+        // std::cout << "fluid_density:\n" << fluid_density << "\n";
+        // std::cout << "c_f:\n" << c_f << "\n";
+        // std::cout << "w:\n" << w << "\n";
+        // std::cout << "N_T:\n" << N_T << "\n";
+        // std::cout << "T:\n" << T << "\n";
+        // std::cout << "dNdx_T:\n" << dNdx_T << "\n";
+        // std::cout << "dNdx_p:\n" << dNdx_p << "\n";
+        // std::cout << "------------------------------------------------------\n";
+        // std::cout << "identity2: " << identity2 << "\n";
+        // std::cout << "------------------------------------------------------\n";
+        // std::cout << "dNdx_T * T:\n" << dNdx_T * T << "\n";
 
 
-        OGS_FATAL("");    
+        // OGS_FATAL("THM stop.");    
 
     }
 
@@ -465,7 +467,7 @@ void ThermoHydroMechanicsLocalAssembler<ShapeFunctionDisplacement,
     local_rhs.template segment<temperature_size>(temperature_index).noalias() -=
         KTT * T + MTT * T_dot;
 
-#define WRITE_RESIDUA
+#define nWRITE_RESIDUA
 #ifdef WRITE_RESIDUA
 
     std::cout << "---  storage_p -------------------------------------------\n";
