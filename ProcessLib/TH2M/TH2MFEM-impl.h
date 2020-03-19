@@ -352,10 +352,6 @@ void TH2MLocalAssembler<
                 .template value<double>(vars, pos, t, dt);
 
         //  - gas phase properties
-        auto const beta_p_GR =
-            gas_phase.property(MPL::PropertyType::compressibility)
-                .template value<double>(vars, pos, t, dt);
-
         auto const beta_T_GR =
             gas_phase.property(MPL::PropertyType::thermal_expansivity)
                 .template value<double>(vars, pos, t, dt);
@@ -366,6 +362,14 @@ void TH2MLocalAssembler<
         auto const rho_GR = gas_phase.property(MPL::PropertyType::density)
                                 .template value<double>(vars, pos, t, dt);
 
+        auto const beta_p_GR =
+            gas_phase.hasProperty(MPL::PropertyType::compressibility)
+                ? gas_phase.property(MPL::PropertyType::compressibility)
+                      .template value<double>(vars, pos, t, dt)
+                : gas_phase.property(MPL::PropertyType::density)
+                      .template dValue<double>(
+                          vars, MPL::Variable::phase_pressure, pos, t, dt);
+
         auto const c_p_G =
             gas_phase.property(MPL::PropertyType::specific_heat_capacity)
                 .template value<double>(vars, pos, t, dt);
@@ -375,10 +379,6 @@ void TH2MLocalAssembler<
                 .template value<double>(vars, pos, t, dt);
 
         //  - liquid phase properties
-        auto const beta_p_LR =
-            liquid_phase.property(MPL::PropertyType::compressibility)
-                .template value<double>(vars, pos, t, dt);
-
         auto const beta_T_LR =
             liquid_phase.property(MPL::PropertyType::thermal_expansivity)
                 .template value<double>(vars, pos, t, dt);
@@ -388,6 +388,14 @@ void TH2MLocalAssembler<
 
         auto const rho_LR = liquid_phase.property(MPL::PropertyType::density)
                                 .template value<double>(vars, pos, t, dt);
+
+        auto const beta_p_LR =
+            liquid_phase.hasProperty(MPL::PropertyType::compressibility)
+                ? liquid_phase.property(MPL::PropertyType::compressibility)
+                      .template value<double>(vars, pos, t, dt)
+                : liquid_phase.property(MPL::PropertyType::density)
+                      .template dValue<double>(
+                          vars, MPL::Variable::phase_pressure, pos, t, dt);
 
         auto const c_p_L =
             liquid_phase.property(MPL::PropertyType::specific_heat_capacity)
@@ -1132,10 +1140,6 @@ void TH2MLocalAssembler<ShapeFunctionDisplacement, ShapeFunctionPressure,
                 .template value<double>(vars, pos, t, dt);
 
         //  - gas phase properties
-        auto const beta_p_GR =
-            gas_phase.property(MPL::PropertyType::compressibility)
-                .template value<double>(vars, pos, t, dt);
-
         auto const beta_T_GR =
             gas_phase.property(MPL::PropertyType::thermal_expansivity)
                 .template value<double>(vars, pos, t, dt);
@@ -1146,6 +1150,14 @@ void TH2MLocalAssembler<ShapeFunctionDisplacement, ShapeFunctionPressure,
         auto const rho_GR = gas_phase.property(MPL::PropertyType::density)
                                 .template value<double>(vars, pos, t, dt);
 
+        auto const beta_p_GR =
+            gas_phase.hasProperty(MPL::PropertyType::compressibility)
+                ? gas_phase.property(MPL::PropertyType::compressibility)
+                      .template value<double>(vars, pos, t, dt)
+                : gas_phase.property(MPL::PropertyType::density)
+                      .template dValue<double>(
+                          vars, MPL::Variable::phase_pressure, pos, t, dt);
+
         auto const c_p_G =
             gas_phase.property(MPL::PropertyType::specific_heat_capacity)
                 .template value<double>(vars, pos, t, dt);
@@ -1155,10 +1167,6 @@ void TH2MLocalAssembler<ShapeFunctionDisplacement, ShapeFunctionPressure,
                 .template value<double>(vars, pos, t, dt);
 
         //  - liquid phase properties
-        auto const beta_p_LR =
-            liquid_phase.property(MPL::PropertyType::compressibility)
-                .template value<double>(vars, pos, t, dt);
-
         auto const beta_T_LR =
             liquid_phase.property(MPL::PropertyType::thermal_expansivity)
                 .template value<double>(vars, pos, t, dt);
@@ -1169,6 +1177,13 @@ void TH2MLocalAssembler<ShapeFunctionDisplacement, ShapeFunctionPressure,
         auto const rho_LR = liquid_phase.property(MPL::PropertyType::density)
                                 .template value<double>(vars, pos, t, dt);
 
+        auto const beta_p_LR =
+            liquid_phase.hasProperty(MPL::PropertyType::compressibility)
+                ? liquid_phase.property(MPL::PropertyType::compressibility)
+                      .template value<double>(vars, pos, t, dt)
+                : liquid_phase.property(MPL::PropertyType::density)
+                      .template dValue<double>(
+                          vars, MPL::Variable::phase_pressure, pos, t, dt);
         auto const c_p_L =
             liquid_phase.property(MPL::PropertyType::specific_heat_capacity)
                 .template value<double>(vars, pos, t, dt);
