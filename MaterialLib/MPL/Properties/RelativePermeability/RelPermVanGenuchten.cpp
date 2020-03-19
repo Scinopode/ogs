@@ -21,10 +21,12 @@ RelPermVanGenuchten::RelPermVanGenuchten(
     double const residual_liquid_saturation,
     double const residual_gas_saturation,
     double const min_relative_permeability_liquid,
+    double const min_relative_permeability_gas,
     double const exponent)
     : _S_L_res(residual_liquid_saturation),
       _S_L_max(1. - residual_gas_saturation),
-      _k_rel_min(min_relative_permeability_liquid),
+      _k_rel_min_liquid(min_relative_permeability_liquid),
+      _k_rel_min_gas(min_relative_permeability_gas),
       _m(exponent)
 {
     if (!(_m > 0 && _m < 1))
@@ -47,9 +49,15 @@ PropertyDataType RelPermVanGenuchten::value(
         _S_L_res, _S_L_max);
 
     double const S_eff = (S_L - _S_L_res) / (_S_L_max - _S_L_res);
-    double const v = 1. - std::pow(1. - std::pow(S_eff, 1. / _m), _m);
-    double const k_rel = std::sqrt(S_eff) * v * v;
-    return std::max(_k_rel_min, k_rel);
+
+    double const v1 = 1. - std::pow(S_eff, 1. / _m);
+    double const v2 = 1. - std::pow(v1, _m);
+
+    double const k_rel_liquid = std::sqrt(S_eff) * v2 * v2;
+    double const k_rel_gas = (1. - S_eff) * std::pow(v1, 2 * _m);
+
+    return Eigen::Vector2d{std::max(k_rel_liquid, _k_rel_min_liquid),
+                           std::max(k_rel_gas, _k_rel_min_gas)};
 }
 
 PropertyDataType RelPermVanGenuchten::dValue(
@@ -82,7 +90,7 @@ PropertyDataType RelPermVanGenuchten::dValue(
     double const sqrt_S_eff = std::sqrt(S_eff);
     double const k_rel = sqrt_S_eff * v * v;
 
-    if (k_rel < _k_rel_min)
+    if (k_rel < _k_rel_min_liquid)
     {
         return 0;
     }
