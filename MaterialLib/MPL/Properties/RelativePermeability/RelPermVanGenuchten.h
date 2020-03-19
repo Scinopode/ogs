@@ -27,7 +27,8 @@ class RelPermVanGenuchten final : public Property
 private:
     double const _S_L_res;
     double const _S_L_max;
-    double const _k_rel_min;
+    double const _k_rel_min_liquid;
+    double const _k_rel_min_gas;
     double const _m;
     Medium* _medium = nullptr;
 
@@ -35,6 +36,7 @@ public:
     RelPermVanGenuchten(double const residual_liquid_saturation,
                         double const residual_gas_saturation,
                         double const min_relative_permeability_liquid,
+                        double const min_relative_permeability_gas,
                         double const exponent);
     /// This method assigns a pointer to the material object that is the owner
     /// of this property
