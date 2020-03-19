@@ -30,6 +30,10 @@ std::unique_ptr<RelPermVanGenuchten> createRelPermVanGenuchten(
         //! \ogs_file_param{properties__property__RelativePermeabilityVanGenuchten__minimum_relative_permeability_liquid}
         config.getConfigParameter<double>(
             "minimum_relative_permeability_liquid");
+    auto const min_relative_permeability_gas =
+        //! \ogs_file_param{properties__property__RelativePermeabilityVanGenuchten__minimum_relative_permeability_gas}
+        config.getConfigParameter<double>(
+            "minimum_relative_permeability_gas");
     auto const exponent =
         //! \ogs_file_param{properties__property__RelativePermeabilityVanGenuchten__exponent}
         config.getConfigParameter<double>("exponent");
@@ -42,6 +46,7 @@ std::unique_ptr<RelPermVanGenuchten> createRelPermVanGenuchten(
         residual_liquid_saturation,
         residual_gas_saturation,
         min_relative_permeability_liquid,
+        min_relative_permeability_gas,
         exponent);
 }
 }  // namespace MaterialPropertyLib
