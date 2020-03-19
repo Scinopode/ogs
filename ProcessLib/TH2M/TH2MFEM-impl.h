@@ -413,6 +413,8 @@ void TH2MLocalAssembler<
         auto const s_L = medium.property(MPL::PropertyType::saturation)
                              .template value<double>(vars, pos, t, dt);
 
+        vars[static_cast<int>(MPL::Variable::liquid_saturation)] = s_L;
+
         auto const s_G = 1. - s_L;
 
         auto const dsLdPc =
