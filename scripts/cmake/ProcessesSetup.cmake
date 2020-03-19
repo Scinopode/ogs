@@ -16,6 +16,7 @@ set(ProcessesList
     SmallDeformationNonlocal
     SteadyStateDiffusion
     TES
+    TH2M
     ThermalTwoPhaseFlowWithPP
     ThermoHydroMechanics
     ThermoMechanicalPhaseField
