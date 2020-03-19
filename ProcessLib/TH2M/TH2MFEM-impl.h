@@ -324,7 +324,7 @@ void TH2MLocalAssembler<
 
         MPL::VariableArray vars;
         vars[static_cast<int>(MPL::Variable::temperature)] = T_int_pt;
-        vars[static_cast<int>(MPL::Variable::gas_phase_pressure)] = pGR_int_pt;
+        vars[static_cast<int>(MPL::Variable::phase_pressure)] = pGR_int_pt;
         vars[static_cast<int>(MPL::Variable::capillary_pressure)] = pCap_int_pt;
         vars[static_cast<int>(MPL::Variable::liquid_phase_pressure)] =
             pLR_int_pt;
@@ -1823,7 +1823,7 @@ void TH2MLocalAssembler<ShapeFunctionDisplacement, ShapeFunctionPressure,
         auto const pLR_int_pt = pGR_int_pt - pCap_int_pt;
 
         vars[static_cast<int>(MPL::Variable::temperature)] = T_int_pt;
-        vars[static_cast<int>(MPL::Variable::gas_phase_pressure)] = pGR_int_pt;
+        vars[static_cast<int>(MPL::Variable::phase_pressure)] = pGR_int_pt;
         vars[static_cast<int>(MPL::Variable::capillary_pressure)] = pCap_int_pt;
 
         auto const solid_linear_thermal_expansion_coefficient =
