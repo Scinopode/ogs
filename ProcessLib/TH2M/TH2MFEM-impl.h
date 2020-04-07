@@ -379,11 +379,11 @@ void TH2MLocalAssembler<
         const double xm_C_G = 1. - xm_W_G;
 
         // partial densities of gas phase constituents
-        const double rho_W_G = xm_W_G * pGR_int_pt;
-        const double rho_C_G = xm_C_G * pGR_int_pt;
+        const double rho_W_GR = xm_W_G * pGR_int_pt;
+        const double rho_C_GR = xm_C_G * pGR_int_pt;
 
         // concentration of dissolved gas in water
-        const double c_C_L = rho_C_G * H_C;
+        const double c_C_L = rho_C_GR * H_C;
 
         // Vapour-Liquid-Equilibrium:
         const double beta_pLR = 1.0e-8;
@@ -430,7 +430,7 @@ void TH2MLocalAssembler<
 
         const double beta_pGR = 1. / pGR_int_pt;
         const double beta_TGR = -1. / T_int_pt;
-        
+
         const double dxm_C_G_dpGR = xm_C_G * (beta_C_pGR - beta_pGR);
         const double dxm_W_G_dpGR = xm_W_G * (beta_W_pGR - beta_pGR);
         const double dxm_C_L_dpLR = xm_C_L * (beta_C_pLR - beta_pLR);
@@ -659,7 +659,6 @@ void TH2MLocalAssembler<
             t, pos, dt, u, _process_data.reference_temperature(t, pos)[0],
             thermal_strain);
         fU.noalias() -= (BuT * sigma_eff - Nu_op.transpose() * rho * b) * w;
-
 
 #ifdef DEBUG_OUTPUT
         std::cout << "------------------------------------------------------\n";
