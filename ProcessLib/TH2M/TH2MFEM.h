@@ -43,7 +43,7 @@ struct SecondaryData
 
 template <typename ShapeFunctionDisplacement, typename ShapeFunctionPressure,
           typename IntegrationMethod, int DisplacementDim>
-class TH2MLocalAssembler : public LocalAssemblerInterface
+class TH2MLocalAssembler : public LocalAssemblerInterface<DisplacementDim>
 {
 public:
     using ShapeMatricesTypeDisplacement =
@@ -71,6 +71,9 @@ public:
                        bool const is_axially_symmetric,
                        unsigned const integration_order,
                        TH2MProcessData<DisplacementDim>& process_data);
+
+    void setInitialConditionsConcrete(std::vector<double> const& local_x,
+                                      double const t) override;
 
     void assemble(double const t, double const dt,
                   std::vector<double> const& local_x,
@@ -139,6 +142,9 @@ public:
         std::vector<double>& cache) const override;
 
 private:
+    void getConstitutiveVariables(std::vector<double> const& local_x,
+                                      double const t, double const dt);   
+
     std::size_t setSigma(double const* values)
     {
         auto const kelvin_vector_size =
@@ -331,6 +337,12 @@ private:
     static const int displacement_index = ShapeFunctionPressure::NPOINTS * 3;
     static const int displacement_size =
         ShapeFunctionDisplacement::NPOINTS * DisplacementDim;
+
+    static const int C_index = 0;
+    static const int C_size = ShapeFunctionPressure::NPOINTS;
+    static const int W_index = ShapeFunctionPressure::NPOINTS;
+    static const int W_size = ShapeFunctionPressure::NPOINTS;
+
 };
 
 }  // namespace TH2M

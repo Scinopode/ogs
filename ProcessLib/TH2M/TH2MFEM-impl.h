@@ -102,8 +102,7 @@ TH2MLocalAssembler<ShapeFunctionDisplacement, ShapeFunctionPressure,
     }
 }
 
-// Assembles the local Jacobian matrix. So far, the linearisation of HT part is
-// not considered as that in HT process.
+// Assembles the local Jacobian matrix.
 template <typename ShapeFunctionDisplacement, typename ShapeFunctionPressure,
           typename IntegrationMethod, int DisplacementDim>
 void TH2MLocalAssembler<
@@ -155,26 +154,44 @@ void TH2MLocalAssembler<
                                         template VectorType<matrix_size>>(
             local_rhs_data, matrix_size);
 
-    // pointer-matrices to the mass matrix - gas phase equation
-    auto MGpG = M.template block<gas_pressure_size, gas_pressure_size>(
-        gas_pressure_index, gas_pressure_index);
-    auto MGpC = M.template block<gas_pressure_size, capillary_pressure_size>(
-        gas_pressure_index, capillary_pressure_index);
-    auto MGT = M.template block<gas_pressure_size, temperature_size>(
-        gas_pressure_index, temperature_index);
-    auto MGu = M.template block<gas_pressure_size, displacement_size>(
-        gas_pressure_index, displacement_index);
+    // component-formulation
+    // W - liquid phase main component
+    // C - gas phase main component
+    // pointer-matrices to the mass matrix - C component equation
+    auto MCpG = M.template block<C_size, gas_pressure_size>(C_index,
+                                                            gas_pressure_index);
+    auto MCpC = M.template block<C_size, capillary_pressure_size>(
+        C_index, capillary_pressure_index);
+    auto MCT =
+        M.template block<C_size, temperature_size>(C_index, temperature_index);
+    auto MCu = M.template block<C_size, displacement_size>(C_index,
+                                                           displacement_index);
 
-    // pointer-matrices to the mass matrix - liquid phase equation
-    auto MLpG = M.template block<capillary_pressure_size, gas_pressure_size>(
-        capillary_pressure_index, gas_pressure_index);
-    auto MLpC =
-        M.template block<capillary_pressure_size, capillary_pressure_size>(
-            capillary_pressure_index, capillary_pressure_index);
-    auto MLT = M.template block<capillary_pressure_size, temperature_size>(
-        capillary_pressure_index, temperature_index);
-    auto MLu = M.template block<capillary_pressure_size, displacement_size>(
-        capillary_pressure_index, displacement_index);
+    // pointer-matrices to the stiffness matrix - C component equation
+    auto LCpG = K.template block<C_size, gas_pressure_size>(C_index,
+                                                            gas_pressure_index);
+    auto LCpC = K.template block<C_size, capillary_pressure_size>(
+        C_index, capillary_pressure_index);
+    auto LCT =
+        K.template block<C_size, temperature_size>(C_index, temperature_index);
+
+    // pointer-matrices to the mass matrix - W component equation
+    auto MWpG = M.template block<W_size, gas_pressure_size>(W_index,
+                                                            gas_pressure_index);
+    auto MWpC = M.template block<W_size, capillary_pressure_size>(
+        W_index, capillary_pressure_index);
+    auto MWT =
+        M.template block<W_size, temperature_size>(W_index, temperature_index);
+    auto MWu = M.template block<W_size, displacement_size>(W_index,
+                                                           displacement_index);
+
+    // pointer-matrices to the stiffness matrix - W component equation
+    auto LWpG = K.template block<W_size, gas_pressure_size>(W_index,
+                                                            gas_pressure_index);
+    auto LWpC = K.template block<W_size, capillary_pressure_size>(
+        W_index, capillary_pressure_index);
+    auto LWT =
+        K.template block<W_size, temperature_size>(C_index, temperature_index);
 
     // pointer-matrices to the mass matrix - temperature equation
     auto MTpG = M.template block<temperature_size, gas_pressure_size>(
@@ -183,10 +200,6 @@ void TH2MLocalAssembler<
         temperature_index, capillary_pressure_index);
     auto MTT = M.template block<temperature_size, temperature_size>(
         temperature_index, temperature_index);
-
-    // pointer-matrices to the stiffness matrix - gas phase equation
-    auto KGpG = K.template block<gas_pressure_size, gas_pressure_size>(
-        gas_pressure_index, gas_pressure_index);
 
     // pointer-matrices to the stiffness matrix - liquid phase equation
     auto KLpG = K.template block<capillary_pressure_size, gas_pressure_size>(
@@ -212,9 +225,9 @@ void TH2MLocalAssembler<
         displacement_index, displacement_index);
 
     // pointer-vectors to the right hand side terms - gas phase equation
-    auto fG = f.template segment<gas_pressure_size>(gas_pressure_index);
+    auto fC = f.template segment<gas_pressure_size>(gas_pressure_index);
     // pointer-vectors to the right hand side terms - liquid phase equation
-    auto fL =
+    auto fW =
         f.template segment<capillary_pressure_size>(capillary_pressure_index);
     // pointer-vectors to the right hand side terms - displacement equation
     auto fU = f.template segment<displacement_size>(displacement_index);
@@ -461,6 +474,16 @@ void TH2MLocalAssembler<
 
         const double lambda_LR = 0.5;
 
+        const auto I =
+            Eigen::Matrix<double, DisplacementDim, DisplacementDim>::Identity();
+        const double sD_G = 0.1;
+        const double sD_L = 0.1;
+
+        const auto D_C_G = sD_G * I;
+        const auto D_W_G = sD_G * I;
+        const auto D_C_L = sD_L * I;
+        const auto D_W_L = sD_L * I;
+
         //  - medium properties
         auto const k_S = MPL::formEigenTensor<DisplacementDim>(
             medium.property(MPL::PropertyType::permeability)
@@ -493,9 +516,6 @@ void TH2MLocalAssembler<
 
         auto const& b = _process_data.specific_body_force;
 
-        auto const k_over_mu_G = k_S * k_rel_G / mu_GR;
-        auto const k_over_mu_L = k_S * k_rel_L / mu_LR;
-
         auto const phi = medium.property(MPL::PropertyType::porosity)
                              .template value<double>(vars, pos, t, dt);
 
@@ -526,6 +546,22 @@ void TH2MLocalAssembler<
         _gas_density[ip] = rho_GR;
         _porosity[ip] = phi;
         _saturation[ip] = s_L;
+
+        // abbreviations
+        const double beta_C_pFR =
+            s_G * rho_C_GR * beta_C_pGR + s_L * rho_C_LR * beta_C_pLR;
+        const double beta_C_TFR =
+            s_G * rho_C_GR * beta_C_TGR + s_L * rho_C_LR * beta_C_TLR;
+        const double rho_C_FR = s_G * rho_C_GR + s_L * rho_C_LR;
+
+        const double beta_W_pFR =
+            s_G * rho_W_GR * beta_W_pGR + s_L * rho_W_LR * beta_W_pLR;
+        const double beta_W_TFR =
+            s_G * rho_W_GR * beta_W_TGR + s_L * rho_W_LR * beta_W_TLR;
+        const double rho_W_FR = s_G * rho_W_GR + s_L * rho_W_LR;
+
+        const auto k_over_mu_G = k_S * k_rel_G / mu_GR;
+        const auto k_over_mu_L = k_S * k_rel_L / mu_LR;
 
         GlobalDimVectorType const w_GS =
             k_over_mu_G * rho_GR * b - k_over_mu_G * gradNp * pGR;
@@ -586,39 +622,81 @@ void TH2MLocalAssembler<
 #endif
 
         // coefficient matrices
-        //  - gas pressure equation
-        MGpG.noalias() +=
-            (NpT * s_G * (phi * beta_pGR + (alpha_B - phi) * beta_pSR) * Np) *
-            w;
-        MGpC.noalias() -=
-            (NpT *
-             (s_G * (alpha_B - phi) * beta_pSR * (s_L + pCap_int_pt * dsLdPc) +
-              phi * dsLdPc) *
-             Np) *
-            w;
-        MGT.noalias() -=
-            (NpT * s_G * (phi * beta_TGR + (alpha_B - phi) * beta_TSR) * Np) *
-            w;
-        MGu.noalias() += NpT * mT * Bu * s_G * alpha_B * w;
-        KGpG.noalias() += (gradNpT * k_over_mu_G * gradNp) * w;
-        fG.noalias() += (gradNpT * rho_GR * k_over_mu_G * b) * w;
+        // C-component equation
+        MCpG.noalias() +=
+            NpT * (phi * beta_C_pFR + rho_C_FR * (alpha_B - phi) * beta_pSR) *
+            Np * w;
+
+        MCpC.noalias() -= NpT *
+                          (phi * (dsLdPc * (rho_C_LR - rho_C_GR) -
+                                  s_L * rho_C_LR * beta_C_pLR) -
+                           rho_C_FR * (alpha_B - phi) * beta_pSR *
+                               (s_L * pCap_int_pt * dsLdPc)) *
+                          Np * w;
+        MCT.noalias() -=
+            NpT * (phi * beta_C_TFR + rho_C_FR * (alpha_B - phi) * beta_TSR) *
+            Np * w;
+
+        MCu.noalias() += NpT * rho_C_FR * alpha_B * mT * Bu * w;
+
+        LCpG.noalias() += gradNpT *
+                          (rho_C_GR * k_over_mu_G + rho_C_LR * k_over_mu_L +
+                           phi_G * rho_GR * D_C_G * dxm_C_G_dpGR +
+                           phi_L * rho_LR * D_C_L * dxm_C_L_dpLR) *
+                          gradNp * w;
+
+        LCpC.noalias() +=
+            gradNpT *
+            (rho_C_LR * k_over_mu_L + phi_L * rho_LR * D_C_L * dxm_C_L_dpLR) *
+            gradNp * w;
+        LCT.noalias() += gradNpT *
+                         (phi_G * rho_GR * D_C_G * dxm_C_G_dT +
+                          phi_L * rho_LR * D_C_L * dxm_C_L_dT) *
+                         gradNp * w;
+
+        fC.noalias() += gradNpT *
+                        (rho_C_GR * rho_GR * k_over_mu_G +
+                         rho_C_LR * rho_LR * k_over_mu_L) *
+                        b * w;
+
+        // W-component equation
+        MWpG.noalias() +=
+            NpT * (phi * beta_W_pFR + rho_W_FR * (alpha_B - phi) * beta_pSR) *
+            Np * w;
+
+        MWpC.noalias() -= NpT *
+                          (phi * (dsLdPc * (rho_W_LR - rho_W_GR) -
+                                  s_L * rho_W_LR * beta_C_pLR) -
+                           rho_W_FR * (alpha_B - phi) * beta_pSR *
+                               (s_L * pCap_int_pt * dsLdPc)) *
+                          Np * w;
+        MWT.noalias() -=
+            NpT * (phi * beta_W_TFR + rho_W_FR * (alpha_B - phi) * beta_TSR) *
+            Np * w;
+
+        MWu.noalias() += NpT * rho_W_FR * alpha_B * mT * Bu * w;
+
+        LWpG.noalias() += gradNpT *
+                          (rho_W_GR * k_over_mu_G + rho_W_LR * k_over_mu_L +
+                           phi_G * rho_GR * D_W_G * dxm_W_G_dpGR +
+                           phi_L * rho_LR * D_W_L * dxm_W_L_dpLR) *
+                          gradNp * w;
+
+        LWpC.noalias() +=
+            gradNpT *
+            (rho_W_LR * k_over_mu_L + phi_L * rho_LR * D_W_L * dxm_W_L_dpLR) *
+            gradNp * w;
+        LWT.noalias() += gradNpT *
+                         (phi_G * rho_GR * D_W_G * dxm_W_G_dT +
+                          phi_L * rho_LR * D_W_L * dxm_W_L_dT) *
+                         gradNp * w;
+
+        fW.noalias() += gradNpT *
+                        (rho_W_GR * rho_GR * k_over_mu_G +
+                         rho_W_LR * rho_LR * k_over_mu_L) * b*
+                        w;
+
         //  - liquid pressure equation
-        MLpG.noalias() +=
-            (NpT * s_L * (phi * beta_pLR + (alpha_B - phi) * beta_pSR) * Np) *
-            w;
-        MLpC.noalias() -=
-            (NpT *
-             (s_L * (alpha_B - phi) * beta_pSR * (s_L + pCap_int_pt * dsLdPc) +
-              phi_L * beta_pLR - phi * dsLdPc) *
-             Np) *
-            w;
-        MLT.noalias() -=
-            (NpT * s_L * (phi * beta_TLR + (alpha_B - phi) * beta_TSR) * Np) *
-            w;
-        MLu.noalias() += (NpT * s_L * alpha_B * mT * Bu) * w;
-        KLpG.noalias() += (gradNpT * k_over_mu_L * gradNp) * w;
-        KLpC.noalias() -= (gradNpT * k_over_mu_L * gradNp) * w;
-        fL.noalias() += (gradNpT * rho_LR * k_over_mu_L * b) * w;
 
         //  - temperature equation
         MTpG.noalias() -=
@@ -719,8 +797,7 @@ void TH2MLocalAssembler<
     }
 }
 
-// Assembles the local Jacobian matrix. So far, the linearisation of HT part is
-// not considered as that in HT process.
+// Assembles the local Jacobian matrix.
 template <typename ShapeFunctionDisplacement, typename ShapeFunctionPressure,
           typename IntegrationMethod, int DisplacementDim>
 void TH2MLocalAssembler<ShapeFunctionDisplacement, ShapeFunctionPressure,
