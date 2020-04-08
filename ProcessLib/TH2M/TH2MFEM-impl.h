@@ -243,11 +243,12 @@ void TH2MLocalAssembler<
     auto KUU = K.template block<displacement_size, displacement_size>(
         displacement_index, displacement_index);
 
-    // pointer-vectors to the right hand side terms - gas phase equation
-    auto fC = f.template segment<gas_pressure_size>(gas_pressure_index);
-    // pointer-vectors to the right hand side terms - liquid phase equation
-    auto fW =
-        f.template segment<capillary_pressure_size>(capillary_pressure_index);
+    // pointer-vectors to the right hand side terms - C-component equation
+    auto fC = f.template segment<C_size>(C_index);
+    // pointer-vectors to the right hand side terms - W-component equation
+    auto fW = f.template segment<W_size>(W_index);
+    // pointer-vectors to the right hand side terms - temperature equation
+    auto fT = f.template segment<temperature_size>(temperature_index);
     // pointer-vectors to the right hand side terms - displacement equation
     auto fU = f.template segment<displacement_size>(displacement_index);
 
