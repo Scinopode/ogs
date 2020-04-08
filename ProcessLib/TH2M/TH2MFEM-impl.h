@@ -119,21 +119,22 @@ void TH2MLocalAssembler<
 
     assert(local_x.size() == matrix_size);
 
-    auto pGR =
+    auto gas_pressure =
         Eigen::Map<typename ShapeMatricesTypePressure::template VectorType<
             gas_pressure_size> const>(local_x.data() + gas_pressure_index,
                                       gas_pressure_size);
 
-    auto pCap =
+    auto capillary_pressure =
         Eigen::Map<typename ShapeMatricesTypePressure::template VectorType<
             capillary_pressure_size> const>(
             local_x.data() + capillary_pressure_index, capillary_pressure_size);
 
-    auto T = Eigen::Map<typename ShapeMatricesTypePressure::template VectorType<
-        temperature_size> const>(local_x.data() + temperature_index,
-                                 temperature_size);
+    auto temperature =
+        Eigen::Map<typename ShapeMatricesTypePressure::template VectorType<
+            temperature_size> const>(local_x.data() + temperature_index,
+                                     temperature_size);
 
-    auto u =
+    auto displacement =
         Eigen::Map<typename ShapeMatricesTypeDisplacement::template VectorType<
             displacement_size> const>(local_x.data() + displacement_index,
                                       displacement_size);
@@ -307,11 +308,15 @@ void TH2MLocalAssembler<
         auto const& sigma_eff = _ip_data[ip].sigma_eff;
         double const T0 = _process_data.reference_temperature(t, pos)[0];
 
-        auto const T_int_pt = NT.dot(T);
-        auto const pGR_int_pt = Np.dot(pGR);
-        auto const pCap_int_pt = Np.dot(pCap);
-        auto const pLR_int_pt = pGR_int_pt - pCap_int_pt;
+        auto const T = NT.dot(temperature);
+        auto const pGR = Np.dot(gas_pressure);
+        auto const pCap = Np.dot(capillary_pressure);
+        auto const pLR = pGR - pCap;
 
+        auto const pGR_dot = Np.dot(gas_pressure_dot);
+        auto const pCap_dot = Np.dot(capillary_pressure_dot);
+
+        double div_u = mT * Bu * displacement;
 #define nDEBUG_OUTPUT
 #ifdef DEBUG_OUTPUT
 #define UNKNOWNS
@@ -329,9 +334,9 @@ void TH2MLocalAssembler<
 
         std::cout << "---------------------\n";
         std::cout << "--- unknowns(IP): ---\n";
-        std::cout << "pGR_int_pt: " << pGR_int_pt << "\n";
-        std::cout << "pCap_int_pt: " << pCap_int_pt << "\n";
-        std::cout << "T_int_pt: " << T_int_pt << "\n";
+        std::cout << "pGR: " << pGR << "\n";
+        std::cout << "pCap: " << pCap << "\n";
+        std::cout << "T: " << T << "\n";
         std::cout << "--------------------\n";
 #endif
 
@@ -353,11 +358,10 @@ void TH2MLocalAssembler<
 #endif
 
         MPL::VariableArray vars;
-        vars[static_cast<int>(MPL::Variable::temperature)] = T_int_pt;
-        vars[static_cast<int>(MPL::Variable::phase_pressure)] = pGR_int_pt;
-        vars[static_cast<int>(MPL::Variable::capillary_pressure)] = pCap_int_pt;
-        vars[static_cast<int>(MPL::Variable::liquid_phase_pressure)] =
-            pLR_int_pt;
+        vars[static_cast<int>(MPL::Variable::temperature)] = T;
+        vars[static_cast<int>(MPL::Variable::phase_pressure)] = pGR;
+        vars[static_cast<int>(MPL::Variable::capillary_pressure)] = pCap;
+        vars[static_cast<int>(MPL::Variable::liquid_phase_pressure)] = pLR;
 
         // Henry constants for carbon dioxide and hydrogen
         const double H_theta_CO2 = 3.3e-4;              // mol/m^3/Pa
@@ -372,9 +376,8 @@ void TH2MLocalAssembler<
 
         // CO2-Henry coefficient depending on T
         const double H_C =
-            H_theta_CO2 *
-            std::exp((-1.) * dH_by_R * (1. / T_int_pt - 1. / T_theta));
-        const double dHc_dT = 1. / ((T_int_pt) * (T_int_pt)) * dH_by_R * H_C;
+            H_theta_CO2 * std::exp((-1.) * dH_by_R * (1. / T - 1. / T_theta));
+        const double dHc_dT = 1. / (T * T) * dH_by_R * H_C;
 
         // coefficients for Antoine equation
         const double A = 8.07131;
@@ -382,17 +385,16 @@ void TH2MLocalAssembler<
         const double C = 233.426;
 
         // saturation vapour pressure (Antoine equation)
-        const double p_vap = std::pow(10., A - B / (C + T_int_pt));
+        const double p_vap = std::pow(10., A - B / (C + T));
         const double ln10 = 2.30258509299;
-        const double dp_vap_dT =
-            B * ln10 / ((C + T_int_pt) * (C + T_int_pt)) * p_vap;
+        const double dp_vap_dT = B * ln10 / ((C + T) * (C + T)) * p_vap;
 
         // partial pressure of constituents in gas phase
         const double p_W_GR = p_vap;
-        const double p_C_GR = pGR_int_pt - p_W_GR;  // Daltons law
+        const double p_C_GR = pGR - p_W_GR;  // Daltons law
 
         // molar fraction of gas phase constituents
-        const double xn_W_G = p_W_GR / pGR_int_pt;
+        const double xn_W_G = p_W_GR / pGR;
         const double xn_CO2_G = 1. - xn_W_G;
         const double xn_H2_G = 1. - xn_W_G;
         const double xn_C_G = xn_CO2_G;
@@ -405,15 +407,15 @@ void TH2MLocalAssembler<
         const double M_G = xn_C_G * M_CO2 + xn_W_G * M_W;
 
         // density of the gas phase (ideal gas law)
-        const double rho_GR = pGR_int_pt * M_G / R / T_int_pt;
+        const double rho_GR = pGR * M_G / R / T;
 
         // mass fractions of gas phase constituents
         const double xm_W_G = xn_W_G * M_W / M_G;
         const double xm_C_G = 1. - xm_W_G;
 
         // partial densities of gas phase constituents
-        const double rho_W_GR = xm_W_G * pGR_int_pt;
-        const double rho_C_GR = xm_C_G * pGR_int_pt;
+        const double rho_W_GR = xm_W_G * pGR;
+        const double rho_C_GR = xm_C_G * pGR;
 
         // concentration of dissolved gas in water
         const double c_C_L = rho_C_GR * H_C;
@@ -428,14 +430,13 @@ void TH2MLocalAssembler<
         const double rho_LR_ref = 999.0;
 
         // water component partial density liquid phase
-        const double rho_W_LR =
-            rho_LR_ref * (1. + beta_pLR * (pLR_int_pt - p_ref) +
-                          beta_TLR * (T_int_pt - T_ref));
+        const double rho_W_LR = rho_LR_ref * (1. + beta_pLR * (pLR - p_ref) +
+                                              beta_TLR * (T - T_ref));
 
         // liquid phase density
         const double rho_LR =
-            rho_LR_ref * (1. + beta_pLR * (pLR_int_pt - p_ref) +
-                          beta_TLR * (T_int_pt - T_ref) + beta_CLR * c_C_L);
+            rho_LR_ref * (1. + beta_pLR * (pLR - p_ref) +
+                          beta_TLR * (T - T_ref) + beta_CLR * c_C_L);
 
         // partial density of dissolved gas component in water
         const double rho_C_LR = rho_LR - rho_W_LR;
@@ -449,8 +450,8 @@ void TH2MLocalAssembler<
         const double beta_W_pGR = 1. / p_W_GR;
 
         // constituent thermal expansivity of the gas phase
-        const double beta_C_TGR = -beta_C_pGR * dp_vap_dT - 1 / T_int_pt;
-        const double beta_W_TGR = beta_W_pGR * dp_vap_dT - 1 / T_int_pt;
+        const double beta_C_TGR = -beta_C_pGR * dp_vap_dT - 1 / T;
+        const double beta_W_TGR = beta_W_pGR * dp_vap_dT - 1 / T;
 
         // constituent compressibility of the liquid phase
         const double beta_C_pLR = beta_CLR * H_C;
@@ -461,8 +462,8 @@ void TH2MLocalAssembler<
         const double beta_W_pLR = beta_pLR;
         const double beta_W_TLR = beta_TLR;
 
-        const double beta_pGR = 1. / pGR_int_pt;
-        const double beta_TGR = -1. / T_int_pt;
+        const double beta_pGR = 1. / pGR;
+        const double beta_TGR = -1. / T;
 
         const double dxm_C_G_dpGR = xm_C_G * (beta_C_pGR - beta_pGR);
         const double dxm_W_G_dpGR = xm_W_G * (beta_W_pGR - beta_pGR);
@@ -550,7 +551,7 @@ void TH2MLocalAssembler<
             phi_S * lambda_SR + phi_L * lambda_LR + phi_G * lambda_GR);
 
         // TODO (Wenqing) : Change dT to time step wise increment
-        double const delta_T(T_int_pt - T0);
+        double const delta_T(T - T0);
         double const thermal_strain = beta_TSR * delta_T;
         auto const rho_SR = rho_ref_SR * (1 - 3 * thermal_strain);
 
@@ -561,7 +562,7 @@ void TH2MLocalAssembler<
 
         // update secondary variables. TODO: Refactoring potential!!
 
-        _liquid_pressure[ip] = pLR_int_pt;
+        _liquid_pressure[ip] = pLR;
         _liquid_density[ip] = rho_LR;
         _gas_density[ip] = rho_GR;
         _porosity[ip] = phi;
@@ -584,11 +585,11 @@ void TH2MLocalAssembler<
         const auto k_over_mu_L = k_S * k_rel_L / mu_LR;
 
         GlobalDimVectorType const w_GS =
-            k_over_mu_G * rho_GR * b - k_over_mu_G * gradNp * pGR;
+            k_over_mu_G * rho_GR * b - k_over_mu_G * gradpGR;
 
-        GlobalDimVectorType const w_LS = k_over_mu_L * gradNp * pCap +
+        GlobalDimVectorType const w_LS = k_over_mu_L * gradpCap +
                                          k_over_mu_L * rho_GR * b -
-                                         k_over_mu_L * gradNp * pGR;
+                                         k_over_mu_L * gradpGR;
 
 #ifdef MATERIAL_PROPERTIES
         std::cout << "######################################################\n";
@@ -647,12 +648,12 @@ void TH2MLocalAssembler<
             NpT * (phi * beta_C_pFR + rho_C_FR * (alpha_B - phi) * beta_pSR) *
             Np * w;
 
-        MCpC.noalias() -= NpT *
-                          (phi * (dsLdPc * (rho_C_LR - rho_C_GR) -
-                                  s_L * rho_C_LR * beta_C_pLR) -
-                           rho_C_FR * (alpha_B - phi) * beta_pSR *
-                               (s_L * pCap_int_pt * dsLdPc)) *
-                          Np * w;
+        MCpC.noalias() -=
+            NpT *
+            (phi * (dsLdPc * (rho_C_LR - rho_C_GR) -
+                    s_L * rho_C_LR * beta_C_pLR) -
+             rho_C_FR * (alpha_B - phi) * beta_pSR * (s_L * pCap * dsLdPc)) *
+            Np * w;
         MCT.noalias() -=
             NpT * (phi * beta_C_TFR + rho_C_FR * (alpha_B - phi) * beta_TSR) *
             Np * w;
@@ -684,12 +685,12 @@ void TH2MLocalAssembler<
             NpT * (phi * beta_W_pFR + rho_W_FR * (alpha_B - phi) * beta_pSR) *
             Np * w;
 
-        MWpC.noalias() -= NpT *
-                          (phi * (dsLdPc * (rho_W_LR - rho_W_GR) -
-                                  s_L * rho_W_LR * beta_C_pLR) -
-                           rho_W_FR * (alpha_B - phi) * beta_pSR *
-                               (s_L * pCap_int_pt * dsLdPc)) *
-                          Np * w;
+        MWpC.noalias() -=
+            NpT *
+            (phi * (dsLdPc * (rho_W_LR - rho_W_GR) -
+                    s_L * rho_W_LR * beta_C_pLR) -
+             rho_W_FR * (alpha_B - phi) * beta_pSR * (s_L * pCap * dsLdPc)) *
+            Np * w;
         MWT.noalias() -=
             NpT * (phi * beta_W_TFR + rho_W_FR * (alpha_B - phi) * beta_TSR) *
             Np * w;
@@ -713,49 +714,41 @@ void TH2MLocalAssembler<
 
         fW.noalias() += gradNpT *
                         (rho_W_GR * rho_GR * k_over_mu_G +
-                         rho_W_LR * rho_LR * k_over_mu_L) * b*
-                        w;
+                         rho_W_LR * rho_LR * k_over_mu_L) *
+                        b * w;
 
         //  - liquid pressure equation
 
         //  - temperature equation
         MTpG.noalias() -=
-            (NTT * (phi_G * beta_TGR + phi_L * beta_TLR + phi_S * beta_TSR) *
-             T_int_pt * NT) *
-            w;
-
+            NTT * phi * (s_G * beta_TGR + s_L * beta_TLR) * T * NT * w;
         MTpC.noalias() +=
-            (NTT *
-             ((phi_L * beta_TLR +
-               phi_S * beta_TSR * (s_L + pCap_int_pt * dsLdPc) * T_int_pt) +
-              phi * pCap_int_pt * dsLdPc) *
-             NT) *
-            w;
+            NTT * phi * (s_L * beta_TLR * T + pCap * dsLdPc) * NT * w;
 
         MTT.noalias() += (NTT * rho_c_p * NT) * w;
-        KTpG.noalias() -= (NTT * beta_TGR * w_GS.transpose() * gradNT +
-                           NTT * beta_TLR * w_LS.transpose() * gradNT) *
-                          w;
-        KTpC.noalias() += (NTT * beta_TLR * w_LS.transpose() * gradNT) * w;
+        ATpG.noalias() -= NTT *
+                          ((1. - beta_TGR * T) * w_GS.transpose() +
+                           (1. - beta_TLR * T) * w_LS.transpose()) *
+                          gradNT * w;
+        ATpC.noalias() +=
+            NTT * (1. - beta_TLR * T) * w_LS.transpose() * gradNT * w;
 
         // ATT
-        KTT.noalias() += (NTT * w_LS.transpose() * gradNT * rho_LR * c_pL +
-                          NTT * w_GS.transpose() * gradNT * rho_GR * c_pG) *
-                         w;
+        KTT.noalias() += NTT *
+                         (rho_GR * c_pG * w_GS.transpose() +
+                          rho_LR * c_pL * w_LS.transpose()) *
+                         gradNT * w;
         // LTT
-        KTT.noalias() += (gradNTT * lambda * gradNT) * w;
+        KTT.noalias() += gradNTT * lambda * gradNT * w;
 
         //  - displacement equation
         KUpG.noalias() -= (BuT * alpha_B * m * Np) * w;
         KUpC.noalias() += (BuT * alpha_B * s_L * m * Np) * w;
 
-        //
-        // displacement equation, displacement part
-        //
-        eps.noalias() = Bu * u;
+        //        eps.noalias() = Bu * displacement;
         ip_data.updateConstitutiveRelationThermal(
-            t, pos, dt, u, _process_data.reference_temperature(t, pos)[0],
-            thermal_strain);
+            t, pos, dt, displacement,
+            _process_data.reference_temperature(t, pos)[0], thermal_strain);
         fU.noalias() -= (BuT * sigma_eff - Nu_op.transpose() * rho * b) * w;
 
 #ifdef DEBUG_OUTPUT
@@ -1014,20 +1007,21 @@ void TH2MLocalAssembler<ShapeFunctionDisplacement, ShapeFunctionPressure,
     const int displacement_offset =
         use_monolithic_scheme ? displacement_index : 0;
 
-    auto u =
+    auto displacement =
         Eigen::Map<typename ShapeMatricesTypeDisplacement::template VectorType<
             displacement_size> const>(local_x.data() + displacement_offset,
                                       displacement_size);
 
-    auto T = Eigen::Map<typename ShapeMatricesTypePressure::template VectorType<
-        temperature_size> const>(local_x.data() + temperature_index,
-                                 temperature_size);
-    auto pGR =
+    auto temperature =
+        Eigen::Map<typename ShapeMatricesTypePressure::template VectorType<
+            temperature_size> const>(local_x.data() + temperature_index,
+                                     temperature_size);
+    auto gas_pressure =
         Eigen::Map<typename ShapeMatricesTypePressure::template VectorType<
             gas_pressure_size> const>(local_x.data() + gas_pressure_index,
                                       gas_pressure_size);
 
-    auto pCap =
+    auto capillary_pressure =
         Eigen::Map<typename ShapeMatricesTypePressure::template VectorType<
             capillary_pressure_size> const>(
             local_x.data() + capillary_pressure_index, capillary_pressure_size);
@@ -1062,29 +1056,29 @@ void TH2MLocalAssembler<ShapeFunctionDisplacement, ShapeFunctionPressure,
 
         double const T0 = _process_data.reference_temperature(t, pos)[0];
 
-        auto const T_int_pt = NT.dot(T);
-        auto const pGR_int_pt = Np.dot(pGR);
-        auto const pCap_int_pt = Np.dot(pCap);
-        auto const pLR_int_pt = pGR_int_pt - pCap_int_pt;
+        auto const T = NT.dot(temperature);
+        auto const pGR = Np.dot(gas_pressure);
+        auto const pCap = Np.dot(capillary_pressure);
+        auto const pLR = pGR - pCap;
 
-        vars[static_cast<int>(MPL::Variable::temperature)] = T_int_pt;
-        vars[static_cast<int>(MPL::Variable::phase_pressure)] = pGR_int_pt;
-        vars[static_cast<int>(MPL::Variable::capillary_pressure)] = pCap_int_pt;
+        vars[static_cast<int>(MPL::Variable::temperature)] = T;
+        vars[static_cast<int>(MPL::Variable::phase_pressure)] = pGR;
+        vars[static_cast<int>(MPL::Variable::capillary_pressure)] = pCap;
 
         auto const solid_linear_thermal_expansion_coefficient =
             solid_phase.property(MPL::PropertyType::thermal_expansivity)
                 .template value<double>(vars, pos, t, dt);
 
-        double const delta_T(T_int_pt - T0);
+        double const delta_T(T - T0);
         double const thermal_strain =
             solid_linear_thermal_expansion_coefficient * delta_T;
 
         auto& eps = _ip_data[ip].eps;
-        eps.noalias() = B * u;
+        eps.noalias() = B * displacement;
 
         _ip_data[ip].updateConstitutiveRelationThermal(
-            t, pos, dt, u, _process_data.reference_temperature(t, pos)[0],
-            thermal_strain);
+            t, pos, dt, displacement,
+            _process_data.reference_temperature(t, pos)[0], thermal_strain);
 
         auto const rho_LR = liquid_phase.property(MPL::PropertyType::density)
                                 .template value<double>(vars, pos, t, dt);
@@ -1098,7 +1092,7 @@ void TH2MLocalAssembler<ShapeFunctionDisplacement, ShapeFunctionPressure,
         auto const s_L = medium.property(MPL::PropertyType::saturation)
                              .template value<double>(vars, pos, t, dt);
 
-        _liquid_pressure[ip] = pLR_int_pt;
+        _liquid_pressure[ip] = pLR;
         _liquid_density[ip] = rho_LR;
         _gas_density[ip] = rho_GR;
         _porosity[ip] = phi;
@@ -1113,32 +1107,33 @@ void TH2MLocalAssembler<ShapeFunctionDisplacement, ShapeFunctionPressure,
     computeSecondaryVariableConcrete(double const /*t*/,
                                      std::vector<double> const& local_x)
 {
-    auto pGR =
+    auto gas_pressure =
         Eigen::Map<typename ShapeMatricesTypePressure::template VectorType<
             gas_pressure_size> const>(local_x.data() + gas_pressure_index,
                                       gas_pressure_size);
-    auto pCap =
+    auto capillary_pressure =
         Eigen::Map<typename ShapeMatricesTypePressure::template VectorType<
             capillary_pressure_size> const>(
             local_x.data() + capillary_pressure_index, capillary_pressure_size);
 
     NumLib::interpolateToHigherOrderNodes<
         ShapeFunctionPressure, typename ShapeFunctionDisplacement::MeshElement,
-        DisplacementDim>(_element, _is_axially_symmetric, pGR,
+        DisplacementDim>(_element, _is_axially_symmetric, gas_pressure,
                          *_process_data.gas_pressure_interpolated);
 
     NumLib::interpolateToHigherOrderNodes<
         ShapeFunctionPressure, typename ShapeFunctionDisplacement::MeshElement,
-        DisplacementDim>(_element, _is_axially_symmetric, pCap,
+        DisplacementDim>(_element, _is_axially_symmetric, capillary_pressure,
                          *_process_data.capillary_pressure_interpolated);
 
-    auto T = Eigen::Map<typename ShapeMatricesTypePressure::template VectorType<
-        temperature_size> const>(local_x.data() + temperature_index,
-                                 temperature_size);
+    auto temperature =
+        Eigen::Map<typename ShapeMatricesTypePressure::template VectorType<
+            temperature_size> const>(local_x.data() + temperature_index,
+                                     temperature_size);
 
     NumLib::interpolateToHigherOrderNodes<
         ShapeFunctionPressure, typename ShapeFunctionDisplacement::MeshElement,
-        DisplacementDim>(_element, _is_axially_symmetric, T,
+        DisplacementDim>(_element, _is_axially_symmetric, temperature,
                          *_process_data.temperature_interpolated);
 }
 
