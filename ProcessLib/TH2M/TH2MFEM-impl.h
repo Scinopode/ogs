@@ -209,9 +209,9 @@ void TH2MLocalAssembler<
             capillary_pressure_index, capillary_pressure_index);
 
     // pointer-matrices to the stiffness matrix - temperature equation
-    auto KTpG = K.template block<temperature_size, gas_pressure_size>(
+    auto ATpG = K.template block<temperature_size, gas_pressure_size>(
         temperature_index, gas_pressure_index);
-    auto KTpC = K.template block<temperature_size, capillary_pressure_size>(
+    auto ATpC = K.template block<temperature_size, capillary_pressure_size>(
         temperature_index, capillary_pressure_index);
     auto KTT = K.template block<temperature_size, temperature_size>(
         temperature_index, temperature_index);
