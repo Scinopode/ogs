@@ -313,10 +313,16 @@ void TH2MLocalAssembler<
         auto const pCap = Np.dot(capillary_pressure);
         auto const pLR = pGR - pCap;
 
+        auto const gradpGR = gradNp * gas_pressure;
+        auto const gradpCap = gradNp * capillary_pressure;
+
+        auto const T_dot = NT.dot(temperature_dot);
         auto const pGR_dot = Np.dot(gas_pressure_dot);
         auto const pCap_dot = Np.dot(capillary_pressure_dot);
 
         double div_u = mT * Bu * displacement;
+        double div_u_dot = mT * Bu * displacement_dot;
+
 #define nDEBUG_OUTPUT
 #ifdef DEBUG_OUTPUT
 #define UNKNOWNS
@@ -581,6 +587,19 @@ void TH2MLocalAssembler<
             s_G * rho_W_GR * beta_W_TGR + s_L * rho_W_LR * beta_W_TLR;
         const double rho_W_FR = s_G * rho_W_GR + s_L * rho_W_LR;
 
+        const double pFR = s_G * pGR + s_L * pLR;
+        const double pFR_dot = pGR_dot - (s_L + pCap * dsLdPc) * pCap_dot;
+
+        auto const phi_dot = (alpha_B - phi) * (div_u_dot - beta_TSR * T_dot +
+                                                beta_pSR * pFR_dot);
+
+        const double pSR =
+            pFR - 1. / (beta_pS * phi_S) * (div_u - thermal_strain);
+
+        const double pSR_dot =
+            pFR_dot - 1. / (beta_pS * phi_S) * (div_u_dot - beta_TSR * T_dot) -
+            phi_dot / phi_S * (pFR - pSR);
+
         const auto k_over_mu_G = k_S * k_rel_G / mu_GR;
         const auto k_over_mu_L = k_S * k_rel_L / mu_LR;
 
@@ -740,6 +759,13 @@ void TH2MLocalAssembler<
                          gradNT * w;
         // LTT
         KTT.noalias() += gradNTT * lambda * gradNT * w;
+
+        // fT
+        fT.noalias() +=
+            NTT *
+            ((rho_GR * w_GS.transpose() + rho_LR * w_LS.transpose()) * b +
+             phi_S * beta_TSR * T * pSR_dot - (pFR - pSR) * phi_dot) *
+            w;
 
         //  - displacement equation
         KUpG.noalias() -= (BuT * alpha_B * m * Np) * w;
