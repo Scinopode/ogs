@@ -109,7 +109,7 @@ void TH2MLocalAssembler<
     ShapeFunctionDisplacement, ShapeFunctionPressure, IntegrationMethod,
     DisplacementDim>::assemble(double const t, double const dt,
                                std::vector<double> const& local_x,
-                               std::vector<double> const& /*local_xdot*/,
+                               std::vector<double> const& local_xdot,
                                std::vector<double>& local_M_data,
                                std::vector<double>& local_K_data,
                                std::vector<double>& local_rhs_data)
@@ -136,6 +136,25 @@ void TH2MLocalAssembler<
     auto u =
         Eigen::Map<typename ShapeMatricesTypeDisplacement::template VectorType<
             displacement_size> const>(local_x.data() + displacement_index,
+                                      displacement_size);
+
+    auto gas_pressure_dot =
+        Eigen::Map<typename ShapeMatricesTypePressure::template VectorType<
+            gas_pressure_size> const>(local_xdot.data() + gas_pressure_index,
+                                      gas_pressure_size);
+    auto capillary_pressure_dot =
+        Eigen::Map<typename ShapeMatricesTypePressure::template VectorType<
+            capillary_pressure_size> const>(
+            local_xdot.data() + capillary_pressure_index,
+            capillary_pressure_size);
+
+    auto temperature_dot =
+        Eigen::Map<typename ShapeMatricesTypePressure::template VectorType<
+            temperature_size> const>(local_xdot.data() + temperature_index,
+                                     temperature_size);
+    auto displacement_dot =
+        Eigen::Map<typename ShapeMatricesTypeDisplacement::template VectorType<
+            displacement_size> const>(local_xdot.data() + displacement_index,
                                       displacement_size);
 
     // pointer to local_M_data vector
