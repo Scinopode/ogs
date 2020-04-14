@@ -380,9 +380,13 @@ void TH2MLocalAssembler<
 
         const double dH_by_R = dH_solve_CO2 / R;
 
+        bool phase_transition(true);
+
         // CO2-Henry coefficient depending on T
-        const double H_C =
-            H_theta_CO2 * std::exp((-1.) * dH_by_R * (1. / T - 1. / T_theta));
+        const double H_C = phase_transition
+                               ? H_theta_CO2 * std::exp((-1.) * dH_by_R *
+                                                        (1. / T - 1. / T_theta))
+                               : 0.;
         const double dHc_dT = 1. / (T * T) * dH_by_R * H_C;
 
         // coefficients for Antoine equation
@@ -391,9 +395,12 @@ void TH2MLocalAssembler<
         const double C = 233.426;
 
         // saturation vapour pressure (Antoine equation)
-        const double p_vap = std::pow(10., A - B / (C + T));
+        const double theta = T - 273.15;
+        const double p_vap =
+            (phase_transition ? std::pow(10., A - B / (C + theta)) : 0.) *
+            133.322; // converted from Torr to Pascal
         const double ln10 = 2.30258509299;
-        const double dp_vap_dT = B * ln10 / ((C + T) * (C + T)) * p_vap;
+        const double dp_vap_dT = B * ln10 / ((C + theta) * (C + theta)) * p_vap;
 
         // partial pressure of constituents in gas phase
         const double p_W_GR = p_vap;
@@ -410,7 +417,8 @@ void TH2MLocalAssembler<
         const double M_CO2 = .0440095;   // kg/mol
         const double M_H2 = 0.00201948;  // kg/mol
 
-        const double M_G = xn_C_G * M_CO2 + xn_W_G * M_W;
+        const double M_C = M_CO2;
+        const double M_G = xn_C_G * M_C + xn_W_G * M_W;
 
         // density of the gas phase (ideal gas law)
         const double rho_GR = pGR * M_G / R / T;
@@ -420,8 +428,8 @@ void TH2MLocalAssembler<
         const double xm_C_G = 1. - xm_W_G;
 
         // partial densities of gas phase constituents
-        const double rho_W_GR = xm_W_G * pGR;
-        const double rho_C_GR = xm_C_G * pGR;
+        const double rho_W_GR = xm_W_G * rho_GR;
+        const double rho_C_GR = xm_C_G * rho_GR;
 
         // concentration of dissolved gas in water
         const double c_C_L = rho_C_GR * H_C;
@@ -448,12 +456,12 @@ void TH2MLocalAssembler<
         const double rho_C_LR = rho_LR - rho_W_LR;
 
         // mass fractions of liquid phase constituents
-        const double xm_W_L = rho_W_LR / rho_W_LR;
+        const double xm_W_L = rho_W_LR / rho_LR;
         const double xm_C_L = 1. - xm_W_L;
 
         // constituent compressibility of the gas phase
-        const double beta_C_pGR = 1. / p_C_GR;
-        const double beta_W_pGR = 1. / p_W_GR;
+        const double beta_C_pGR = (p_C_GR != 0) ? 1. / p_C_GR : 0.;
+        const double beta_W_pGR = (p_W_GR != 0) ? 1. / p_W_GR : 0.;
 
         // constituent thermal expansivity of the gas phase
         const double beta_C_TGR = -beta_C_pGR * dp_vap_dT - 1 / T;
