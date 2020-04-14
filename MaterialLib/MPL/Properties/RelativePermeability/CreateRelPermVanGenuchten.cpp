@@ -32,14 +32,33 @@ std::unique_ptr<RelPermVanGenuchten> createRelPermVanGenuchten(
             "minimum_relative_permeability_liquid");
     auto const min_relative_permeability_gas =
         //! \ogs_file_param{properties__property__RelativePermeabilityVanGenuchten__minimum_relative_permeability_gas}
-        config.getConfigParameter<double>(
-            "minimum_relative_permeability_gas");
+        config.getConfigParameter<double>("minimum_relative_permeability_gas");
     auto const exponent =
         //! \ogs_file_param{properties__property__RelativePermeabilityVanGenuchten__exponent}
         config.getConfigParameter<double>("exponent");
     if (exponent <= 0. || exponent >= 1.)
     {
-        OGS_FATAL("Exponent must be in the (0, 1) range.");
+        OGS_FATAL(
+            "RelativePermeabilityVanGenuchten::exponent must be in the (0, 1) "
+            "range.");
+    }
+    auto const gamma =
+        //! \ogs_file_param{properties__property__RelativePermeabilityVanGenuchten__gamma}
+        config.getConfigParameter<double>("gamma");
+    if (gamma < 0.)
+    {
+        OGS_FATAL(
+            "RelativePermeabilityVanGenuchten::gamma must be positive or "
+            "zero.");
+    }
+    auto const epsilon =
+        //! \ogs_file_param{properties__property__RelativePermeabilityVanGenuchten__epsilon}
+        config.getConfigParameter<double>("epsilon");
+    if (gamma < 0.)
+    {
+        OGS_FATAL(
+            "RelativePermeabilityVanGenuchten::epsilon must be positive or "
+            "zero.");
     }
 
     return std::make_unique<RelPermVanGenuchten>(
@@ -47,6 +66,8 @@ std::unique_ptr<RelPermVanGenuchten> createRelPermVanGenuchten(
         residual_gas_saturation,
         min_relative_permeability_liquid,
         min_relative_permeability_gas,
-        exponent);
+        exponent,
+        gamma,
+        epsilon);
 }
 }  // namespace MaterialPropertyLib
