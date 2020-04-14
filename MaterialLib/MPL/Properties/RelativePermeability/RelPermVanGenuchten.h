@@ -30,6 +30,9 @@ private:
     double const _k_rel_min_liquid;
     double const _k_rel_min_gas;
     double const _m;
+    double const _gamma;
+    double const _epsilon;
+
     Medium* _medium = nullptr;
 
 public:
@@ -37,7 +40,9 @@ public:
                         double const residual_gas_saturation,
                         double const min_relative_permeability_liquid,
                         double const min_relative_permeability_gas,
-                        double const exponent);
+                        double const exponent,
+                        double const gamma,
+                        double const epsilon);
     /// This method assigns a pointer to the material object that is the owner
     /// of this property
     void setScale(

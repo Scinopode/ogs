@@ -21,13 +21,19 @@ TEST(MaterialPropertyLib, RelPermVanGenuchten)
     double const residual_liquid_saturation = 0.1;
     double const residual_gas_saturation = 0.05;
     double const exponent = 0.79;
+    double const gamma = 1.0;
+    double const epsilon = 0.5;
     double const min_relative_permeability_liquid = 1e-12;
     double const min_relative_permeability_gas = 1e-12;
 
-    MPL::Property const& permeability = MPL::RelPermVanGenuchten{
-        residual_liquid_saturation, residual_gas_saturation,
-        min_relative_permeability_liquid, min_relative_permeability_liquid,
-        exponent};
+    MPL::Property const& permeability =
+        MPL::RelPermVanGenuchten{residual_liquid_saturation,
+                                 residual_gas_saturation,
+                                 min_relative_permeability_liquid,
+                                 min_relative_permeability_liquid,
+                                 exponent,
+                                 gamma,
+                                 epsilon};
 
     MPL::VariableArray variable_array;
     ParameterLib::SpatialPosition const pos;
