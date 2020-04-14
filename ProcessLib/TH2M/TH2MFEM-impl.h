@@ -489,6 +489,88 @@ void TH2MLocalAssembler<
         const double dxm_W_G_dT = xm_W_G * (beta_W_TGR - beta_TGR);
         const double dxm_W_L_dT = xm_W_L * (beta_W_TLR - beta_TLR);
 
+#define VLE_DEBUG_OUTPUT
+
+#ifdef VLE_DEBUG_OUTPUT
+        std::cout << "######################################################\n";
+        std::cout << "#    VLE-Model:                                      #\n";
+        std::cout << "#----------------------------------------------------#\n";
+        std::cout << "# Phase transition is "
+                  << (phase_transition ? "ON" : "OFF") << "\n";
+        std::cout << "#----------------------------------------------------#\n";
+        std::cout << "# gas phase pressure: " << pGR << "\n";
+        std::cout << "# liquid phase pressure: " << pLR << "\n";
+        std::cout << "# capillary pressure: " << pCap << "\n";
+        std::cout << "# temperature: " << T << "\n";
+        std::cout << "#----------------------------------------------------#\n";
+        std::cout << "# dH_by_R: " << dH_by_R << "\n";
+        std::cout << "# Henry-coefficient: " << H_C << "\n";
+        std::cout << "# derivative dHc_dT: " << dHc_dT << "\n";
+        std::cout << "# water vapour pressure: " << p_vap << "\n";
+        std::cout << "# derivative dp_vap_dT: " << dp_vap_dT << "\n";
+        std::cout << "#----------------------------------------------------#\n";
+        std::cout << "# partial pressures:\n";
+        std::cout << "# W: " << p_W_GR << "\n";
+        std::cout << "# C: " << p_C_GR << "\n";
+        std::cout << "#----------------------------------------------------#\n";
+        std::cout << "gas phase density: " << rho_GR << "\n ";
+        std::cout << "partial densities gas phase:\n";
+        std::cout << "W: " << rho_W_GR << "\n";
+        std::cout << "C: " << rho_C_GR << "\n";
+        std::cout << "molar fractions of gas phase:\n";
+        std::cout << "W: " << xn_W_G << "\n";
+        std::cout << "C: " << xn_C_G << "\n";
+        std::cout << "mass fractions gas phase:\n";
+        std::cout << "W: " << xm_W_G << "\n";
+        std::cout << "C: " << xm_C_G << "\n";
+        std::cout << "average molar mass: " << M_G << "\n ";
+        std::cout << "#----------------------------------------------------#\n";
+        std::cout << "liquid phase density: " << rho_LR << "\n";
+        std::cout << "partial densities liquid phase:\n";
+        std::cout << "W: " << rho_W_LR << "\n";
+        std::cout << "C: " << rho_C_LR << "\n";
+        std::cout << "dissolved gas concentration: " << c_C_L << "\n";
+        std::cout << "mass fractions liquid phase:\n";
+        std::cout << "W: " << xm_W_L << "\n";
+        std::cout << "C: " << xm_C_L << "\n";
+        std::cout << "#----------------------------------------------------#\n";
+        std::cout << "Gas phase compressibilities:\n";
+        std::cout << "beta_pGR: " << beta_pGR << "\n";
+        std::cout << "beta_TGR: " << beta_TGR << "\n";
+        std::cout << "Gas phase component compressibilities:\n";
+        std::cout << "C: beta_C_TGR: " << beta_C_TGR << "\n";
+        std::cout << "C: beta_C_pGR: " << beta_C_pGR << "\n";
+        std::cout << "W: beta_W_pGR: " << beta_W_pGR << "\n";
+        std::cout << "W: beta_W_TGR: " << beta_W_TGR << "\n";
+        std::cout << "#----------------------------------------------------#\n";
+        std::cout << "Liquid phase compressibilities:\n";
+        std::cout << "beta_pLR: " << beta_pLR << "\n";
+        std::cout << "beta_TLR: " << beta_TLR << "\n";
+        std::cout << "beta_CLR: " << beta_CLR << "\n";
+        std::cout << "Liquid phase component compressibilities:\n";
+        std::cout << "W: beta_W_pLR: " << beta_W_pLR << "\n";
+        std::cout << "W: beta_W_TLR: " << beta_W_TLR << "\n";
+        std::cout << "C: beta_C_pLR: " << beta_C_pLR << "\n";
+        std::cout << "C: beta_C_TLR: " << beta_C_TLR << "\n";
+        std::cout << "#----------------------------------------------------#\n";
+        std::cout << "derivatives of mass fraction:\n";
+        std::cout << "#----------------------------------------------------#\n";
+        std::cout << "gas phase:\n";
+        std::cout << "C: dxm_C_G/dpGR: " << dxm_C_G_dpGR << "\n";
+        std::cout << "C: dxm_C_G/dT: " << dxm_C_G_dT << "\n";
+        std::cout << "W: dxm_W_G/dpGR: " << dxm_W_G_dpGR << "\n";
+        std::cout << "W: dxm_W_G/dT: " << dxm_W_G_dT << "\n";
+        std::cout << "#----------------------------------------------------#\n";
+        std::cout << "liquid phase:\n";
+        std::cout << "C: dxm_C_L/dpLR: " << dxm_C_L_dpLR << "\n";
+        std::cout << "C: dxm_C_L/dT: " << dxm_C_L_dT << "\n";
+        std::cout << "W: dxm_W_L/dpLR: " << dxm_W_L_dpLR << "\n";
+        std::cout << "W: dxm_W_L/dT: " << dxm_W_L_dT << "\n";
+        std::cout << "#----------------------------------------------------#\n";
+        std::cout << "######################################################\n";
+        OGS_FATAL(".");
+#endif
+
         //  - solid phase properties
         const double beta_pS = 1e-10;
         const double beta_TSR = -1e-7;
