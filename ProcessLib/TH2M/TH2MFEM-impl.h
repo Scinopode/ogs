@@ -363,13 +363,17 @@ void TH2MLocalAssembler<
         std::cout << "*************************************\n";
 #endif
 
+        //   Constitutive properties
+
         MPL::VariableArray vars;
         vars[static_cast<int>(MPL::Variable::temperature)] = T;
         vars[static_cast<int>(MPL::Variable::phase_pressure)] = pGR;
         vars[static_cast<int>(MPL::Variable::capillary_pressure)] = pCap;
         vars[static_cast<int>(MPL::Variable::liquid_phase_pressure)] = pLR;
 
-        // Henry constants for carbon dioxide and hydrogen
+        // Hard-coded VLE-properties for the moment. Will be changed later and
+        // incorporated into MPL-structure. Henry constants for carbon dioxide
+        // and hydrogen
         const double H_theta_CO2 = 3.3e-4;              // mol/m^3/Pa
         const double dH_solve_CO2 = -19954.7102835678;  // J/mol
 
@@ -398,7 +402,7 @@ void TH2MLocalAssembler<
         const double theta = T - 273.15;
         const double p_vap =
             (phase_transition ? std::pow(10., A - B / (C + theta)) : 0.) *
-            133.322; // converted from Torr to Pascal
+            133.322;  // converted from Torr to Pascal
         const double ln10 = 2.30258509299;
         const double dp_vap_dT = B * ln10 / ((C + theta) * (C + theta)) * p_vap;
 
@@ -432,7 +436,7 @@ void TH2MLocalAssembler<
         const double rho_C_GR = xm_C_G * rho_GR;
 
         // concentration of dissolved gas in water
-        const double c_C_L = rho_C_GR * H_C;
+        const double c_C_L = p_C_GR * H_C;
 
         // Vapour-Liquid-Equilibrium:
         const double beta_pLR = 1.0e-8;
@@ -492,6 +496,7 @@ void TH2MLocalAssembler<
 #define VLE_DEBUG_OUTPUT
 
 #ifdef VLE_DEBUG_OUTPUT
+        std::cout << std::setprecision(6) << std::scientific;
         std::cout << "######################################################\n";
         std::cout << "#    VLE-Model:                                      #\n";
         std::cout << "#----------------------------------------------------#\n";
@@ -538,10 +543,10 @@ void TH2MLocalAssembler<
         std::cout << "beta_pGR: " << beta_pGR << "\n";
         std::cout << "beta_TGR: " << beta_TGR << "\n";
         std::cout << "Gas phase component compressibilities:\n";
-        std::cout << "C: beta_C_TGR: " << beta_C_TGR << "\n";
-        std::cout << "C: beta_C_pGR: " << beta_C_pGR << "\n";
         std::cout << "W: beta_W_pGR: " << beta_W_pGR << "\n";
         std::cout << "W: beta_W_TGR: " << beta_W_TGR << "\n";
+        std::cout << "C: beta_C_pGR: " << beta_C_pGR << "\n";
+        std::cout << "C: beta_C_TGR: " << beta_C_TGR << "\n";
         std::cout << "#----------------------------------------------------#\n";
         std::cout << "Liquid phase compressibilities:\n";
         std::cout << "beta_pLR: " << beta_pLR << "\n";
@@ -556,16 +561,16 @@ void TH2MLocalAssembler<
         std::cout << "derivatives of mass fraction:\n";
         std::cout << "#----------------------------------------------------#\n";
         std::cout << "gas phase:\n";
-        std::cout << "C: dxm_C_G/dpGR: " << dxm_C_G_dpGR << "\n";
-        std::cout << "C: dxm_C_G/dT: " << dxm_C_G_dT << "\n";
         std::cout << "W: dxm_W_G/dpGR: " << dxm_W_G_dpGR << "\n";
         std::cout << "W: dxm_W_G/dT: " << dxm_W_G_dT << "\n";
+        std::cout << "C: dxm_C_G/dpGR: " << dxm_C_G_dpGR << "\n";
+        std::cout << "C: dxm_C_G/dT: " << dxm_C_G_dT << "\n";
         std::cout << "#----------------------------------------------------#\n";
         std::cout << "liquid phase:\n";
-        std::cout << "C: dxm_C_L/dpLR: " << dxm_C_L_dpLR << "\n";
-        std::cout << "C: dxm_C_L/dT: " << dxm_C_L_dT << "\n";
         std::cout << "W: dxm_W_L/dpLR: " << dxm_W_L_dpLR << "\n";
         std::cout << "W: dxm_W_L/dT: " << dxm_W_L_dT << "\n";
+        std::cout << "C: dxm_C_L/dpLR: " << dxm_C_L_dpLR << "\n";
+        std::cout << "C: dxm_C_L/dT: " << dxm_C_L_dT << "\n";
         std::cout << "#----------------------------------------------------#\n";
         std::cout << "######################################################\n";
         OGS_FATAL(".");
