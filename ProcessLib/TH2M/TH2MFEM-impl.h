@@ -102,6 +102,232 @@ TH2MLocalAssembler<ShapeFunctionDisplacement, ShapeFunctionPressure,
     }
 }
 
+void VLE(
+    const bool phase_transition, const double T, const double pGR,
+    const double pCap, double& rho_GR /*gas phase density*/,
+    double& rho_C_GR /*C constituent partial density in gas phase*/,
+    double& rho_W_GR /*W constituent partial density in gas phase*/,
+    double& rho_LR /*liquid phase density*/,
+    double& rho_C_LR /*C constituent partial density in liquid phase*/,
+    double& rho_W_LR /*W constituent partial density in liquid phase*/,
+    double& xm_C_G /*C constituent gas phase mass fraction*/,
+    double& xm_W_G /*W constituent gas phase mass fraction*/,
+    double& xm_C_L /*C constituent liquid phase mass fraction*/,
+    double& xm_W_L /*W constituent liquid phase mass fraction*/,
+    double& dxm_C_G_dpGR /*C mass fraction derivative w.r.t. pGR in G phase*/,
+    double& dxm_W_G_dpGR /*W mass fraction derivative w.r.t. pGR in G phase*/,
+    double& dxm_C_L_dpLR /*C mass fraction derivative w.r.t. pLR in L phase*/,
+    double& dxm_W_L_dpLR /*W mass fraction derivative w.r.t. pLR in L phase*/,
+    double& dxm_C_G_dT /*C mass fraction derivative w.r.t. T in G phase*/,
+    double& dxm_W_G_dT /*W mass fraction derivative w.r.t. T in G phase*/,
+    double& dxm_C_L_dT /*C mass fraction derivative w.r.t. T in L phase*/,
+    double& dxm_W_L_dT /*W mass fraction derivative w.r.t. T in L phase*/
+)
+{
+    // Hard-coded VLE-properties for the moment. Will be changed later and
+    // incorporated into MPL-structure. Henry constants for carbon dioxide
+    // and hydrogen
+    const double H_theta_CO2 = 3.3e-4;              // mol/m^3/Pa
+    const double dH_solve_CO2 = -19954.7102835678;  // J/mol
+
+    const double H_theta_H2 = 7.8e-6;             // mol/m^3/Pa
+    const double dH_solve_H2 = -4406.6651876212;  // J/mol
+    const double R = 8.31446261815324;            // J/mol/K
+    const double T_theta = 298.15;                // K
+
+    const double dH_by_R = dH_solve_CO2 / R;
+
+    // CO2-Henry coefficient depending on T
+    const double H_C =
+        phase_transition
+            ? H_theta_CO2 * std::exp((-1.) * dH_by_R * (1. / T - 1. / T_theta))
+            : 0.;
+    const double dHc_dT = 1. / (T * T) * dH_by_R * H_C;
+
+    // coefficients for Antoine equation
+    const double A = 8.07131;
+    const double B = 1730.63;
+    const double C = 233.426;
+
+    const auto pLR = pGR - pCap;
+
+    // saturation vapour pressure (Antoine equation)
+    const double theta = T - 273.15;
+    const double p_vap =
+        (phase_transition ? std::pow(10., A - B / (C + theta)) : 0.) *
+        133.322;  // converted from Torr to Pascal
+    const double ln10 = 2.30258509299;
+    const double dp_vap_dT = B * ln10 / ((C + theta) * (C + theta)) * p_vap;
+
+    // partial pressure of constituents in gas phase
+    const double p_W_GR = p_vap;
+    const double p_C_GR = pGR - p_W_GR;  // Daltons law
+
+    // molar fraction of gas phase constituents
+    const double xn_W_G = p_W_GR / pGR;
+    const double xn_CO2_G = 1. - xn_W_G;
+    const double xn_H2_G = 1. - xn_W_G;
+    const double xn_C_G = xn_CO2_G;
+
+    // molar masses and average molar mass
+    const double M_W = .01801528;    // kg/mol
+    const double M_CO2 = .0440095;   // kg/mol
+    const double M_H2 = 0.00201948;  // kg/mol
+
+    const double M_C = M_CO2;
+    const double M_G = xn_C_G * M_C + xn_W_G * M_W;
+
+    // density of the gas phase (ideal gas law)
+    rho_GR = pGR * M_G / R / T;
+
+    // mass fractions of gas phase constituents
+    xm_W_G = xn_W_G * M_W / M_G;
+    xm_C_G = 1. - xm_W_G;
+
+    // partial densities of gas phase constituents
+    rho_W_GR = xm_W_G * rho_GR;
+    rho_C_GR = xm_C_G * rho_GR;
+
+    // concentration of dissolved gas in water
+    const double c_C_L = p_C_GR * H_C;
+
+    // Vapour-Liquid-Equilibrium:
+    const double beta_pLR = 1.0e-8;
+    const double beta_TLR = -1.0e-4;
+    const double beta_CLR = 1.0e-5;
+
+    const double T_ref = 290.;
+    const double p_ref = 1.0e5;
+    const double rho_LR_ref = 999.0;
+
+    // water component partial density liquid phase
+    rho_W_LR =
+        rho_LR_ref * (1. + beta_pLR * (pLR - p_ref) + beta_TLR * (T - T_ref));
+
+    // liquid phase density
+    rho_LR = rho_LR_ref * (1. + beta_pLR * (pLR - p_ref) +
+                           beta_TLR * (T - T_ref) + beta_CLR * c_C_L);
+
+    // partial density of dissolved gas component in water
+    rho_C_LR = rho_LR - rho_W_LR;
+
+    // mass fractions of liquid phase constituents
+    xm_W_L = rho_W_LR / rho_LR;
+    xm_C_L = 1. - xm_W_L;
+
+    // constituent compressibility of the gas phase
+    const double beta_C_pGR = (p_C_GR != 0) ? 1. / p_C_GR : 0.;
+    const double beta_W_pGR = (p_W_GR != 0) ? 1. / p_W_GR : 0.;
+
+    // constituent thermal expansivity of the gas phase
+    const double beta_C_TGR = -beta_C_pGR * dp_vap_dT - 1 / T;
+    const double beta_W_TGR = beta_W_pGR * dp_vap_dT - 1 / T;
+
+    // constituent compressibility of the liquid phase
+    const double beta_C_pLR = beta_CLR * H_C;
+    const double beta_C_TLR = beta_CLR * (dHc_dT * p_C_GR - dp_vap_dT * H_C);
+
+    // constituent thermal expansivity of the liquid phase
+    const double beta_W_pLR = beta_pLR;
+    const double beta_W_TLR = beta_TLR;
+
+    const double beta_pGR = 1. / pGR;
+    const double beta_TGR = -1. / T;
+
+    dxm_C_G_dpGR = xm_C_G * (beta_C_pGR - beta_pGR);
+    dxm_W_G_dpGR = xm_W_G * (beta_W_pGR - beta_pGR);
+    dxm_C_L_dpLR = xm_C_L * (beta_C_pLR - beta_pLR);
+    dxm_W_L_dpLR = xm_W_L * (beta_W_pLR - beta_pLR);
+
+    dxm_C_G_dT = xm_C_G * (beta_C_TGR - beta_TGR);
+    dxm_C_L_dT = xm_C_L * (beta_C_TLR - beta_TLR);
+    dxm_W_G_dT = xm_W_G * (beta_W_TGR - beta_TGR);
+    dxm_W_L_dT = xm_W_L * (beta_W_TLR - beta_TLR);
+
+#define nVLE_DEBUG_OUTPUT
+#ifdef VLE_DEBUG_OUTPUT
+        std::cout << std::setprecision(6) << std::scientific;
+        std::cout << "######################################################\n";
+        std::cout << "#    VLE-Model:                                      #\n";
+        std::cout << "#----------------------------------------------------#\n";
+        std::cout << "# Phase transition is "
+                  << (phase_transition ? "ON" : "OFF") << "\n";
+        std::cout << "#----------------------------------------------------#\n";
+        std::cout << "# gas phase pressure: " << pGR << "\n";
+        std::cout << "# liquid phase pressure: " << pLR << "\n";
+        std::cout << "# capillary pressure: " << pCap << "\n";
+        std::cout << "# temperature: " << T << "\n";
+        std::cout << "#----------------------------------------------------#\n";
+        std::cout << "# dH_by_R: " << dH_by_R << "\n";
+        std::cout << "# Henry-coefficient: " << H_C << "\n";
+        std::cout << "# derivative dHc_dT: " << dHc_dT << "\n";
+        std::cout << "# water vapour pressure: " << p_vap << "\n";
+        std::cout << "# derivative dp_vap_dT: " << dp_vap_dT << "\n";
+        std::cout << "#----------------------------------------------------#\n";
+        std::cout << "# partial pressures:\n";
+        std::cout << "# W: " << p_W_GR << "\n";
+        std::cout << "# C: " << p_C_GR << "\n";
+        std::cout << "#----------------------------------------------------#\n";
+        std::cout << "gas phase density: " << rho_GR << "\n ";
+        std::cout << "partial densities gas phase:\n";
+        std::cout << "W: " << rho_W_GR << "\n";
+        std::cout << "C: " << rho_C_GR << "\n";
+        std::cout << "molar fractions of gas phase:\n";
+        std::cout << "W: " << xn_W_G << "\n";
+        std::cout << "C: " << xn_C_G << "\n";
+        std::cout << "mass fractions gas phase:\n";
+        std::cout << "W: " << xm_W_G << "\n";
+        std::cout << "C: " << xm_C_G << "\n";
+        std::cout << "average molar mass: " << M_G << "\n ";
+        std::cout << "#----------------------------------------------------#\n";
+        std::cout << "liquid phase density: " << rho_LR << "\n";
+        std::cout << "partial densities liquid phase:\n";
+        std::cout << "W: " << rho_W_LR << "\n";
+        std::cout << "C: " << rho_C_LR << "\n";
+        std::cout << "dissolved gas concentration: " << c_C_L << "\n";
+        std::cout << "mass fractions liquid phase:\n";
+        std::cout << "W: " << xm_W_L << "\n";
+        std::cout << "C: " << xm_C_L << "\n";
+        std::cout << "#----------------------------------------------------#\n";
+        std::cout << "Gas phase compressibilities:\n";
+        std::cout << "beta_pGR: " << beta_pGR << "\n";
+        std::cout << "beta_TGR: " << beta_TGR << "\n";
+        std::cout << "Gas phase component compressibilities:\n";
+        std::cout << "W: beta_W_pGR: " << beta_W_pGR << "\n";
+        std::cout << "W: beta_W_TGR: " << beta_W_TGR << "\n";
+        std::cout << "C: beta_C_pGR: " << beta_C_pGR << "\n";
+        std::cout << "C: beta_C_TGR: " << beta_C_TGR << "\n";
+        std::cout << "#----------------------------------------------------#\n";
+        std::cout << "Liquid phase compressibilities:\n";
+        std::cout << "beta_pLR: " << beta_pLR << "\n";
+        std::cout << "beta_TLR: " << beta_TLR << "\n";
+        std::cout << "beta_CLR: " << beta_CLR << "\n";
+        std::cout << "Liquid phase component compressibilities:\n";
+        std::cout << "W: beta_W_pLR: " << beta_W_pLR << "\n";
+        std::cout << "W: beta_W_TLR: " << beta_W_TLR << "\n";
+        std::cout << "C: beta_C_pLR: " << beta_C_pLR << "\n";
+        std::cout << "C: beta_C_TLR: " << beta_C_TLR << "\n";
+        std::cout << "#----------------------------------------------------#\n";
+        std::cout << "derivatives of mass fraction:\n";
+        std::cout << "#----------------------------------------------------#\n";
+        std::cout << "gas phase:\n";
+        std::cout << "W: dxm_W_G/dpGR: " << dxm_W_G_dpGR << "\n";
+        std::cout << "W: dxm_W_G/dT: " << dxm_W_G_dT << "\n";
+        std::cout << "C: dxm_C_G/dpGR: " << dxm_C_G_dpGR << "\n";
+        std::cout << "C: dxm_C_G/dT: " << dxm_C_G_dT << "\n";
+        std::cout << "#----------------------------------------------------#\n";
+        std::cout << "liquid phase:\n";
+        std::cout << "W: dxm_W_L/dpLR: " << dxm_W_L_dpLR << "\n";
+        std::cout << "W: dxm_W_L/dT: " << dxm_W_L_dT << "\n";
+        std::cout << "C: dxm_C_L/dpLR: " << dxm_C_L_dpLR << "\n";
+        std::cout << "C: dxm_C_L/dT: " << dxm_C_L_dT << "\n";
+        std::cout << "#----------------------------------------------------#\n";
+        std::cout << "######################################################\n";
+        OGS_FATAL(".");
+#endif
+
+}
+
 // Assembles the local Jacobian matrix.
 template <typename ShapeFunctionDisplacement, typename ShapeFunctionPressure,
           typename IntegrationMethod, int DisplacementDim>
@@ -220,6 +446,8 @@ void TH2MLocalAssembler<
         temperature_index, capillary_pressure_index);
     auto MTT = M.template block<temperature_size, temperature_size>(
         temperature_index, temperature_index);
+    auto MTu = M.template block<temperature_size, displacement_size>(
+        temperature_index, displacement_index);
 
     // pointer-matrices to the stiffness matrix - liquid phase equation
     auto KLpG = K.template block<capillary_pressure_size, gas_pressure_size>(
@@ -313,12 +541,26 @@ void TH2MLocalAssembler<
         auto const pCap = Np.dot(capillary_pressure);
         auto const pLR = pGR - pCap;
 
+        // double T_new;
+        // NumLib::shapeFunctionInterpolate(temperature, Np, T_new);
+        // double pGR_new;
+        // NumLib::shapeFunctionInterpolate(gas_pressure, Np, pGR_new);
+        // double pCap_new;
+        // NumLib::shapeFunctionInterpolate(capillary_pressure, Np, pCap_new);
+        // double pLR_new;
+        // NumLib::shapeFunctionInterpolate(gas_pressure - capillary_pressure,
+        // Np, pLR_new);
+
         auto const gradpGR = gradNp * gas_pressure;
         auto const gradpCap = gradNp * capillary_pressure;
 
         auto const T_dot = NT.dot(temperature_dot);
         auto const pGR_dot = Np.dot(gas_pressure_dot);
         auto const pCap_dot = Np.dot(capillary_pressure_dot);
+
+        auto const T_prev = T - T_dot * dt;
+        auto const pGR_prev = pGR - pGR_dot * dt;
+        auto const pCap_prev = pCap - pCap_dot * dt;
 
         double div_u = mT * Bu * displacement;
         double div_u_dot = mT * Bu * displacement_dot;
@@ -371,228 +613,53 @@ void TH2MLocalAssembler<
         vars[static_cast<int>(MPL::Variable::capillary_pressure)] = pCap;
         vars[static_cast<int>(MPL::Variable::liquid_phase_pressure)] = pLR;
 
-        // Hard-coded VLE-properties for the moment. Will be changed later and
-        // incorporated into MPL-structure. Henry constants for carbon dioxide
-        // and hydrogen
-        const double H_theta_CO2 = 3.3e-4;              // mol/m^3/Pa
-        const double dH_solve_CO2 = -19954.7102835678;  // J/mol
-
-        const double H_theta_H2 = 7.8e-6;             // mol/m^3/Pa
-        const double dH_solve_H2 = -4406.6651876212;  // J/mol
-        const double R = 8.31446261815324;            // J/mol/K
-        const double T_theta = 298.15;                // K
-
-        const double dH_by_R = dH_solve_CO2 / R;
-
         bool phase_transition(true);
 
-        // CO2-Henry coefficient depending on T
-        const double H_C = phase_transition
-                               ? H_theta_CO2 * std::exp((-1.) * dH_by_R *
-                                                        (1. / T - 1. / T_theta))
-                               : 0.;
-        const double dHc_dT = 1. / (T * T) * dH_by_R * H_C;
+        double rho_GR;        // gas phase density
+        double rho_C_GR;      // C constituent partial density in gas phase
+        double rho_W_GR;      // W constituent partial density in gas phase
+        double rho_LR;        // liquid phase density
+        double rho_C_LR;      // C constituent partial density in liquid phase
+        double rho_W_LR;      // W constituent partial density in liquid phase
+        double xm_C_G;        // C constituent gas phase mass fraction
+        double xm_W_G;        // W constituent gas phase mass fraction
+        double xm_C_L;        // C constituent liquid phase mass fraction
+        double xm_W_L;        // W constituent liquid phase mass fraction
+        double dxm_C_G_dpGR;  // C mass fraction derivative w.r.t. pGR in G
+                              // phase
+        double dxm_W_G_dpGR;  // W mass fraction derivative w.r.t. pGR in G
+                              // phase
+        double dxm_C_L_dpLR;  // C mass fraction derivative w.r.t. pLR in L
+                              // phase
+        double dxm_W_L_dpLR;  // W mass fraction derivative w.r.t. pLR in L
+                              // phase
+        double dxm_C_G_dT;    // C mass fraction derivative w.r.t. T in G phase
+        double dxm_W_G_dT;    // W mass fraction derivative w.r.t. T in G phase
+        double dxm_C_L_dT;    // C mass fraction derivative w.r.t. T in L phase
+        double dxm_W_L_dT;    // W mass fraction derivative w.r.t. T in L phase
 
-        // coefficients for Antoine equation
-        const double A = 8.07131;
-        const double B = 1730.63;
-        const double C = 233.426;
-
-        // saturation vapour pressure (Antoine equation)
-        const double theta = T - 273.15;
-        const double p_vap =
-            (phase_transition ? std::pow(10., A - B / (C + theta)) : 0.) *
-            133.322;  // converted from Torr to Pascal
-        const double ln10 = 2.30258509299;
-        const double dp_vap_dT = B * ln10 / ((C + theta) * (C + theta)) * p_vap;
-
-        // partial pressure of constituents in gas phase
-        const double p_W_GR = p_vap;
-        const double p_C_GR = pGR - p_W_GR;  // Daltons law
-
-        // molar fraction of gas phase constituents
-        const double xn_W_G = p_W_GR / pGR;
-        const double xn_CO2_G = 1. - xn_W_G;
-        const double xn_H2_G = 1. - xn_W_G;
-        const double xn_C_G = xn_CO2_G;
-
-        // molar masses and average molar mass
-        const double M_W = .01801528;    // kg/mol
-        const double M_CO2 = .0440095;   // kg/mol
-        const double M_H2 = 0.00201948;  // kg/mol
-
-        const double M_C = M_CO2;
-        const double M_G = xn_C_G * M_C + xn_W_G * M_W;
-
-        // density of the gas phase (ideal gas law)
-        const double rho_GR = pGR * M_G / R / T;
-
-        // mass fractions of gas phase constituents
-        const double xm_W_G = xn_W_G * M_W / M_G;
-        const double xm_C_G = 1. - xm_W_G;
-
-        // partial densities of gas phase constituents
-        const double rho_W_GR = xm_W_G * rho_GR;
-        const double rho_C_GR = xm_C_G * rho_GR;
-
-        // concentration of dissolved gas in water
-        const double c_C_L = p_C_GR * H_C;
-
-        // Vapour-Liquid-Equilibrium:
-        const double beta_pLR = 1.0e-8;
-        const double beta_TLR = -1.0e-4;
-        const double beta_CLR = 1.0e-5;
-
-        const double T_ref = 290.;
-        const double p_ref = 1.0e5;
-        const double rho_LR_ref = 999.0;
-
-        // water component partial density liquid phase
-        const double rho_W_LR = rho_LR_ref * (1. + beta_pLR * (pLR - p_ref) +
-                                              beta_TLR * (T - T_ref));
-
-        // liquid phase density
-        const double rho_LR =
-            rho_LR_ref * (1. + beta_pLR * (pLR - p_ref) +
-                          beta_TLR * (T - T_ref) + beta_CLR * c_C_L);
-
-        // partial density of dissolved gas component in water
-        const double rho_C_LR = rho_LR - rho_W_LR;
-
-        // mass fractions of liquid phase constituents
-        const double xm_W_L = rho_W_LR / rho_LR;
-        const double xm_C_L = 1. - xm_W_L;
-
-        // constituent compressibility of the gas phase
-        const double beta_C_pGR = (p_C_GR != 0) ? 1. / p_C_GR : 0.;
-        const double beta_W_pGR = (p_W_GR != 0) ? 1. / p_W_GR : 0.;
-
-        // constituent thermal expansivity of the gas phase
-        const double beta_C_TGR = -beta_C_pGR * dp_vap_dT - 1 / T;
-        const double beta_W_TGR = beta_W_pGR * dp_vap_dT - 1 / T;
-
-        // constituent compressibility of the liquid phase
-        const double beta_C_pLR = beta_CLR * H_C;
-        const double beta_C_TLR =
-            beta_CLR * (dHc_dT * p_C_GR - dp_vap_dT * H_C);
-
-        // constituent thermal expansivity of the liquid phase
-        const double beta_W_pLR = beta_pLR;
-        const double beta_W_TLR = beta_TLR;
-
-        const double beta_pGR = 1. / pGR;
-        const double beta_TGR = -1. / T;
-
-        const double dxm_C_G_dpGR = xm_C_G * (beta_C_pGR - beta_pGR);
-        const double dxm_W_G_dpGR = xm_W_G * (beta_W_pGR - beta_pGR);
-        const double dxm_C_L_dpLR = xm_C_L * (beta_C_pLR - beta_pLR);
-        const double dxm_W_L_dpLR = xm_W_L * (beta_W_pLR - beta_pLR);
-
-        const double dxm_C_G_dT = xm_C_G * (beta_C_TGR - beta_TGR);
-        const double dxm_C_L_dT = xm_C_L * (beta_C_TLR - beta_TLR);
-        const double dxm_W_G_dT = xm_W_G * (beta_W_TGR - beta_TGR);
-        const double dxm_W_L_dT = xm_W_L * (beta_W_TLR - beta_TLR);
-
-#define VLE_DEBUG_OUTPUT
-
-#ifdef VLE_DEBUG_OUTPUT
-        std::cout << std::setprecision(6) << std::scientific;
-        std::cout << "######################################################\n";
-        std::cout << "#    VLE-Model:                                      #\n";
-        std::cout << "#----------------------------------------------------#\n";
-        std::cout << "# Phase transition is "
-                  << (phase_transition ? "ON" : "OFF") << "\n";
-        std::cout << "#----------------------------------------------------#\n";
-        std::cout << "# gas phase pressure: " << pGR << "\n";
-        std::cout << "# liquid phase pressure: " << pLR << "\n";
-        std::cout << "# capillary pressure: " << pCap << "\n";
-        std::cout << "# temperature: " << T << "\n";
-        std::cout << "#----------------------------------------------------#\n";
-        std::cout << "# dH_by_R: " << dH_by_R << "\n";
-        std::cout << "# Henry-coefficient: " << H_C << "\n";
-        std::cout << "# derivative dHc_dT: " << dHc_dT << "\n";
-        std::cout << "# water vapour pressure: " << p_vap << "\n";
-        std::cout << "# derivative dp_vap_dT: " << dp_vap_dT << "\n";
-        std::cout << "#----------------------------------------------------#\n";
-        std::cout << "# partial pressures:\n";
-        std::cout << "# W: " << p_W_GR << "\n";
-        std::cout << "# C: " << p_C_GR << "\n";
-        std::cout << "#----------------------------------------------------#\n";
-        std::cout << "gas phase density: " << rho_GR << "\n ";
-        std::cout << "partial densities gas phase:\n";
-        std::cout << "W: " << rho_W_GR << "\n";
-        std::cout << "C: " << rho_C_GR << "\n";
-        std::cout << "molar fractions of gas phase:\n";
-        std::cout << "W: " << xn_W_G << "\n";
-        std::cout << "C: " << xn_C_G << "\n";
-        std::cout << "mass fractions gas phase:\n";
-        std::cout << "W: " << xm_W_G << "\n";
-        std::cout << "C: " << xm_C_G << "\n";
-        std::cout << "average molar mass: " << M_G << "\n ";
-        std::cout << "#----------------------------------------------------#\n";
-        std::cout << "liquid phase density: " << rho_LR << "\n";
-        std::cout << "partial densities liquid phase:\n";
-        std::cout << "W: " << rho_W_LR << "\n";
-        std::cout << "C: " << rho_C_LR << "\n";
-        std::cout << "dissolved gas concentration: " << c_C_L << "\n";
-        std::cout << "mass fractions liquid phase:\n";
-        std::cout << "W: " << xm_W_L << "\n";
-        std::cout << "C: " << xm_C_L << "\n";
-        std::cout << "#----------------------------------------------------#\n";
-        std::cout << "Gas phase compressibilities:\n";
-        std::cout << "beta_pGR: " << beta_pGR << "\n";
-        std::cout << "beta_TGR: " << beta_TGR << "\n";
-        std::cout << "Gas phase component compressibilities:\n";
-        std::cout << "W: beta_W_pGR: " << beta_W_pGR << "\n";
-        std::cout << "W: beta_W_TGR: " << beta_W_TGR << "\n";
-        std::cout << "C: beta_C_pGR: " << beta_C_pGR << "\n";
-        std::cout << "C: beta_C_TGR: " << beta_C_TGR << "\n";
-        std::cout << "#----------------------------------------------------#\n";
-        std::cout << "Liquid phase compressibilities:\n";
-        std::cout << "beta_pLR: " << beta_pLR << "\n";
-        std::cout << "beta_TLR: " << beta_TLR << "\n";
-        std::cout << "beta_CLR: " << beta_CLR << "\n";
-        std::cout << "Liquid phase component compressibilities:\n";
-        std::cout << "W: beta_W_pLR: " << beta_W_pLR << "\n";
-        std::cout << "W: beta_W_TLR: " << beta_W_TLR << "\n";
-        std::cout << "C: beta_C_pLR: " << beta_C_pLR << "\n";
-        std::cout << "C: beta_C_TLR: " << beta_C_TLR << "\n";
-        std::cout << "#----------------------------------------------------#\n";
-        std::cout << "derivatives of mass fraction:\n";
-        std::cout << "#----------------------------------------------------#\n";
-        std::cout << "gas phase:\n";
-        std::cout << "W: dxm_W_G/dpGR: " << dxm_W_G_dpGR << "\n";
-        std::cout << "W: dxm_W_G/dT: " << dxm_W_G_dT << "\n";
-        std::cout << "C: dxm_C_G/dpGR: " << dxm_C_G_dpGR << "\n";
-        std::cout << "C: dxm_C_G/dT: " << dxm_C_G_dT << "\n";
-        std::cout << "#----------------------------------------------------#\n";
-        std::cout << "liquid phase:\n";
-        std::cout << "W: dxm_W_L/dpLR: " << dxm_W_L_dpLR << "\n";
-        std::cout << "W: dxm_W_L/dT: " << dxm_W_L_dT << "\n";
-        std::cout << "C: dxm_C_L/dpLR: " << dxm_C_L_dpLR << "\n";
-        std::cout << "C: dxm_C_L/dT: " << dxm_C_L_dT << "\n";
-        std::cout << "#----------------------------------------------------#\n";
-        std::cout << "######################################################\n";
-        OGS_FATAL(".");
-#endif
+        VLE(phase_transition, T, pGR, pCap, rho_GR, rho_C_GR, rho_W_GR, rho_LR,
+            rho_C_LR, rho_W_LR, xm_C_G, xm_W_G, xm_C_L, xm_W_L, dxm_C_G_dpGR,
+            dxm_W_G_dpGR, dxm_C_L_dpLR, dxm_W_L_dpLR, dxm_C_G_dT, dxm_W_G_dT,
+            dxm_C_L_dT, dxm_W_L_dT);
 
         //  - solid phase properties
         const double beta_pS = 1e-10;
-        const double beta_TSR = -1e-7;
+        const double beta_T_SR = -1e-7;
         const double rho_ref_SR = 2500.;
 
-        const double c_pS = 1000.;
+        const double c_p_S = 1000.;
         const double lambda_SR = 0.5;
 
         //  - gas phase properties
         const double mu_GR = 1.e-5;
-        const double c_pG = 1000.;
+        const double c_p_G = 1000.;
 
         const double lambda_GR = 0.5;
 
         //  - liquid phase properties
         const double mu_LR = 1.e-3;
-        const double c_pL = 4000.;
+        const double c_p_L = 4000.;
 
         const double lambda_LR = 0.5;
 
@@ -627,7 +694,7 @@ void TH2MLocalAssembler<
             medium.property(MPL::PropertyType::biot_coefficient)
                 .template value<double>(vars, pos, t, dt);
 
-        auto const beta_pSR = (1. - alpha_B) * beta_pS;
+        auto const beta_p_SR = (1. - alpha_B) * beta_pS;
 
         auto const k_rel =
             medium.property(MPL::PropertyType::relative_permeability)
@@ -653,13 +720,13 @@ void TH2MLocalAssembler<
 
         // TODO (Wenqing) : Change dT to time step wise increment
         double const delta_T(T - T0);
-        double const thermal_strain = beta_TSR * delta_T;
-        auto const rho_SR = rho_ref_SR * (1 - 3 * thermal_strain);
+        double const thermal_strain = beta_T_SR * delta_T;
+        auto const rho_SR = rho_ref_SR * (1. - 3. * thermal_strain);
 
         auto const rho = rho_GR + rho_LR + rho_SR;
         // TODO: change back to rho_SR
-        auto const rho_c_p = phi_G * rho_GR * c_pG + phi_L * rho_LR * c_pL +
-                             phi_S * rho_ref_SR * c_pS;
+        auto const rho_c_p = phi_G * rho_GR * c_p_G + phi_L * rho_LR * c_p_L +
+                             phi_S * rho_ref_SR * c_p_S;
 
         // update secondary variables. TODO: Refactoring potential!!
 
@@ -669,34 +736,66 @@ void TH2MLocalAssembler<
         _porosity[ip] = phi;
         _saturation[ip] = s_L;
 
-        // abbreviations
-        const double beta_C_pFR =
-            s_G * rho_C_GR * beta_C_pGR + s_L * rho_C_LR * beta_C_pLR;
-        const double beta_C_TFR =
-            s_G * rho_C_GR * beta_C_TGR + s_L * rho_C_LR * beta_C_TLR;
+        // // abbreviations
+        // const double beta_C_p_FR =
+        //     s_G * rho_C_GR * beta_C_pGR + s_L * rho_C_LR * beta_C_pLR;
+        // const double beta_C_TFR =
+        //     s_G * rho_C_GR * beta_C_TGR + s_L * rho_C_LR * beta_C_TLR;
         const double rho_C_FR = s_G * rho_C_GR + s_L * rho_C_LR;
 
-        const double beta_W_pFR =
-            s_G * rho_W_GR * beta_W_pGR + s_L * rho_W_LR * beta_W_pLR;
-        const double beta_W_TFR =
-            s_G * rho_W_GR * beta_W_TGR + s_L * rho_W_LR * beta_W_TLR;
+        // const double beta_W_p_FR =
+        //     s_G * rho_W_GR * beta_W_pGR + s_L * rho_W_LR * beta_W_pLR;
+        // const double beta_W_TFR =
+        //     s_G * rho_W_GR * beta_W_TGR + s_L * rho_W_LR * beta_W_TLR;
         const double rho_W_FR = s_G * rho_W_GR + s_L * rho_W_LR;
 
-        const double pFR = s_G * pGR + s_L * pLR;
-        const double pFR_dot = pGR_dot - (s_L + pCap * dsLdPc) * pCap_dot;
+        const double p_FR = s_G * pGR + s_L * pLR;
+        const double p_FR_dot = pGR_dot - (s_L + pCap * dsLdPc) * pCap_dot;
 
-        auto const phi_dot = (alpha_B - phi) * (div_u_dot - beta_TSR * T_dot +
-                                                beta_pSR * pFR_dot);
+        auto const phi_dot = (alpha_B - phi) * (div_u_dot - beta_T_SR * T_dot +
+                                                beta_p_SR * p_FR_dot);
 
-        const double pSR =
-            pFR - 1. / (beta_pS * phi_S) * (div_u - thermal_strain);
+        const double p_SR =
+            p_FR - 1. / (beta_pS * phi_S) * (div_u - thermal_strain);
 
-        const double pSR_dot =
-            pFR_dot - 1. / (beta_pS * phi_S) * (div_u_dot - beta_TSR * T_dot) -
-            phi_dot / phi_S * (pFR - pSR);
+        const double p_SR_dot =
+            p_FR_dot -
+            1. / (beta_pS * phi_S) * (div_u_dot - beta_T_SR * T_dot) -
+            phi_dot / phi_S * (p_FR - p_SR);
+
+        vars[static_cast<int>(MPL::Variable::temperature)] = T_prev;
+        vars[static_cast<int>(MPL::Variable::phase_pressure)] = pGR_prev;
+        vars[static_cast<int>(MPL::Variable::capillary_pressure)] = pCap_prev;
+
+        auto const s_L_prev = medium.property(MPL::PropertyType::saturation)
+                                  .template value<double>(vars, pos, t, dt);
+
+        const double s_L_dot = (s_L - s_L_prev) / dt;
+
+        const double rho_C_GR_dot = 0;
+        const double rho_C_LR_dot = 0;
+        const double rho_W_GR_dot = 0;
+        const double rho_W_LR_dot = 0;
+
+        const auto rho_G_h_G_dot = 0.;
+        const auto rho_L_h_L_dot = 0.;
+        const auto rho_S_h_S_dot = 0.;
+        const auto rho_h_eff = 0.;
+        const auto phi_S_p_SR_dot = 0.;
 
         const auto k_over_mu_G = k_S * k_rel_G / mu_GR;
         const auto k_over_mu_L = k_S * k_rel_L / mu_LR;
+
+        const auto c_p_C_G = 1000.;  // J/kg/K
+        const auto c_p_W_G = 1914.;  // J/kg/K
+        const auto h_C_G = c_p_C_G * T;
+        const auto h_W_G = c_p_W_G * T;
+        const auto h_W_L = 112654.;  // J/kg
+        const auto h_C_L = 648584.;  // J/kg
+
+        const auto h_G = xm_C_G * h_C_G + xm_W_G * h_W_G;
+        const auto h_L = xm_W_L * h_W_L + xm_C_L * h_C_L;
+        const auto h_S = c_p_S * T;
 
         GlobalDimVectorType const w_GS =
             k_over_mu_G * rho_GR * b - k_over_mu_G * gradpGR;
@@ -714,9 +813,9 @@ void TH2MLocalAssembler<
         std::cout << "#         rho_SR:  " << rho_SR << "\n";
         std::cout << "#            rho:  " << rho << "\n";
         std::cout << "#----------------------------------------------------#\n";
-        std::cout << "#          c_p_G:  " << c_pG << "\n";
-        std::cout << "#          c_p_L:  " << c_pL << "\n";
-        std::cout << "#          c_p_S:  " << c_pS << "\n";
+        std::cout << "#          c_p_G:  " << c_p_G << "\n";
+        std::cout << "#          c_p_L:  " << c_p_L << "\n";
+        std::cout << "#          c_p_S:  " << c_p_S << "\n";
         std::cout << "#        rho_c_p:  " << rho_c_p << "\n";
         std::cout << "#----------------------------------------------------#\n";
         std::cout << "#      beta_p_GR:  " << beta_p_GR << "\n";
@@ -758,109 +857,122 @@ void TH2MLocalAssembler<
 
         // coefficient matrices
         // C-component equation
-        MCpG.noalias() +=
-            NpT * (phi * beta_C_pFR + rho_C_FR * (alpha_B - phi) * beta_pSR) *
-            Np * w;
+        MCpG.noalias() += NpT * rho_C_FR * (alpha_B - phi) * beta_p_SR * Np * w;
 
         MCpC.noalias() -=
-            NpT *
-            (phi * (dsLdPc * (rho_C_LR - rho_C_GR) -
-                    s_L * rho_C_LR * beta_C_pLR) -
-             rho_C_FR * (alpha_B - phi) * beta_pSR * (s_L * pCap * dsLdPc)) *
-            Np * w;
-        MCT.noalias() -=
-            NpT * (phi * beta_C_TFR + rho_C_FR * (alpha_B - phi) * beta_TSR) *
-            Np * w;
+            NpT * rho_C_FR * (alpha_B - phi) * beta_p_SR * s_L * Np * w;
+
+        MCT.noalias() -= NpT * rho_C_FR * (alpha_B - phi) * beta_T_SR * Np * w;
 
         MCu.noalias() += NpT * rho_C_FR * alpha_B * mT * Bu * w;
 
-        LCpG.noalias() += gradNpT *
-                          (rho_C_GR * k_over_mu_G + rho_C_LR * k_over_mu_L +
-                           phi_G * rho_GR * D_C_G * dxm_C_G_dpGR +
-                           phi_L * rho_LR * D_C_L * dxm_C_L_dpLR) *
-                          gradNp * w;
+        const auto advection_C_G = rho_C_GR * k_over_mu_G;
+        const auto advection_C_L = rho_C_LR * k_over_mu_L;
+        const auto diffusion_C_G_p = phi_G * rho_GR * D_C_G * dxm_C_L_dpLR;
+        const auto diffusion_C_L_p = phi_L * rho_LR * D_C_L * dxm_C_G_dpGR;
+        const auto diffusion_C_G_T = phi_G * rho_GR * D_C_G * dxm_C_G_dT;
+        const auto diffusion_C_L_T = phi_L * rho_LR * D_C_L * dxm_C_L_dT;
 
-        LCpC.noalias() +=
-            gradNpT *
-            (rho_C_LR * k_over_mu_L + phi_L * rho_LR * D_C_L * dxm_C_L_dpLR) *
-            gradNp * w;
-        LCT.noalias() += gradNpT *
-                         (phi_G * rho_GR * D_C_G * dxm_C_G_dT +
-                          phi_L * rho_LR * D_C_L * dxm_C_L_dT) *
-                         gradNp * w;
+        const auto advection_C = advection_C_G + advection_C_L;
+        const auto diffusion_C_p = diffusion_C_G_p + diffusion_C_L_p;
+        const auto diffusion_C_T = diffusion_C_G_T + diffusion_C_L_T;
 
-        fC.noalias() += gradNpT *
-                        (rho_C_GR * rho_GR * k_over_mu_G +
-                         rho_C_LR * rho_LR * k_over_mu_L) *
-                        b * w;
+        LCpG.noalias() += gradNpT * (advection_C + diffusion_C_p) * gradNp * w;
+
+        LCpC.noalias() -=
+            gradNpT * (advection_C_L + diffusion_C_L_p) * gradNp * w;
+
+        LCT.noalias() += gradNpT * (diffusion_C_T)*gradNp * w;
+
+        fC.noalias() -=
+            gradNpT * (advection_C_G * rho_GR + advection_C_L * rho_LR) * b * w;
+
+        fC.noalias() += NpT *
+                        (phi * (rho_C_LR - rho_C_GR) -
+                         rho_C_FR * pCap * (alpha_B - phi) * beta_p_SR) *
+                        s_L_dot * w;
+
+        fC.noalias() +=
+            NpT * phi * (s_G * rho_C_GR_dot + s_L * rho_C_LR_dot) * w;
+
+        // ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
         // W-component equation
-        MWpG.noalias() +=
-            NpT * (phi * beta_W_pFR + rho_W_FR * (alpha_B - phi) * beta_pSR) *
-            Np * w;
+        MWpG.noalias() += NpT * rho_W_FR * (alpha_B - phi) * beta_p_SR * Np * w;
 
         MWpC.noalias() -=
-            NpT *
-            (phi * (dsLdPc * (rho_W_LR - rho_W_GR) -
-                    s_L * rho_W_LR * beta_C_pLR) -
-             rho_W_FR * (alpha_B - phi) * beta_pSR * (s_L * pCap * dsLdPc)) *
-            Np * w;
-        MWT.noalias() -=
-            NpT * (phi * beta_W_TFR + rho_W_FR * (alpha_B - phi) * beta_TSR) *
-            Np * w;
+            NpT * rho_W_FR * (alpha_B - phi) * beta_p_SR * s_L * Np * w;
+
+        MWT.noalias() -= NpT * rho_W_FR * (alpha_B - phi) * beta_T_SR * Np * w;
 
         MWu.noalias() += NpT * rho_W_FR * alpha_B * mT * Bu * w;
 
-        LWpG.noalias() += gradNpT *
-                          (rho_W_GR * k_over_mu_G + rho_W_LR * k_over_mu_L +
-                           phi_G * rho_GR * D_W_G * dxm_W_G_dpGR +
-                           phi_L * rho_LR * D_W_L * dxm_W_L_dpLR) *
-                          gradNp * w;
+        const auto advection_W_G = rho_W_GR * k_over_mu_G;
+        const auto advection_W_L = rho_W_LR * k_over_mu_L;
+        const auto diffusion_W_G_p = phi_G * rho_GR * D_W_G * dxm_W_L_dpLR;
+        const auto diffusion_W_L_p = phi_L * rho_LR * D_W_L * dxm_W_G_dpGR;
+        const auto diffusion_W_G_T = phi_G * rho_GR * D_W_G * dxm_W_G_dT;
+        const auto diffusion_W_L_T = phi_L * rho_LR * D_W_L * dxm_W_L_dT;
 
-        LWpC.noalias() +=
-            gradNpT *
-            (rho_W_LR * k_over_mu_L + phi_L * rho_LR * D_W_L * dxm_W_L_dpLR) *
-            gradNp * w;
-        LWT.noalias() += gradNpT *
-                         (phi_G * rho_GR * D_W_G * dxm_W_G_dT +
-                          phi_L * rho_LR * D_W_L * dxm_W_L_dT) *
-                         gradNp * w;
+        const auto advection_W = advection_W_G + advection_W_L;
+        const auto diffusion_W_p = diffusion_W_G_p + diffusion_W_L_p;
+        const auto diffusion_W_T = diffusion_W_G_T + diffusion_W_L_T;
 
-        fW.noalias() += gradNpT *
-                        (rho_W_GR * rho_GR * k_over_mu_G +
-                         rho_W_LR * rho_LR * k_over_mu_L) *
-                        b * w;
+        LWpG.noalias() += gradNpT * (advection_W + diffusion_W_p) * gradNp * w;
 
-        //  - liquid pressure equation
+        LWpC.noalias() -=
+            gradNpT * (advection_W_L + diffusion_W_L_p) * gradNp * w;
+
+        LWT.noalias() += gradNpT * (diffusion_W_T)*gradNp * w;
+
+        fW.noalias() -=
+            gradNpT * (advection_W_G * rho_GR + advection_W_L * rho_LR) * b * w;
+
+        fW.noalias() += NpT *
+                        (phi * (rho_W_LR - rho_W_GR) -
+                         rho_W_FR * pCap * (alpha_B - phi) * beta_p_SR) *
+                        s_L_dot * w;
+
+        fW.noalias() +=
+            NpT * phi * (s_G * rho_W_GR_dot + s_L * rho_W_LR_dot) * w;
 
         //  - temperature equation
-        MTpG.noalias() -=
-            NTT * phi * (s_G * beta_TGR + s_L * beta_TLR) * T * NT * w;
-        MTpC.noalias() +=
-            NTT * phi * (s_L * beta_TLR * T + pCap * dsLdPc) * NT * w;
+        MTpG.noalias() -= NTT * phi * NT * w;
+        MTpC.noalias() += NTT * phi_L * NT * w;
 
-        MTT.noalias() += (NTT * rho_c_p * NT) * w;
-        ATpG.noalias() -= NTT *
-                          ((1. - beta_TGR * T) * w_GS.transpose() +
-                           (1. - beta_TLR * T) * w_LS.transpose()) *
-                          gradNT * w;
-        ATpC.noalias() +=
-            NTT * (1. - beta_TLR * T) * w_LS.transpose() * gradNT * w;
+        MTu.noalias() += NTT * rho_h_eff * mT * Bu * w;
 
-        // ATT
-        KTT.noalias() += NTT *
-                         (rho_GR * c_pG * w_GS.transpose() +
-                          rho_LR * c_pL * w_LS.transpose()) *
-                         gradNT * w;
+        // MTT.noalias() += NTT * 0. * NT * w;
+
+        // ATpG.noalias() -= NTT *
+        //                   ((1. - beta_TGR * T) * w_GS.transpose() +
+        //                    (1. - beta_TLR * T) * w_LS.transpose()) *
+        //                   gradNT * w;
+        // ATpC.noalias() +=
+        //     NTT * (1. - beta_TLR * T) * w_LS.transpose() * gradNT * w;
+
+        // // ATT
+        // KTT.noalias() += NTT *
+        //                  (rho_GR * c_p_G * w_GS.transpose() +
+        //                   rho_LR * c_p_L * w_LS.transpose()) *
+        //                  gradNT * w;
         // LTT
+
         KTT.noalias() += gradNTT * lambda * gradNT * w;
 
         // fT
         fT.noalias() +=
             NTT *
-            ((rho_GR * w_GS.transpose() + rho_LR * w_LS.transpose()) * b +
-             phi_S * beta_TSR * T * pSR_dot - (pFR - pSR) * phi_dot) *
+            (rho_G_h_G_dot + rho_L_h_L_dot + rho_S_h_S_dot +
+             phi * pCap * s_L_dot - p_FR * phi_dot - phi_S_p_SR_dot) *
             w;
+
+        fT.noalias() -=
+            NTT * (rho_GR * w_GS.transpose() + rho_LR * w_LS.transpose()) * b *
+            w;
+
+        fT.noalias() -=
+            gradNTT * (rho_GR * h_G * w_GS + rho_LR * h_L * w_LS) * w;
 
         //  - displacement equation
         KUpG.noalias() -= (BuT * alpha_B * m * Np) * w;
