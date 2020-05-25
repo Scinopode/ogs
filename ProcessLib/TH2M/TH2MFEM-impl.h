@@ -265,6 +265,8 @@ void VLE(
     // dxm_W_G_dT = xm_W_G * (beta_W_TGR - beta_TGR);
     // dxm_W_L_dT = xm_W_L * (beta_W_TLR - beta_TLR);
 
+    if (phase_transition)
+    {
     d_xm_C_G_d_pGR = 1. / rho_GR * (d_rho_C_GR_d_pGR - xm_C_G * d_rho_GR_d_pGR);
     d_xm_W_G_d_pGR = 1. / rho_GR * (d_rho_W_GR_d_pGR - xm_W_G * d_rho_GR_d_pGR);
     d_xm_C_L_d_pLR = 1. / rho_LR * (d_rho_C_LR_d_pLR - xm_C_L * d_rho_LR_d_pLR);
@@ -274,7 +276,20 @@ void VLE(
     d_xm_W_G_d_T = 1. / rho_GR * (d_rho_W_GR_d_T - xm_W_G * d_rho_GR_d_T);
     d_xm_C_L_d_T = 1. / rho_LR * (d_rho_C_LR_d_T - xm_C_L * d_rho_LR_d_T);
     d_xm_W_L_d_T = 1. / rho_LR * (d_rho_W_LR_d_T - xm_W_L * d_rho_LR_d_T);
+    }
+    else
+    {
+    d_xm_C_G_d_pGR = 0.;
+    d_xm_W_G_d_pGR = 0.;
+    d_xm_C_L_d_pLR = 0.;
+    d_xm_W_L_d_pLR = 0.;
 
+    d_xm_C_G_d_T = 0.;
+    d_xm_W_G_d_T = 0.;
+    d_xm_C_L_d_T = 0.;
+    d_xm_W_L_d_T = 0.;
+    }
+    
     // std::cout << std::setprecision(16);
 
     // std::cout << T << " " << pGR << " " << pCap << " " << pLR << " " <<
@@ -493,7 +508,7 @@ void TH2MLocalAssembler<ShapeFunctionDisplacement, ShapeFunctionPressure,
         double xm_W_L;
 
         double dummy;
-        bool phase_transition(true);
+        bool phase_transition = _process_data.phase_transition;
 
         VLE(phase_transition, T, pGR, pCap, rho_GR, rho_C_GR, rho_W_GR, rho_LR,
             rho_C_LR, rho_W_LR, xm_C_G, xm_W_G, xm_C_L, xm_W_L, dummy, dummy,
@@ -618,7 +633,7 @@ void TH2MLocalAssembler<ShapeFunctionDisplacement, ShapeFunctionPressure,
         // double xm_W_L;
 
         // double dummy;
-        // bool phase_transition(true);
+        // bool phase_transition = _process_data.phase_transition;
 
         // VLE(phase_transition, T, pGR, pCap, rho_GR, rho_C_GR, rho_W_GR,
         // rho_LR,
@@ -928,7 +943,7 @@ void TH2MLocalAssembler<
         vars[static_cast<int>(MPL::Variable::capillary_pressure)] = pCap;
         vars[static_cast<int>(MPL::Variable::liquid_phase_pressure)] = pLR;
 
-        bool phase_transition(true);
+        bool phase_transition = _process_data.phase_transition;
 
         auto& rho_GR = ip_data.rho_GR;  // gas phase density
         auto& rho_C_GR =
@@ -1156,7 +1171,7 @@ void TH2MLocalAssembler<
                                          k_over_mu_L * gradpGR;
 
 
-#ifdef MATERIAL_PROPERTIES
+#ifndef MATERIAL_PROPERTIES
         std::cout << "######################################################\n";
         std::cout << "#    Material properties:\n";
         std::cout << "#----------------------------------------------------#\n";
@@ -1272,15 +1287,15 @@ void TH2MLocalAssembler<
 
         LCT.noalias() += gradNpT * (diffusion_C_T)*gradNp * w;
 
-        fC.noalias() -=
+        fC.noalias() +=
             gradNpT * (advection_C_G * rho_GR + advection_C_L * rho_LR) * b * w;
 
-        fC.noalias() += NpT *
+        fC.noalias() -= NpT *
                         (phi * (rho_C_LR - rho_C_GR) -
                          rho_C_FR * pCap * (alpha_B - phi) * beta_p_SR) *
                         s_L_dot * w;
 
-        fC.noalias() +=
+        fC.noalias() -=
             NpT * phi * (s_G * rho_C_GR_dot + s_L * rho_C_LR_dot) * w;
 
         // ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
@@ -1313,15 +1328,15 @@ void TH2MLocalAssembler<
 
         LWT.noalias() += gradNpT * (diffusion_W_T)*gradNp * w;
 
-        fW.noalias() -=
+        fW.noalias() +=
             gradNpT * (advection_W_G * rho_GR + advection_W_L * rho_LR) * b * w;
 
-        fW.noalias() += NpT *
+        fW.noalias() -= NpT *
                         (phi * (rho_W_LR - rho_W_GR) -
                          rho_W_FR * pCap * (alpha_B - phi) * beta_p_SR) *
                         s_L_dot * w;
 
-        fW.noalias() +=
+        fW.noalias() -=
             NpT * phi * (s_G * rho_W_GR_dot + s_L * rho_W_LR_dot) * w;
 
         //  - temperature equation
@@ -1349,17 +1364,17 @@ void TH2MLocalAssembler<
         KTT.noalias() += gradNTT * lambda * gradNT * w;
 
         // fT
-        fT.noalias() +=
+        fT.noalias() -=
             NTT *
             (rho_G_h_G_dot + rho_L_h_L_dot + rho_S_h_S_dot +
              phi * pCap * s_L_dot - p_FR * phi_dot - phi_S_p_SR_dot) *
             w;
 
-        fT.noalias() -=
+        fT.noalias() +=
             NTT * (rho_GR * w_GS.transpose() + rho_LR * w_LS.transpose()) * b *
             w;
 
-        fT.noalias() -=
+        fT.noalias() +=
             gradNTT * (rho_GR * h_G * w_GS + rho_LR * h_L * w_LS) * w;
 
         //  - displacement equation
@@ -1370,7 +1385,7 @@ void TH2MLocalAssembler<
         ip_data.updateConstitutiveRelationThermal(
             t, pos, dt, displacement,
             _process_data.reference_temperature(t, pos)[0], thermal_strain);
-        fU.noalias() -= (BuT * sigma_eff - Nu_op.transpose() * rho * b) * w;
+        fU.noalias() += (BuT * sigma_eff - Nu_op.transpose() * rho * b) * w;
 
 #ifdef DEBUG_OUTPUT
         std::cout << "------------------------------------------------------\n";
