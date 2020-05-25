@@ -14,13 +14,11 @@
 
 #include "MaterialLib/MPL/CreateMaterialSpatialDistributionMap.h"
 #include "MaterialLib/MPL/MaterialSpatialDistributionMap.h"
-
 #include "MaterialLib/SolidModels/CreateConstitutiveRelation.h"
 #include "MaterialLib/SolidModels/MechanicsBase.h"
 #include "ParameterLib/Utils.h"
 #include "ProcessLib/Output/CreateSecondaryVariables.h"
 #include "ProcessLib/Utils/ProcessUtils.h"
-
 #include "TH2MProcess.h"
 #include "TH2MProcessData.h"
 
@@ -150,6 +148,9 @@ std::unique_ptr<Process> createTH2MProcess(
         MaterialLib::Solids::createConstitutiveRelations<DisplacementDim>(
             parameters, local_coordinate_system, config);
 
+    // switch for phase transition
+    bool phase_transition = config.getConfigParameter<bool>("phase_transition");
+
     // reference temperature
     auto& reference_temperature = ParameterLib::findParameter<double>(
         config,
@@ -181,8 +182,11 @@ std::unique_ptr<Process> createTH2MProcess(
         MaterialPropertyLib::createMaterialSpatialDistributionMap(media, mesh);
 
     TH2MProcessData<DisplacementDim> process_data{
-        materialIDs(mesh), std::move(media_map),
-        std::move(solid_constitutive_relations), reference_temperature,
+        materialIDs(mesh),
+        std::move(media_map),
+        std::move(solid_constitutive_relations),
+        phase_transition,
+        reference_temperature,
         specific_body_force};
 
     SecondaryVariableCollection secondary_variables;
