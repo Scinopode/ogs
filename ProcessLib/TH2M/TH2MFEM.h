@@ -13,6 +13,8 @@
 #include <memory>
 #include <vector>
 
+#include "IntegrationPointData.h"
+#include "LocalAssemblerInterface.h"
 #include "MaterialLib/PhysicalConstant.h"
 #include "MaterialLib/SolidModels/LinearElasticIsotropic.h"
 #include "MathLib/KelvinVector.h"
@@ -24,9 +26,6 @@
 #include "ProcessLib/Deformation/LinearBMatrix.h"
 #include "ProcessLib/LocalAssemblerTraits.h"
 #include "ProcessLib/Utils/InitShapeMatrices.h"
-
-#include "IntegrationPointData.h"
-#include "LocalAssemblerInterface.h"
 #include "TH2MProcessData.h"
 
 namespace ProcessLib
@@ -95,10 +94,28 @@ public:
     {
         unsigned const n_integration_points =
             _integration_method.getNumberOfPoints();
-
         for (unsigned ip = 0; ip < n_integration_points; ip++)
         {
-            _ip_data[ip].pushBackState();
+            auto& ip_data = _ip_data[ip];
+
+            /// Set initial stress from parameter.
+            if (_process_data.initial_stress != nullptr)
+            {
+                ParameterLib::SpatialPosition const x_position{
+                    boost::none, _element.getID(), ip,
+                    MathLib::Point3d(interpolateCoordinates<ShapeFunctionDisplacement,
+                                                            ShapeMatricesTypeDisplacement>(
+                        _element, ip_data.N_u))};
+
+                ip_data.sigma_eff =
+                    MathLib::KelvinVector::symmetricTensorToKelvinVector<
+                        DisplacementDim>((*_process_data.initial_stress)(
+                        std::numeric_limits<
+                            double>::quiet_NaN() /* time independent */,
+                        x_position));
+            }
+
+            ip_data.pushBackState();
         }
     }
 
@@ -143,7 +160,7 @@ public:
 
 private:
     void getConstitutiveVariables(std::vector<double> const& local_x,
-                                      double const t, double const dt);   
+                                  double const t, double const dt);
 
     std::size_t setSigma(double const* values)
     {
@@ -160,7 +177,7 @@ private:
 
         for (unsigned ip = 0; ip < n_integration_points; ++ip)
         {
-            _ip_data[ip].sigma =
+            _ip_data[ip].sigma_eff =
                 MathLib::KelvinVector::symmetricTensorToKelvinVector(
                     sigma_values.col(ip));
         }
@@ -342,7 +359,6 @@ private:
     static const int C_size = ShapeFunctionPressure::NPOINTS;
     static const int W_index = ShapeFunctionPressure::NPOINTS;
     static const int W_size = ShapeFunctionPressure::NPOINTS;
-
 };
 
 }  // namespace TH2M

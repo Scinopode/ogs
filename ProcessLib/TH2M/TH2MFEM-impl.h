@@ -1512,7 +1512,7 @@ void TH2MLocalAssembler<
             PRINT(eps);
         }
 
-        // if (_process_data.apply_mass_lumping)
+        if (_process_data.apply_mass_lumping)
         {
             auto MpG = M.template block<C_size, gas_pressure_size>(
                 C_index, gas_pressure_index);

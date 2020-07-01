@@ -178,6 +178,18 @@ std::unique_ptr<Process> createTH2MProcess(
         std::copy_n(b.data(), b.size(), specific_body_force.data());
     }
 
+    // Initial stress conditions
+    auto const initial_stress = ParameterLib::findOptionalTagParameter<double>(
+        //! \ogs_file_param_special{prj__processes__process__RICHARDS_MECHANICS__initial_stress}
+        config, "initial_stress", parameters,
+        // Symmetric tensor size, 4 or 6, not a Kelvin vector.
+        MathLib::KelvinVector::KelvinVectorDimensions<DisplacementDim>::value,
+        &mesh);
+
+    auto const mass_lumping =
+        //! \ogs_file_param{prj__processes__process__RICHARDS_MECHANICS__mass_lumping}
+        config.getConfigParameter<bool>("mass_lumping", false);
+
     auto media_map =
         MaterialPropertyLib::createMaterialSpatialDistributionMap(media, mesh);
 
@@ -187,7 +199,9 @@ std::unique_ptr<Process> createTH2MProcess(
         std::move(solid_constitutive_relations),
         phase_transition,
         reference_temperature,
-        specific_body_force};
+        initial_stress,
+        specific_body_force,
+        mass_lumping};
 
     SecondaryVariableCollection secondary_variables;
 
