@@ -24,6 +24,13 @@
 #include "ProcessLib/CoupledSolutionsForStaggeredScheme.h"
 #include "TH2MFEM.h"
 
+#define PRINT(var) \
+    std::cout << std::setprecision(16) << #var << ": " << var << "\n";
+
+#define PRINT2(bool, text, var) \
+    if (bool)                   \
+        std::cout << std::setprecision(16) << #text << ": " << var << "\n";
+
 namespace ProcessLib
 {
 namespace TH2M
@@ -267,29 +274,33 @@ void VLE(
 
     if (phase_transition)
     {
-    d_xm_C_G_d_pGR = 1. / rho_GR * (d_rho_C_GR_d_pGR - xm_C_G * d_rho_GR_d_pGR);
-    d_xm_W_G_d_pGR = 1. / rho_GR * (d_rho_W_GR_d_pGR - xm_W_G * d_rho_GR_d_pGR);
-    d_xm_C_L_d_pLR = 1. / rho_LR * (d_rho_C_LR_d_pLR - xm_C_L * d_rho_LR_d_pLR);
-    d_xm_W_L_d_pLR = 1. / rho_LR * (d_rho_W_LR_d_pLR - xm_W_L * d_rho_LR_d_pLR);
+        d_xm_C_G_d_pGR =
+            1. / rho_GR * (d_rho_C_GR_d_pGR - xm_C_G * d_rho_GR_d_pGR);
+        d_xm_W_G_d_pGR =
+            1. / rho_GR * (d_rho_W_GR_d_pGR - xm_W_G * d_rho_GR_d_pGR);
+        d_xm_C_L_d_pLR =
+            1. / rho_LR * (d_rho_C_LR_d_pLR - xm_C_L * d_rho_LR_d_pLR);
+        d_xm_W_L_d_pLR =
+            1. / rho_LR * (d_rho_W_LR_d_pLR - xm_W_L * d_rho_LR_d_pLR);
 
-    d_xm_C_G_d_T = 1. / rho_GR * (d_rho_C_GR_d_T - xm_C_G * d_rho_GR_d_T);
-    d_xm_W_G_d_T = 1. / rho_GR * (d_rho_W_GR_d_T - xm_W_G * d_rho_GR_d_T);
-    d_xm_C_L_d_T = 1. / rho_LR * (d_rho_C_LR_d_T - xm_C_L * d_rho_LR_d_T);
-    d_xm_W_L_d_T = 1. / rho_LR * (d_rho_W_LR_d_T - xm_W_L * d_rho_LR_d_T);
+        d_xm_C_G_d_T = 1. / rho_GR * (d_rho_C_GR_d_T - xm_C_G * d_rho_GR_d_T);
+        d_xm_W_G_d_T = 1. / rho_GR * (d_rho_W_GR_d_T - xm_W_G * d_rho_GR_d_T);
+        d_xm_C_L_d_T = 1. / rho_LR * (d_rho_C_LR_d_T - xm_C_L * d_rho_LR_d_T);
+        d_xm_W_L_d_T = 1. / rho_LR * (d_rho_W_LR_d_T - xm_W_L * d_rho_LR_d_T);
     }
     else
     {
-    d_xm_C_G_d_pGR = 0.;
-    d_xm_W_G_d_pGR = 0.;
-    d_xm_C_L_d_pLR = 0.;
-    d_xm_W_L_d_pLR = 0.;
+        d_xm_C_G_d_pGR = 0.;
+        d_xm_W_G_d_pGR = 0.;
+        d_xm_C_L_d_pLR = 0.;
+        d_xm_W_L_d_pLR = 0.;
 
-    d_xm_C_G_d_T = 0.;
-    d_xm_W_G_d_T = 0.;
-    d_xm_C_L_d_T = 0.;
-    d_xm_W_L_d_T = 0.;
+        d_xm_C_G_d_T = 0.;
+        d_xm_W_G_d_T = 0.;
+        d_xm_C_L_d_T = 0.;
+        d_xm_W_L_d_T = 0.;
     }
-    
+
     // std::cout << std::setprecision(16);
 
     // std::cout << T << " " << pGR << " " << pCap << " " << pLR << " " <<
@@ -423,6 +434,9 @@ void TH2MLocalAssembler<ShapeFunctionDisplacement, ShapeFunctionPressure,
     pos.setElementID(_element.getID());
 
     auto const& medium = *_process_data.media_map->getMedium(_element.getID());
+    auto const& liquid_phase = medium.phase("AqueousLiquid");
+    auto const& gas_phase = medium.phase("Gas");
+    auto const& solid_phase = medium.phase("Solid");
 
     unsigned const n_integration_points =
         _integration_method.getNumberOfPoints();
@@ -470,10 +484,10 @@ void TH2MLocalAssembler<ShapeFunctionDisplacement, ShapeFunctionPressure,
                 .template value<double>(
                     vars, pos, t, std::numeric_limits<double>::quiet_NaN());
 
-        const double beta_pS = 1e-10;
-
         auto const phi = medium.property(MPL::PropertyType::porosity)
                              .template value<double>(vars, pos, t, dt);
+
+        ip_data.phi = phi;
 
         auto const s_L = ip_data.saturation;
         auto const phi_G = (1. - s_L) * phi;
@@ -485,15 +499,38 @@ void TH2MLocalAssembler<ShapeFunctionDisplacement, ShapeFunctionPressure,
 
         double const T0 = _process_data.reference_temperature(t, pos)[0];
         double const delta_T(T - T0);
-        const double beta_T_SR = -1e-7;
-        const double rho_ref_SR = 2500.;
+
+        const double beta_pS =
+            solid_phase.property(MPL::PropertyType::compressibility)
+                .template value<double>(
+                    vars, pos, t, std::numeric_limits<double>::quiet_NaN());
+        const double beta_T_SR =
+            solid_phase.property(MPL::PropertyType::thermal_expansivity)
+                .template value<double>(
+                    vars, pos, t, std::numeric_limits<double>::quiet_NaN());
+        const double rho_ref_SR =
+            solid_phase.property(MPL::PropertyType::density)
+                .template value<double>(
+                    vars, pos, t, std::numeric_limits<double>::quiet_NaN());
+
+        auto const alpha_B =
+            medium.property(MPL::PropertyType::biot_coefficient)
+                .template value<double>(vars, pos, t, dt);
+
+        auto const beta_p_SR = (1. - alpha_B) * beta_pS;
 
         double const thermal_strain = beta_T_SR * delta_T;
 
+        // cf. Eq. 79
         const double p_SR =
             p_FR - 1. / (beta_pS * phi_S) * (div_u - thermal_strain);
+
+        // cf. WW: THM
         auto const rho_SR = rho_ref_SR * (1. - 3. * thermal_strain);
-        ip_data.phi_S_p_SR = phi_S * p_SR;
+        // ip_data.phi_S_p_SR = phi_S * p_SR;
+        ip_data.phi_S_p_SR = 0.;
+
+#ifdef PHASE_TRANSITION
 
         double rho_GR;
         double rho_LR;
@@ -518,7 +555,7 @@ void TH2MLocalAssembler<ShapeFunctionDisplacement, ShapeFunctionPressure,
         ip_data.rho_W_GR = rho_W_GR;
         ip_data.rho_C_LR = rho_C_LR;
         ip_data.rho_W_LR = rho_W_LR;
-        
+
         const double c_p_S = 1000.;
         const auto c_p_C_G = 1000.;  // J/kg/K
         const auto c_p_W_G = 1914.;  // J/kg/K
@@ -536,6 +573,41 @@ void TH2MLocalAssembler<ShapeFunctionDisplacement, ShapeFunctionPressure,
         ip_data.rho_G_h_G = phi_G * rho_GR * h_G;
         ip_data.rho_L_h_L = phi_L * rho_LR * h_L;
         ip_data.rho_S_h_S = phi_S * rho_SR * h_S;
+
+#else
+        const double c_p_S = 1000.;
+        const auto c_p_C_G = 1000.;  // J/kg/K
+        const auto c_p_W_L = 4180.;  // J/kg/K
+
+        const auto h_C_G = c_p_C_G * T;
+        const auto h_W_L = c_p_W_L * T;
+        // todo: h_G && h_L for mixtures
+        const auto h_G = h_C_G;
+        const auto h_L = h_W_L;
+        const auto h_S = c_p_S * T;
+
+        const auto rho_GR =
+            gas_phase.property(MPL::PropertyType::density)
+                .template value<double>(
+                    vars, pos, t, std::numeric_limits<double>::quiet_NaN());
+
+        const auto rho_LR =
+            liquid_phase.property(MPL::PropertyType::density)
+                .template value<double>(
+                    vars, pos, t, std::numeric_limits<double>::quiet_NaN());
+
+        ip_data.rho_GR = rho_GR;
+        ip_data.rho_LR = rho_LR;
+
+        ip_data.rho_C_GR = rho_GR;
+        ip_data.rho_W_GR = 0.;
+        ip_data.rho_C_LR = 0.;
+        ip_data.rho_W_LR = rho_LR;
+
+        ip_data.rho_G_h_G = phi_G * rho_GR * h_G;
+        ip_data.rho_L_h_L = phi_L * rho_LR * h_L;
+        ip_data.rho_S_h_S = phi_S * rho_SR * h_S;
+#endif
     }
 }
 
@@ -578,92 +650,24 @@ void TH2MLocalAssembler<ShapeFunctionDisplacement, ShapeFunctionPressure,
         _integration_method.getNumberOfPoints();
     for (unsigned ip = 0; ip < n_integration_points; ip++)
     {
-        pos.setIntegrationPoint(ip);
+        // pos.setIntegrationPoint(ip);
         auto& ip_data = _ip_data[ip];
 
-        auto const& Np = ip_data.N_p;
-        auto const& NT = Np;
+        // auto const& Np = ip_data.N_p;
+        // auto const& NT = Np;
 
-        auto const T = NT.dot(temperature);
-        auto const pGR = Np.dot(gas_pressure);
-        auto const pCap = Np.dot(capillary_pressure);
-        auto const pLR = pGR - pCap;
+        // auto const T = NT.dot(temperature);
+        // auto const pGR = Np.dot(gas_pressure);
+        // auto const pCap = Np.dot(capillary_pressure);
+        // auto const pLR = pGR - pCap;
 
-        MPL::VariableArray vars;
-        vars[static_cast<int>(MPL::Variable::temperature)] = T;
-        vars[static_cast<int>(MPL::Variable::phase_pressure)] = pGR;
-        vars[static_cast<int>(MPL::Variable::capillary_pressure)] = pCap;
-        vars[static_cast<int>(MPL::Variable::liquid_phase_pressure)] = pLR;
+        // MPL::VariableArray vars;
+        // vars[static_cast<int>(MPL::Variable::temperature)] = T;
+        // vars[static_cast<int>(MPL::Variable::phase_pressure)] = pGR;
+        // vars[static_cast<int>(MPL::Variable::capillary_pressure)] = pCap;
+        // vars[static_cast<int>(MPL::Variable::liquid_phase_pressure)] = pLR;
 
         ip_data.pushBackState();
-        // ip_data.saturation_prev =
-        //     medium.property(MPL::PropertyType::saturation)
-        //         .template value<double>(
-        //             vars, pos, t, std::numeric_limits<double>::quiet_NaN());
-
-        // auto const phi =
-        //     medium.property(MPL::PropertyType::porosity)
-        //         .template value<double>(
-        //             vars, pos, t, std::numeric_limits<double>::quiet_NaN());
-
-        // double const T0 = _process_data.reference_temperature(t, pos)[0];
-        // double const delta_T(T - T0);
-        // const double beta_T_SR = -1e-7;
-        // const double rho_ref_SR = 2500.;
-
-        // double const thermal_strain = beta_T_SR * delta_T;
-        // auto const rho_SR = rho_ref_SR * (1. - 3. * thermal_strain);
-
-        // const double s_L = ip_data.saturation_prev;
-        // const double s_G = (1. - s_L);
-        // const double phi_L = s_L * phi;
-        // const double phi_G = s_G * phi;
-        // const double phi_S = 1. - phi;
-
-        // double rho_GR;
-        // double rho_LR;
-        // double rho_C_GR;
-        // double rho_W_GR;
-        // double rho_C_LR;
-        // double rho_W_LR;
-
-        // double xm_C_G;
-        // double xm_W_G;
-        // double xm_C_L;
-        // double xm_W_L;
-
-        // double dummy;
-        // bool phase_transition = _process_data.phase_transition;
-
-        // VLE(phase_transition, T, pGR, pCap, rho_GR, rho_C_GR, rho_W_GR,
-        // rho_LR,
-        //     rho_C_LR, rho_W_LR, xm_C_G, xm_W_G, xm_C_L, xm_W_L, dummy, dummy,
-        //     dummy, dummy, dummy, dummy, dummy, dummy);
-
-        // const double c_p_S = 1000.;
-        // const auto c_p_C_G = 1000.;  // J/kg/K
-        // const auto c_p_W_G = 1914.;  // J/kg/K
-        // const auto h_C_G = c_p_C_G * T;
-        // const auto h_W_G = c_p_W_G * T;
-        // const auto h_W_L = 112654.;  // J/kg
-        // const auto h_C_L = 648584.;  // J/kg
-
-        // const auto h_G = xm_C_G * h_C_G + xm_W_G * h_W_G;
-        // const auto h_L = xm_W_L * h_W_L + xm_C_L * h_C_L;
-        // const auto h_S = c_p_S * T;
-
-        // ip_data.rho_C_GR_prev =
-        //     rho_C_GR;  // C constituent partial density in gas phase
-        // ip_data.rho_W_GR_prev =
-        //     rho_W_GR;  // W constituent partial density in gas phase
-        // ip_data.rho_C_LR_prev =
-        //     rho_C_LR;  // C constituent partial density in liquid phase
-        // ip_data.rho_W_LR_prev =
-        //     rho_W_LR;  // W constituent partial density in liquid phase
-
-        // ip_data.rho_G_h_G_prev = phi_G * rho_GR * h_G;
-        // ip_data.rho_L_h_L_prev = phi_L * rho_LR * h_L;
-        // ip_data.rho_S_h_S_prev = phi_S * rho_SR * h_S;
     }
 }
 
@@ -776,7 +780,7 @@ void TH2MLocalAssembler<
     auto LWpC = K.template block<W_size, capillary_pressure_size>(
         W_index, capillary_pressure_index);
     auto LWT =
-        K.template block<W_size, temperature_size>(C_index, temperature_index);
+        K.template block<W_size, temperature_size>(W_index, temperature_index);
 
     // pointer-matrices to the mass matrix - temperature equation
     auto MTpG = M.template block<temperature_size, gas_pressure_size>(
@@ -788,12 +792,12 @@ void TH2MLocalAssembler<
     auto MTu = M.template block<temperature_size, displacement_size>(
         temperature_index, displacement_index);
 
-    // pointer-matrices to the stiffness matrix - liquid phase equation
-    auto KLpG = K.template block<capillary_pressure_size, gas_pressure_size>(
-        capillary_pressure_index, gas_pressure_index);
-    auto KLpC =
-        K.template block<capillary_pressure_size, capillary_pressure_size>(
-            capillary_pressure_index, capillary_pressure_index);
+    // // pointer-matrices to the stiffness matrix - liquid phase equation
+    // auto KLpG = K.template block<capillary_pressure_size, gas_pressure_size>(
+    //     capillary_pressure_index, gas_pressure_index);
+    // auto KLpC =
+    //     K.template block<capillary_pressure_size, capillary_pressure_size>(
+    //         capillary_pressure_index, capillary_pressure_index);
 
     // pointer-matrices to the stiffness matrix - temperature equation
     auto ATpG = K.template block<temperature_size, gas_pressure_size>(
@@ -842,15 +846,15 @@ void TH2MLocalAssembler<
         auto const& NT = Np;
         auto const& Nu = ip_data.N_u;
 
-        auto const& NpT = Np.transpose();
-        auto const& NTT = NT.transpose();
+        auto const& NpT = Np.transpose().eval();
+        auto const& NTT = NT.transpose().eval();
 
         auto const& gradNp = ip_data.dNdx_p;
         auto const& gradNT = gradNp;
         auto const& gradNu = ip_data.dNdx_u;
 
-        auto const& gradNpT = gradNp.transpose();
-        auto const& gradNTT = gradNT.transpose();
+        auto const& gradNpT = gradNp.transpose().eval();
+        auto const& gradNTT = gradNT.transpose().eval();
 
         auto const& Nu_op = ip_data.N_u_op;
         auto const& w = ip_data.integration_weight;
@@ -859,7 +863,7 @@ void TH2MLocalAssembler<
             MathLib::KelvinVector::KelvinVectorDimensions<
                 DisplacementDim>::value>::identity2;
 
-        auto const mT = m.transpose();
+        auto const mT = m.transpose().eval();
 
         auto const x_coord =
             interpolateXCoordinate<ShapeFunctionDisplacement,
@@ -871,29 +875,27 @@ void TH2MLocalAssembler<
                                           typename BMatricesType::BMatrixType>(
                 gradNu, Nu, x_coord, _is_axially_symmetric);
 
-        auto const BuT = Bu.transpose();
+        auto const BuT = Bu.transpose().eval();
 
         auto& eps = ip_data.eps;
         auto const& sigma_eff = ip_data.sigma_eff;
 
-        auto& s_L = ip_data.saturation;
-
         double const T0 = _process_data.reference_temperature(t, pos)[0];
 
-        auto const T = NT.dot(temperature);
-        auto const pGR = Np.dot(gas_pressure);
-        auto const pCap = Np.dot(capillary_pressure);
-        auto const pLR = pGR - pCap;
+        double const T = NT.dot(temperature);
+        double const pGR = Np.dot(gas_pressure);
+        double const pCap = Np.dot(capillary_pressure);
+        double const pLR = pGR - pCap;
 
-        auto const gradpGR = gradNp * gas_pressure;
-        auto const gradpCap = gradNp * capillary_pressure;
+        GlobalDimVectorType const gradpGR = gradNp * gas_pressure;
+        GlobalDimVectorType const gradpCap = gradNp * capillary_pressure;
 
-        auto const T_dot = NT.dot(temperature_dot);
-        auto const pGR_dot = Np.dot(gas_pressure_dot);
-        auto const pCap_dot = Np.dot(capillary_pressure_dot);
+        double const T_dot = NT.dot(temperature_dot);
+        double const pGR_dot = Np.dot(gas_pressure_dot);
+        double const pCap_dot = Np.dot(capillary_pressure_dot);
 
-        double div_u = mT * Bu * displacement;
-        double div_u_dot = mT * Bu * displacement_dot;
+        double const div_u = mT * Bu * displacement;
+        double const div_u_dot = mT * Bu * displacement_dot;
 
 #define nDEBUG_OUTPUT
 #ifdef DEBUG_OUTPUT
@@ -902,20 +904,32 @@ void TH2MLocalAssembler<
 #define MATERIAL_PROPERTIES
 #endif
 
-#ifdef UNKNOWNS
-        std::cout << "-----------------\n";
-        std::cout << "--- unknowns: ---\n";
-        std::cout << "pGR: " << pGR << "\n";
-        std::cout << "pCap: " << pCap << "\n";
-        std::cout << "T: " << T << "\n";
-        std::cout << "--------------------\n";
+        bool output = ((ip == 0) && (_element.getID() == 0)) ? 0 : 0;
 
-        std::cout << "---------------------\n";
-        std::cout << "--- unknowns(IP): ---\n";
-        std::cout << "pGR: " << pGR << "\n";
-        std::cout << "pCap: " << pCap << "\n";
-        std::cout << "T: " << T << "\n";
-        std::cout << "--------------------\n";
+#ifndef UNKNOWNS
+        if (output)
+        {
+            std::cout
+                << "######################################################\n";
+            std::cout << "--- unknowns: ---\n";
+            std::cout << "pGR: " << gas_pressure << "\n";
+            std::cout << "pCap: " << capillary_pressure << "\n";
+            std::cout << "T: " << temperature << "\n";
+            std::cout << "u: " << displacement << "\n";
+            std::cout << "--------------------\n";
+            std::cout << "pGR_dot: " << gas_pressure_dot << "\n";
+            std::cout << "pCap_dot: " << capillary_pressure_dot << "\n";
+            std::cout << "T_dot: " << temperature_dot << "\n";
+            std::cout << "u_dot: " << displacement_dot << "\n";
+            std::cout << "--- unknowns (IP): ---\n";
+            std::cout << "pGR: " << pGR << "\n";
+            std::cout << "pCap: " << pCap << "\n";
+            std::cout << "T: " << T << "\n";
+            std::cout << "--------------------\n";
+            std::cout << "pGR_dot: " << pGR_dot << "\n";
+            std::cout << "pCap_dot: " << pCap_dot << "\n";
+            std::cout << "T_dot: " << T_dot << "\n";
+        }
 #endif
 
 #ifdef SHAPE_MATRICES
@@ -936,7 +950,6 @@ void TH2MLocalAssembler<
 #endif
 
         //   Constitutive properties
-
         MPL::VariableArray vars;
         vars[static_cast<int>(MPL::Variable::temperature)] = T;
         vars[static_cast<int>(MPL::Variable::phase_pressure)] = pGR;
@@ -946,16 +959,26 @@ void TH2MLocalAssembler<
         bool phase_transition = _process_data.phase_transition;
 
         auto& rho_GR = ip_data.rho_GR;  // gas phase density
-        auto& rho_C_GR =
-            ip_data.rho_C_GR;  // C constituent partial density in gas phase
-        auto& rho_W_GR =
-            ip_data.rho_W_GR;  // W constituent partial density in gas phase
-        auto& rho_LR = ip_data.rho_LR;  // liquid phase density
-        auto& rho_C_LR =
-            ip_data.rho_C_LR;  // C constituent partial density in liquid phase
-        auto& rho_W_LR =
-            ip_data.rho_W_LR;  // W constituent partial density in liquid phase
 
+        auto& rho_C_GR = ip_data.rho_C_GR;
+        // C constituent partial density in gas phase
+        // == rho_C_GR || rho_GR
+
+        auto& rho_W_GR = ip_data.rho_W_GR;
+        // W constituent partial density in gas phase
+        // == rho_W_GR || 0.
+
+        auto& rho_LR = ip_data.rho_LR;  // liquid phase density
+
+        auto& rho_W_LR = ip_data.rho_W_LR;
+        // W constituent partial density in liquid phase
+        // == rho_W_LR || rho_LR
+
+        auto& rho_C_LR = ip_data.rho_C_LR;
+        // C constituent partial density in liquid phase
+        // == rho_C_LR || 0.
+
+#ifdef PHASE_TRANSITION
         double xm_C_G;        // C constituent gas phase mass fraction
         double xm_W_G;        // W constituent gas phase mass fraction
         double xm_C_L;        // C constituent liquid phase mass fraction
@@ -973,62 +996,66 @@ void TH2MLocalAssembler<
         double dxm_C_L_dT;    // C mass fraction derivative w.r.t. T in L phase
         double dxm_W_L_dT;    // W mass fraction derivative w.r.t. T in L phase
 
-        // std::cout
-        //     << "T pGR pCap pLR "
-        //     << "rho_GR rho_C_GR rho_W_GR xm_C_G d_xm_C_G_d_pGR d_xm_C_G_d_T "
-        //     << "xm_W_G d_xm_W_G_d_pGR d_xm_W_G_d_T rho_LR rho_C_LR rho_W_LR "
-        //     << "xm_C_L d_xm_C_L_d_pLR d_xm_C_L_d_T xm_W_L d_xm_W_L_d_pLR "
-        //     << "d_xm_W_L_d_T\n";
-
-        // double _temperature;
-        // double _gas_pressure = 100000.;
-        // double _capillary_pressure = 1000.;
-
-        // for (_temperature = 290.; _temperature < 370; _temperature += 5.)
-        //     VLE(phase_transition, _temperature, _gas_pressure,
-        //         _capillary_pressure, rho_GR, rho_C_GR, rho_W_GR, rho_LR,
-        //         rho_C_LR, rho_W_LR, xm_C_G, xm_W_G, xm_C_L, xm_W_L,
-        //         dxm_C_G_dpGR, dxm_W_G_dpGR, dxm_C_L_dpLR, dxm_W_L_dpLR,
-        //         dxm_C_G_dT, dxm_W_G_dT, dxm_C_L_dT, dxm_W_L_dT);
-
-        // _temperature = 300.;
-        // for (_gas_pressure = 100000.; _gas_pressure < 200000;
-        //      _gas_pressure += 5000.)
-        //     VLE(phase_transition, _temperature, _gas_pressure,
-        //         _capillary_pressure, rho_GR, rho_C_GR, rho_W_GR, rho_LR,
-        //         rho_C_LR, rho_W_LR, xm_C_G, xm_W_G, xm_C_L, xm_W_L,
-        //         dxm_C_G_dpGR, dxm_W_G_dpGR, dxm_C_L_dpLR, dxm_W_L_dpLR,
-        //         dxm_C_G_dT, dxm_W_G_dT, dxm_C_L_dT, dxm_W_L_dT);
-
-        // _gas_pressure = 100000;
-        // for (_capillary_pressure = 1000.; _capillary_pressure < 2000;
-        //      _capillary_pressure += 50.)
-        //     VLE(phase_transition, _temperature, _gas_pressure,
-        //         _capillary_pressure, rho_GR, rho_C_GR, rho_W_GR, rho_LR,
-        //         rho_C_LR, rho_W_LR, xm_C_G, xm_W_G, xm_C_L, xm_W_L,
-        //         dxm_C_G_dpGR, dxm_W_G_dpGR, dxm_C_L_dpLR, dxm_W_L_dpLR,
-        //         dxm_C_G_dT, dxm_W_G_dT, dxm_C_L_dT, dxm_W_L_dT);
-
-        // OGS_FATAL("Stop");
-
         VLE(phase_transition, T, pGR, pCap, rho_GR, rho_C_GR, rho_W_GR, rho_LR,
             rho_C_LR, rho_W_LR, xm_C_G, xm_W_G, xm_C_L, xm_W_L, dxm_C_G_dpGR,
             dxm_W_G_dpGR, dxm_C_L_dpLR, dxm_W_L_dpLR, dxm_C_G_dT, dxm_W_G_dT,
             dxm_C_L_dT, dxm_W_L_dT);
+#else
+        double xm_C_G = 1.;  // C constituent gas phase mass fraction
+        double xm_W_G = 0.;  // W constituent gas phase mass fraction
+
+        double xm_C_L = 0.;  // C constituent liquid phase mass fraction
+        double xm_W_L = 1.;  // W constituent liquid phase mass fraction
+
+        double dxm_C_G_dpGR = 0.;
+        // C mass fraction derivative w.r.t. pGR in G phase
+        double dxm_W_G_dpGR = 0.;
+        // W mass fraction derivative w.r.t. pGR in G phase
+        double dxm_C_L_dpLR = 0.;
+        // C mass fraction derivative w.r.t. pLR in L phase
+        double dxm_W_L_dpLR = 0.;
+        // W mass fraction derivative w.r.t. pLR in L phase
+        double dxm_C_G_dT = 0.;
+        // C mass fraction derivative w.r.t. T in G phase
+        double dxm_W_G_dT = 0.;
+        // W mass fraction derivative w.r.t. T in G phase
+        double dxm_C_L_dT = 0.;
+        // C mass fraction derivative w.r.t. T in L phase
+        double dxm_W_L_dT = 0.;
+        // W mass fraction derivative w.r.t. T in L phase
+
+#endif  // PHASE_TRANSITION
 
         //  - solid phase properties
-        const double beta_pS = 1e-10;
-        const double beta_T_SR = -1e-7;
-        const double rho_ref_SR = 2500.;
+        const double beta_pS =
+            solid_phase.property(MPL::PropertyType::compressibility)
+                .template value<double>(
+                    vars, pos, t, std::numeric_limits<double>::quiet_NaN());
+        const double beta_T_SR =
+            solid_phase.property(MPL::PropertyType::thermal_expansivity)
+                .template value<double>(
+                    vars, pos, t, std::numeric_limits<double>::quiet_NaN());
+        const double rho_ref_SR =
+            solid_phase.property(MPL::PropertyType::density)
+                .template value<double>(
+                    vars, pos, t, std::numeric_limits<double>::quiet_NaN());
 
         const double c_p_S = 1000.;
-        const double lambda_SR = 0.5;
+        const double lambda_SR =
+            solid_phase.property(MPL::PropertyType::thermal_conductivity)
+                .template value<double>(vars, pos, t, dt);
 
         //  - gas phase properties
-        const double mu_GR = 1.e-5;
-        const double c_p_G = 1000.;
+        auto const mu_GR = gas_phase.property(MPL::PropertyType::viscosity)
+                               .template value<double>(vars, pos, t, dt);
+        auto const c_p_G =
+            gas_phase.property(MPL::PropertyType::specific_heat_capacity)
+                .template value<double>(vars, pos, t, dt);
+        // unused for now, implicit in h_L
 
-        const double lambda_GR = 0.5;
+        auto const lambda_GR =
+            gas_phase.property(MPL::PropertyType::thermal_conductivity)
+                .template value<double>(vars, pos, t, dt);
 
         const auto c_p_C_G = 1000.;  // J/kg/K
         const auto c_p_W_G = 1914.;  // J/kg/K
@@ -1036,34 +1063,48 @@ void TH2MLocalAssembler<
         const auto h_W_G = c_p_W_G * T;
 
         //  - liquid phase properties
-        const double mu_LR = 1.e-3;
-        const double c_p_L = 4000.;
+        auto const mu_LR = liquid_phase.property(MPL::PropertyType::viscosity)
+                               .template value<double>(vars, pos, t, dt);
 
-        const double lambda_LR = 0.5;
+        auto const c_p_L =
+            liquid_phase.property(MPL::PropertyType::specific_heat_capacity)
+                .template value<double>(vars, pos, t, dt);
+        // unused for now, implicit in h_G
+
+        auto const lambda_LR =
+            liquid_phase.property(MPL::PropertyType::thermal_conductivity)
+                .template value<double>(vars, pos, t, dt);
+
+        const auto c_p_C_L = 1000.;  // J/kg/K
+        const auto c_p_W_L = 4180.;  // J/kg/K
+        const auto h_C_L = c_p_C_L * T;
+        const auto h_W_L = c_p_W_L * T;
         // constant liquid constituent enthalpies ftw!
-        const auto h_W_L = 112654.;  // J/kg
-        const auto h_C_L = 648584.;  // J/kg
+
+        // const auto h_W_L = 112654.;  // J/kg
+        // const auto h_C_L = 648584.;  // J/kg
 
         const auto I =
             Eigen::Matrix<double, DisplacementDim, DisplacementDim>::Identity();
-        const double sD_G = 0.1;
+        const double sD_G = 0.1;  // or whatever
         const double sD_L = 0.1;
 
-        const auto D_C_G = sD_G * I;
-        const auto D_W_G = sD_G * I;
-        const auto D_C_L = sD_L * I;
-        const auto D_W_L = sD_L * I;
+        const auto D_C_G = (sD_G * I).eval();  // I know, I know...
+        const auto D_W_G = (sD_G * I).eval();
+        const auto D_C_L = (sD_L * I).eval();
+        const auto D_W_L = (sD_L * I).eval();
 
         //  - medium properties
         auto const k_S = MPL::formEigenTensor<DisplacementDim>(
             medium.property(MPL::PropertyType::permeability)
                 .value(vars, pos, t, dt));
 
+        auto& s_L = ip_data.saturation;
+        auto const s_G = 1. - s_L;
+
         const auto s_L_dot = (s_L - ip_data.saturation_prev) / dt;
 
         vars[static_cast<int>(MPL::Variable::liquid_saturation)] = s_L;
-
-        auto const s_G = 1. - s_L;
 
         auto const alpha_B =
             medium.property(MPL::PropertyType::biot_coefficient)
@@ -1080,8 +1121,17 @@ void TH2MLocalAssembler<
 
         auto const& b = _process_data.specific_body_force;
 
-        auto const phi = medium.property(MPL::PropertyType::porosity)
-                             .template value<double>(vars, pos, t, dt);
+        // pore fluid pressure
+        const double p_FR = s_G * pGR + s_L * pLR;
+        const double p_FR_dot = pGR_dot - (s_L_dot * pCap + pCap_dot * s_L);
+
+        auto& phi = ip_data.phi;
+        // porosity derivative
+        auto const phi_dot = (alpha_B - phi) * (div_u_dot - beta_T_SR * T_dot +
+                                                beta_p_SR * p_FR_dot);
+        // cf. Eq. 86
+        // porosity update
+        //      phi = phi_dot * dt + ip_data.phi_prev;
 
         auto const phi_G = s_G * phi;
         auto const phi_L = s_L * phi;
@@ -1096,16 +1146,17 @@ void TH2MLocalAssembler<
         // TODO (Wenqing) : Change dT to time step wise increment
         double const delta_T(T - T0);
         double const thermal_strain = beta_T_SR * delta_T;
-        auto const rho_SR = rho_ref_SR * (1. - 3. * thermal_strain);
+        // prevent rho_SR and p_SR being killed by crazy T
 
-        auto const rho = rho_GR + rho_LR + rho_SR;
+        auto const rho_SR = rho_ref_SR * (1. - 3. * thermal_strain);
+        auto const rho = phi_G * rho_GR + phi_L * rho_LR + phi_S * rho_SR;
+
         // TODO: change back to rho_SR
         // auto const rho_c_p = phi_G * rho_GR * c_p_G + phi_L * rho_LR * c_p_L
         // +
         //                      phi_S * rho_ref_SR * c_p_S;
 
         // update secondary variables. TODO: Refactoring potential!!
-
         _liquid_pressure[ip] = pLR;
         _liquid_density[ip] = rho_LR;
         _gas_density[ip] = rho_GR;
@@ -1115,14 +1166,6 @@ void TH2MLocalAssembler<
         // abbreviations
         const double rho_C_FR = s_G * rho_C_GR + s_L * rho_C_LR;
         const double rho_W_FR = s_G * rho_W_GR + s_L * rho_W_LR;
-
-        // pore fluid pressure
-        const double p_FR = s_G * pGR + s_L * pLR;
-        const double p_FR_dot = pGR_dot - (s_L_dot * pCap + pCap_dot * s_L);
-
-        // porosity derivative
-        auto const phi_dot = (alpha_B - phi) * (div_u_dot - beta_T_SR * T_dot +
-                                                beta_p_SR * p_FR_dot);
 
         // solid phase pressure
         const double p_SR =
@@ -1134,7 +1177,7 @@ void TH2MLocalAssembler<
         //     phi_dot / phi_S * (p_FR - p_SR);
 
         auto& phi_S_p_SR = ip_data.phi_S_p_SR;
-        phi_S_p_SR = phi_S * p_SR;
+        //        phi_S_p_SR = phi_S * p_SR;
 
         const double phi_S_p_SR_dot =
             (phi_S_p_SR - ip_data.phi_S_p_SR_prev) / dt;
@@ -1159,6 +1202,7 @@ void TH2MLocalAssembler<
 
         const auto rho_h_eff =
             ip_data.rho_G_h_G + ip_data.rho_L_h_L + ip_data.rho_S_h_S;
+        // cf. Eq 101
 
         const auto k_over_mu_G = k_S * k_rel_G / mu_GR;
         const auto k_over_mu_L = k_S * k_rel_L / mu_LR;
@@ -1170,104 +1214,151 @@ void TH2MLocalAssembler<
                                          k_over_mu_L * rho_GR * b -
                                          k_over_mu_L * gradpGR;
 
-
 #ifndef MATERIAL_PROPERTIES
-        std::cout << "######################################################\n";
-        std::cout << "#    Material properties:\n";
-        std::cout << "#----------------------------------------------------#\n";
-        std::cout << "#         rho_GR:  " << rho_GR << "\n";
-        std::cout << "#       rho_C_GR:  " << rho_C_GR << "\n";
-        std::cout << "#       rho_W_GR:  " << rho_W_GR << "\n";
-        std::cout << "#    .    .    .    .    .    .    .    .    .    .  #\n";
-        std::cout << "#   rho_C_GR_dot:  " << rho_C_GR_dot << "\n";
-        std::cout << "#   rho_W_GR_dot:  " << rho_W_GR_dot << "\n";
-        std::cout << "#    .    .    .    .    .    .    .    .    .    .  #\n";
-        std::cout << "#         xm_C_G:  " << xm_C_G << "\n";
-        std::cout << "#         xm_W_G:  " << xm_W_G << "\n";
-        std::cout << "#    .    .    .    .    .    .    .    .    .    .  #\n";
-        std::cout << "#  d_xm_C_G_dpGR:  " << dxm_C_G_dpGR << "\n";
-        std::cout << "#  d_xm_W_G_dpGR:  " << dxm_W_G_dpGR << "\n";
-        std::cout << "#    d_xm_C_G_dT:  " << dxm_C_G_dT << "\n";
-        std::cout << "#    d_xm_W_G_dT:  " << dxm_W_G_dT << "\n";
-        std::cout << "#----------------------------------------------------#\n";
-        std::cout << "#         rho_LR:  " << rho_LR << "\n";
-        std::cout << "#       rho_C_LR:  " << rho_C_GR << "\n";
-        std::cout << "#       rho_W_LR:  " << rho_W_GR << "\n";
-        std::cout << "#    .    .    .    .    .    .    .    .    .    .  #\n";
-        std::cout << "#   rho_C_LR_dot:  " << rho_C_LR_dot << "\n";
-        std::cout << "#   rho_W_LR_dot:  " << rho_W_LR_dot << "\n";
-        std::cout << "#    .    .    .    .    .    .    .    .    .    .  #\n";
-        std::cout << "#         xm_C_L:  " << xm_C_G << "\n";
-        std::cout << "#         xm_W_L:  " << xm_W_G << "\n";
-        std::cout << "#    .    .    .    .    .    .    .    .    .    .  #\n";
-        std::cout << "#  d_xm_C_L_dpLR:  " << dxm_C_L_dpLR << "\n";
-        std::cout << "#  d_xm_W_L_dpLR:  " << dxm_W_L_dpLR << "\n";
-        std::cout << "#    d_xm_C_L_dT:  " << dxm_C_L_dT << "\n";
-        std::cout << "#    d_xm_W_L_dT:  " << dxm_W_L_dT << "\n";
-        std::cout << "#----------------------------------------------------#\n";
-        std::cout << "#         rho_SR:  " << rho_SR << "\n";
-        std::cout << "#            rho:  " << rho << "\n";
-        std::cout << "#----------------------------------------------------#\n";
-        std::cout << "#          c_p_G:  " << c_p_G << "\n";
-        std::cout << "#          c_p_L:  " << c_p_L << "\n";
-        std::cout << "#          c_p_S:  " << c_p_S << "\n";
-        std::cout << "#----------------------------------------------------#\n";
-        std::cout << "#      beta_p_SR:  " << beta_p_SR << "\n";
-        std::cout << "#      beta_T_SR:  " << beta_T_SR << "\n";
-        std::cout << "#----------------------------------------------------#\n";
-        std::cout << "#            h_G:  " << h_G << "\n";
-        std::cout << "#            h_L:  " << h_L << "\n";
-        std::cout << "#            h_S:  " << h_S << "\n";
-        std::cout << "#    .    .    .    .    .    .    .    .    .    .  #\n";
-        std::cout << "#      rho_h_eff:  " << rho_h_eff << "\n";
-        std::cout << "#  rho_G_h_G:  " << ip_data.rho_G_h_G << "\n";
-        std::cout << "#  rho_L_h_L:  " << ip_data.rho_L_h_L << "\n";
-        std::cout << "#  rho_S_h_S:  " << ip_data.rho_S_h_S << "\n";
-        std::cout << "#    .    .    .    .    .    .    .    .    .    .  #\n";
-        std::cout << "#  rho_G_h_G_dot:  " << rho_G_h_G_dot << "\n";
-        std::cout << "#  rho_L_h_L_dot:  " << rho_L_h_L_dot << "\n";
-        std::cout << "#  rho_S_h_S_dot:  " << rho_S_h_S_dot << "\n";
-        std::cout << "#----------------------------------------------------#\n";
-        std::cout << "#            k_S:\n" << k_S << "\n";
-        std::cout << "#----------------------------------------------------#\n";
-        std::cout << "#        k_rel_L:  " << k_rel_L << "\n";
-        std::cout << "#        k_rel_G:  " << k_rel_G << "\n";
-        std::cout << "#          mu_GR:  " << mu_GR << "\n";
-        std::cout << "#          mu_LR:  " << mu_LR << "\n";
-        std::cout << "#    k_over_mu_G:  " << k_over_mu_G << "\n";
-        std::cout << "#    k_over_mu_L:  " << k_over_mu_L << "\n";
-        std::cout << "#----------------------------------------------------#\n";
-        std::cout << "#            s_L:  " << s_L << "\n";
-        std::cout << "#            s_G:  " << s_G << "\n";
-        std::cout << "#----------------------------------------------------#\n";
-        std::cout << "#        alpha_B:  " << alpha_B << "\n";
-        std::cout << "#----------------------------------------------------#\n";
-        std::cout << "#         lambda:\n" << lambda << "\n";
-        std::cout << "#----------------------------------------------------#\n";
-        std::cout << "#            phi:  " << phi << "\n";
-        std::cout << "#          phi_G:  " << phi_G << "\n";
-        std::cout << "#          phi_L:  " << phi_L << "\n";
-        std::cout << "#          phi_S:  " << phi_S << "\n";
-        std::cout << "######################################################\n";
-        std::cout << "#  Darcy-Velocities: "
-                  << "\n";
-        std::cout << "#----------------------------------------------------#\n";
-        std::cout << "#           w_LS:\n" << w_LS << "\n";
-        std::cout << "#           w_GS:\n" << w_GS << "\n";
-        std::cout << "######################################################\n";
-        OGS_FATAL("It has to stop!");
+        if (output)
+        {
+            std::cout
+                << "######################################################\n";
+            std::cout << "#    Material properties:\n";
+            std::cout
+                << "#----------------------------------------------------#\n";
+            std::cout << "#         rho_GR:  " << rho_GR << "\n";
+            std::cout << "#       rho_C_GR:  " << rho_C_GR << "\n";
+            std::cout << "#       rho_W_GR:  " << rho_W_GR << "\n";
+            std::cout
+                << "#    .    .    .    .    .    .    .    .    .    .  #\n";
+            std::cout << "#   rho_C_GR_dot:  " << rho_C_GR_dot << "\n";
+            std::cout << "#   rho_W_GR_dot:  " << rho_W_GR_dot << "\n";
+            std::cout
+                << "#    .    .    .    .    .    .    .    .    .    .  #\n";
+            std::cout << "       rho_C_FR : " << rho_C_FR << "\n";
+            std::cout
+                << "#    .    .    .    .    .    .    .    .    .    .  #\n";
+            std::cout << "#         xm_C_G:  " << xm_C_G << "\n";
+            std::cout << "#         xm_W_G:  " << xm_W_G << "\n";
+            std::cout
+                << "#    .    .    .    .    .    .    .    .    .    .  #\n";
+            std::cout << "#  d_xm_C_G_dpGR:  " << dxm_C_G_dpGR << "\n";
+            std::cout << "#  d_xm_W_G_dpGR:  " << dxm_W_G_dpGR << "\n";
+            std::cout << "#    d_xm_C_G_dT:  " << dxm_C_G_dT << "\n";
+            std::cout << "#    d_xm_W_G_dT:  " << dxm_W_G_dT << "\n";
+            std::cout
+                << "#----------------------------------------------------#\n";
+            std::cout << "#         rho_LR:  " << rho_LR << "\n";
+            std::cout << "#       rho_C_LR:  " << rho_C_LR << "\n";
+            std::cout << "#       rho_W_LR:  " << rho_W_LR << "\n";
+            std::cout
+                << "#    .    .    .    .    .    .    .    .    .    .  #\n";
+            std::cout << "#   rho_C_LR_dot:  " << rho_C_LR_dot << "\n";
+            std::cout << "#   rho_W_LR_dot:  " << rho_W_LR_dot << "\n";
+            std::cout
+                << "#    .    .    .    .    .    .    .    .    .    .  #\n";
+            std::cout << "       rho_W_FR : " << rho_W_FR << "\n";
+            std::cout
+                << "#    .    .    .    .    .    .    .    .    .    .  #\n";
+            std::cout << "#         xm_C_L:  " << xm_C_L << "\n";
+            std::cout << "#         xm_W_L:  " << xm_W_L << "\n";
+            std::cout
+                << "#    .    .    .    .    .    .    .    .    .    .  #\n";
+            std::cout << "#  d_xm_C_L_dpLR:  " << dxm_C_L_dpLR << "\n";
+            std::cout << "#  d_xm_W_L_dpLR:  " << dxm_W_L_dpLR << "\n";
+            std::cout << "#    d_xm_C_L_dT:  " << dxm_C_L_dT << "\n";
+            std::cout << "#    d_xm_W_L_dT:  " << dxm_W_L_dT << "\n";
+            std::cout
+                << "#----------------------------------------------------#\n";
+            std::cout << "#         rho_SR:  " << rho_SR << "\n";
+            std::cout << "#            rho:  " << rho << "\n";
+            std::cout
+                << "#----------------------------------------------------#\n";
+            std::cout << "#          c_p_G:  " << c_p_G << "\n";
+            std::cout << "#          c_p_L:  " << c_p_L << "\n";
+            std::cout << "#          c_p_S:  " << c_p_S << "\n";
+            std::cout
+                << "#----------------------------------------------------#\n";
+            std::cout << "#      beta_p_SR:  " << beta_p_SR << "\n";
+            std::cout << "#      beta_T_SR:  " << beta_T_SR << "\n";
+            std::cout
+                << "#----------------------------------------------------#\n";
+            std::cout << "#            h_G:  " << h_G << "\n";
+            std::cout << "#            h_L:  " << h_L << "\n";
+            std::cout << "#            h_S:  " << h_S << "\n";
+            std::cout
+                << "#    .    .    .    .    .    .    .    .    .    .  #\n";
+            std::cout << "#          h_C_G:  " << h_C_G << "\n";
+            std::cout << "#          h_W_G:  " << h_W_G << "\n";
+            std::cout << "#          h_C_L:  " << h_C_L << "\n";
+            std::cout << "#          h_W_L:  " << h_W_L << "\n";
+            std::cout
+                << "#    .    .    .    .    .    .    .    .    .    .  #\n";
+            std::cout << "#      rho_h_eff:  " << rho_h_eff << "\n";
+            std::cout << "#      rho_G_h_G:  " << ip_data.rho_G_h_G << "\n";
+            std::cout << "#      rho_L_h_L:  " << ip_data.rho_L_h_L << "\n";
+            std::cout << "#      rho_S_h_S:  " << ip_data.rho_S_h_S << "\n";
+            std::cout
+                << "#    .    .    .    .    .    .    .    .    .    .  #\n";
+            std::cout << "#  rho_G_h_G_dot:  " << rho_G_h_G_dot << "\n";
+            std::cout << "#  rho_L_h_L_dot:  " << rho_L_h_L_dot << "\n";
+            std::cout << "#  rho_S_h_S_dot:  " << rho_S_h_S_dot << "\n";
+            std::cout
+                << "#----------------------------------------------------#\n";
+            std::cout << "#            k_S:\n" << k_S << "\n";
+            std::cout
+                << "#----------------------------------------------------#\n";
+            std::cout << "#        k_rel_L:  " << k_rel_L << "\n";
+            std::cout << "#        k_rel_G:  " << k_rel_G << "\n";
+            std::cout << "#          mu_GR:  " << mu_GR << "\n";
+            std::cout << "#          mu_LR:  " << mu_LR << "\n";
+            std::cout << "#    k_over_mu_G:\n" << k_over_mu_G << "\n";
+            std::cout << "#    k_over_mu_L:\n" << k_over_mu_L << "\n";
+            std::cout
+                << "#----------------------------------------------------#\n";
+            std::cout << "#            s_L:  " << s_L << "\n";
+            std::cout << "#            s_G:  " << s_G << "\n";
+            std::cout << "#        s_L_dot:  " << s_L_dot << "\n";
+            std::cout
+                << "#----------------------------------------------------#\n";
+            std::cout << "#        alpha_B:  " << alpha_B << "\n";
+            std::cout << "#        beta_p_SR:  " << beta_p_SR << "\n";
+            std::cout << "#        beta_T_SR:  " << beta_T_SR << "\n";
+            std::cout
+                << "#----------------------------------------------------#\n";
+            std::cout << "#         lambda:\n" << lambda << "\n";
+            std::cout
+                << "#----------------------------------------------------#\n";
+            std::cout << "#            phi:  " << phi << "\n";
+            std::cout << "#          phi_G:  " << phi_G << "\n";
+            std::cout << "#          phi_L:  " << phi_L << "\n";
+            std::cout << "#          phi_S:  " << phi_S << "\n";
+            std::cout
+                << "######################################################\n";
+            std::cout << "#  Darcy-Velocities: "
+                      << "\n";
+            std::cout
+                << "#----------------------------------------------------#\n";
+            std::cout << "#           w_LS:\n" << w_LS << "\n";
+            std::cout << "#           w_GS:\n" << w_GS << "\n";
+            std::cout
+                << "######################################################\n";
+        }
+        // OGS_FATAL("It has to stop!");
 #endif
+        PRINT2(output, --------------------------------------, 0);
+        PRINT2(output, Component C equation, 0);
 
         // coefficient matrices
         // C-component equation
         MCpG.noalias() += NpT * rho_C_FR * (alpha_B - phi) * beta_p_SR * Np * w;
+        PRINT2(output, MCpG, rho_C_FR * (alpha_B - phi) * beta_p_SR);
 
         MCpC.noalias() -=
             NpT * rho_C_FR * (alpha_B - phi) * beta_p_SR * s_L * Np * w;
+        PRINT2(output, MCpC, rho_C_FR * (alpha_B - phi) * beta_p_SR * s_L);
 
         MCT.noalias() -= NpT * rho_C_FR * (alpha_B - phi) * beta_T_SR * Np * w;
+        PRINT2(output, MCT, rho_C_FR * (alpha_B - phi) * beta_T_SR);
 
         MCu.noalias() += NpT * rho_C_FR * alpha_B * mT * Bu * w;
+        PRINT2(output, MCu, rho_C_FR * alpha_B);
 
         const auto advection_C_G = rho_C_GR * k_over_mu_G;
         const auto advection_C_L = rho_C_LR * k_over_mu_L;
@@ -1281,34 +1372,49 @@ void TH2MLocalAssembler<
         const auto diffusion_C_T = diffusion_C_G_T + diffusion_C_L_T;
 
         LCpG.noalias() += gradNpT * (advection_C + diffusion_C_p) * gradNp * w;
+        PRINT2(output, LCpG, (advection_C + diffusion_C_p));
 
         LCpC.noalias() -=
             gradNpT * (advection_C_L + diffusion_C_L_p) * gradNp * w;
+        PRINT2(output, LCpC, (advection_C_L + diffusion_C_L_p));
 
         LCT.noalias() += gradNpT * (diffusion_C_T)*gradNp * w;
+        PRINT2(output, LCT, (diffusion_C_T));
 
         fC.noalias() +=
             gradNpT * (advection_C_G * rho_GR + advection_C_L * rho_LR) * b * w;
+        PRINT2(output, fC_I,
+               (advection_C_G * rho_GR + advection_C_L * rho_LR) * b);
 
         fC.noalias() -= NpT *
                         (phi * (rho_C_LR - rho_C_GR) -
                          rho_C_FR * pCap * (alpha_B - phi) * beta_p_SR) *
                         s_L_dot * w;
-
+        PRINT2(output, fC_II,
+               (phi * (rho_C_LR - rho_C_GR) -
+                rho_C_FR * pCap * (alpha_B - phi) * beta_p_SR) *
+                   s_L_dot);
         fC.noalias() -=
             NpT * phi * (s_G * rho_C_GR_dot + s_L * rho_C_LR_dot) * w;
+        PRINT2(output, fC_III, phi * (s_G * rho_C_GR_dot + s_L * rho_C_LR_dot));
 
         // ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
         // W-component equation
-        MWpG.noalias() += NpT * rho_W_FR * (alpha_B - phi) * beta_p_SR * Np * w;
+        PRINT2(output, --------------------------------------, 0);
+        PRINT2(output, Component W equation, 0);
 
+        MWpG.noalias() += NpT * rho_W_FR * (alpha_B - phi) * beta_p_SR * Np * w;
+        PRINT2(output, MWpG, rho_W_FR * (alpha_B - phi) * beta_p_SR * Np);
         MWpC.noalias() -=
             NpT * rho_W_FR * (alpha_B - phi) * beta_p_SR * s_L * Np * w;
+        PRINT2(output, MWpC, rho_W_FR * (alpha_B - phi) * beta_p_SR * s_L);
 
         MWT.noalias() -= NpT * rho_W_FR * (alpha_B - phi) * beta_T_SR * Np * w;
+        PRINT2(output, MWT, rho_W_FR * (alpha_B - phi) * beta_T_SR);
 
         MWu.noalias() += NpT * rho_W_FR * alpha_B * mT * Bu * w;
+        PRINT2(output, MWu, rho_W_FR * alpha_B);
 
         const auto advection_W_G = rho_W_GR * k_over_mu_G;
         const auto advection_W_L = rho_W_LR * k_over_mu_L;
@@ -1322,76 +1428,105 @@ void TH2MLocalAssembler<
         const auto diffusion_W_T = diffusion_W_G_T + diffusion_W_L_T;
 
         LWpG.noalias() += gradNpT * (advection_W + diffusion_W_p) * gradNp * w;
+        PRINT2(output, LWpG, (advection_W + diffusion_W_p));
 
         LWpC.noalias() -=
             gradNpT * (advection_W_L + diffusion_W_L_p) * gradNp * w;
+        PRINT2(output, LWpC, (advection_W_L + diffusion_W_L_p));
 
         LWT.noalias() += gradNpT * (diffusion_W_T)*gradNp * w;
+        PRINT2(output, LWT, (diffusion_W_T));
 
         fW.noalias() +=
             gradNpT * (advection_W_G * rho_GR + advection_W_L * rho_LR) * b * w;
+        PRINT2(output, fW_III,
+               (advection_W_G * rho_GR + advection_W_L * rho_LR) * b);
 
         fW.noalias() -= NpT *
                         (phi * (rho_W_LR - rho_W_GR) -
                          rho_W_FR * pCap * (alpha_B - phi) * beta_p_SR) *
                         s_L_dot * w;
+        PRINT2(output, fW_III,
+               (phi * (rho_W_LR - rho_W_GR) -
+                rho_W_FR * pCap * (alpha_B - phi) * beta_p_SR) *
+                   s_L_dot);
 
         fW.noalias() -=
             NpT * phi * (s_G * rho_W_GR_dot + s_L * rho_W_LR_dot) * w;
+        PRINT2(output, fW_III, phi * (s_G * rho_W_GR_dot + s_L * rho_W_LR_dot));
+
+        // ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
         //  - temperature equation
+        PRINT2(output, --------------------------------------, 0);
+        PRINT2(output, Temperature equation, 0);
+
         MTpG.noalias() -= NTT * phi * NT * w;
+        PRINT2(output, MTpG, phi);
         MTpC.noalias() += NTT * phi_L * NT * w;
+        PRINT2(output, MTpC, phi_L);
 
         MTu.noalias() += NTT * rho_h_eff * mT * Bu * w;
-
-        // MTT.noalias() += NTT * 0. * NT * w;
-
-        // ATpG.noalias() -= NTT *
-        //                   ((1. - beta_TGR * T) * w_GS.transpose() +
-        //                    (1. - beta_TLR * T) * w_LS.transpose()) *
-        //                   gradNT * w;
-        // ATpC.noalias() +=
-        //     NTT * (1. - beta_TLR * T) * w_LS.transpose() * gradNT * w;
-
-        // // ATT
-        // KTT.noalias() += NTT *
-        //                  (rho_GR * c_p_G * w_GS.transpose() +
-        //                   rho_LR * c_p_L * w_LS.transpose()) *
-        //                  gradNT * w;
-        // LTT
+        PRINT2(output, MTu, rho_h_eff);
 
         KTT.noalias() += gradNTT * lambda * gradNT * w;
+        PRINT2(output, KTT, gradNTT * lambda * gradNT);
 
         // fT
         fT.noalias() -=
-            NTT *
-            (rho_G_h_G_dot + rho_L_h_L_dot + rho_S_h_S_dot +
-             phi * pCap * s_L_dot - p_FR * phi_dot - phi_S_p_SR_dot) *
-            w;
-
+            NTT * (rho_G_h_G_dot + rho_L_h_L_dot + rho_S_h_S_dot) * w;
+        PRINT2(output, fT_I, (rho_G_h_G_dot + rho_L_h_L_dot + rho_S_h_S_dot));
+        fT.noalias() -=
+            NTT * (phi * pCap * s_L_dot - p_FR * phi_dot - phi_S_p_SR_dot) * w;
+        PRINT2(output, fT_II,
+               (phi * pCap * s_L_dot - p_FR * phi_dot - phi_S_p_SR_dot));
         fT.noalias() +=
             NTT * (rho_GR * w_GS.transpose() + rho_LR * w_LS.transpose()) * b *
             w;
-
+        PRINT2(output, fT_III,
+               (rho_GR * w_GS.transpose() + rho_LR * w_LS.transpose()) * b);
         fT.noalias() +=
             gradNTT * (rho_GR * h_G * w_GS + rho_LR * h_L * w_LS) * w;
+        PRINT2(output, fT_IV, (rho_GR * h_G * w_GS + rho_LR * h_L * w_LS));
 
         //  - displacement equation
-        KUpG.noalias() -= (BuT * alpha_B * m * Np) * w;
-        KUpC.noalias() += (BuT * alpha_B * s_L * m * Np) * w;
+        PRINT2(output, --------------------------------------, 0);
+        PRINT2(output, Displacement equation, 0);
 
-        //        eps.noalias() = Bu * displacement;
+        KUpG.noalias() -= (BuT * alpha_B * m * Np) * w;
+        PRINT2(output, KUpG, (BuT * alpha_B * m * Np));
+        KUpC.noalias() += (BuT * alpha_B * s_L * m * Np) * w;
+        PRINT2(output, KUpC, (BuT * alpha_B * s_L * m * Np));
+
+        eps.noalias() = Bu * displacement;
         ip_data.updateConstitutiveRelationThermal(
             t, pos, dt, displacement,
             _process_data.reference_temperature(t, pos)[0], thermal_strain);
-        fU.noalias() += (BuT * sigma_eff - Nu_op.transpose() * rho * b) * w;
+
+        fU.noalias() -= (BuT * sigma_eff - Nu_op.transpose() * rho * b) * w;
+        PRINT2(output, fU, (BuT * sigma_eff - Nu_op.transpose() * rho * b));
+
+        if (output)
+        {
+            PRINT(sigma_eff);
+            PRINT(eps);
+        }
+
+        // if (_process_data.apply_mass_lumping)
+        {
+            auto MpG = M.template block<C_size, gas_pressure_size>(
+                C_index, gas_pressure_index);
+            MpG = MpG.colwise().sum().eval().asDiagonal();
+            auto MpC = M.template block<W_size, capillary_pressure_size>(
+                W_index, capillary_pressure_index);
+            MpC = MpC.colwise().sum().eval().asDiagonal();
+        }
 
 #ifdef DEBUG_OUTPUT
         std::cout << "------------------------------------------------------\n";
         std::cout << " MCpG:\n" << MCpG << "\n";
 
-        std::cout << " MCpG \n" << MCpG  << "\n";
+        std::cout << " MCpG \n" << MCpG << "\n";
         std::cout << " MCpC\n" << MCpC << "\n";
         std::cout << " MCT\n" << MCT << "\n";
         std::cout << " MCu\n" << MCu << "\n";
@@ -1434,7 +1569,7 @@ void TH2MLocalAssembler<
         std::cout << " KUpC\n" << KUpC << "\n";
         std::cout << " fU\n" << fU << "\n";
 
-        OGS_FATAL("Stop intended.");
+        OGS_FATAL("Intentional stop.");
 #endif
     }
 }
@@ -1733,7 +1868,7 @@ template <typename ShapeFunctionDisplacement, typename ShapeFunctionPressure,
           typename IntegrationMethod, int DisplacementDim>
 void TH2MLocalAssembler<ShapeFunctionDisplacement, ShapeFunctionPressure,
                         IntegrationMethod, DisplacementDim>::
-    computeSecondaryVariableConcrete(double const /*t*/,
+    computeSecondaryVariableConcrete(double const t,
                                      std::vector<double> const& local_x)
 {
     auto gas_pressure =
@@ -1764,6 +1899,19 @@ void TH2MLocalAssembler<ShapeFunctionDisplacement, ShapeFunctionPressure,
         ShapeFunctionPressure, typename ShapeFunctionDisplacement::MeshElement,
         DisplacementDim>(_element, _is_axially_symmetric, temperature,
                          *_process_data.temperature_interpolated);
+
+    unsigned const n_integration_points =
+        _integration_method.getNumberOfPoints();
+
+    // TODO: get dt!
+    getConstitutiveVariables(local_x, t, 0);
+
+    for (unsigned ip = 0; ip < n_integration_points; ip++)
+    {
+        _liquid_density[ip] = _ip_data[ip].rho_LR;
+        _gas_density[ip] = _ip_data[ip].rho_GR;
+        _saturation[ip] = _ip_data[ip].saturation;
+    }
 }
 
 }  // namespace TH2M
