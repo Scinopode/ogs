@@ -143,7 +143,7 @@ void CentralDifferencesJacobianAssembler::assembleWithJacobian(
 #define nOUTPUT_J_R
 
 #ifdef OUTPUT_J_R
-std::cout << std::setprecision(23);
+std::cout << std::setprecision(10);
     std::cout << "##########################################################\n";
     std::cout << "#  M:                                                    #\n";
     std::cout << "# ------------------------------------------------------ #\n";
@@ -213,7 +213,7 @@ std::cout << std::setprecision(23);
             std::cout << residuum[i] << "\n";
     }
     std::cout << "##########################################################\n";
-    OGS_FATAL("Stop_intented.");
+  //  OGS_FATAL("Stop_intented.");
 #endif
 
 

@@ -90,6 +90,12 @@ struct IntegrationPointData final
     double rho_S_h_S = std::numeric_limits<double>::quiet_NaN();
     double rho_S_h_S_prev = std::numeric_limits<double>::quiet_NaN();
 
+    // porosity
+    double phi = std::numeric_limits<double>::quiet_NaN();
+    double phi_prev = std::numeric_limits<double>::quiet_NaN();
+    
+    
+    // other
     double phi_S_p_SR = std::numeric_limits<double>::quiet_NaN();
     double phi_S_p_SR_prev = std::numeric_limits<double>::quiet_NaN();
     
@@ -111,6 +117,8 @@ struct IntegrationPointData final
         rho_L_h_L_prev = rho_L_h_L;
         rho_S_h_S_prev = rho_S_h_S;
 
+        phi_prev = phi;
+        
         phi_S_p_SR_prev = phi_S_p_SR;
 
         rho_C_GR_prev = rho_C_GR;

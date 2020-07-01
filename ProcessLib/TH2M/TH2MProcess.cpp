@@ -33,12 +33,10 @@ void checkMPLProperties(MeshLib::Mesh const& mesh,
         MaterialPropertyLib::PropertyType::permeability};
 
     std::vector<MaterialPropertyLib::PropertyType> reqiredPropertyLiquidPhase =
-        {MaterialPropertyLib::PropertyType::density,
-         MaterialPropertyLib::PropertyType::thermal_expansivity};
+        {MaterialPropertyLib::PropertyType::density};
 
     std::vector<MaterialPropertyLib::PropertyType> reqiredPropertyGasPhase = {
-        MaterialPropertyLib::PropertyType::density,
-        MaterialPropertyLib::PropertyType::thermal_expansivity};
+        MaterialPropertyLib::PropertyType::density};
 
     std::vector<MaterialPropertyLib::PropertyType> reqiredPropertySolidPhase = {
         MaterialPropertyLib::PropertyType::density,
