@@ -49,10 +49,17 @@ struct TH2MProcessData
     bool phase_transition;
 
     ParameterLib::Parameter<double> const& reference_temperature;
+
+    /// Optional, initial stress field. A symmetric tensor, short vector
+    /// representation of length 4 or 6, ParameterLib::Parameter<double>.
+    ParameterLib::Parameter<double> const* const initial_stress;
+
     /// Specific body forces applied to solid and fluid.
     /// It is usually used to apply gravitational forces.
     /// A vector of displacement dimension's length.
     Eigen::Matrix<double, DisplacementDim, 1> const specific_body_force;
+
+    bool const apply_mass_lumping;
 
     MeshLib::PropertyVector<double>* gas_pressure_interpolated = nullptr;
     MeshLib::PropertyVector<double>* capillary_pressure_interpolated = nullptr;

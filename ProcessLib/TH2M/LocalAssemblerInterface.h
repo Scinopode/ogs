@@ -22,6 +22,8 @@ struct LocalAssemblerInterface : public ProcessLib::LocalAssemblerInterface,
                                  public NumLib::ExtrapolatableElement
 {
     virtual std::vector<double> getSigma() const = 0;
+    
+    virtual std::size_t setSigma(double const* values) =0;
 
     virtual std::vector<double> const& getIntPtSigma(
         const double t,
