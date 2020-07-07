@@ -466,10 +466,10 @@ void TH2MLocalAssembler<ShapeFunctionDisplacement, ShapeFunctionPressure,
                                           typename BMatricesType::BMatrixType>(
                 gradNu, Nu, x_coord, _is_axially_symmetric);
 
-        auto const T = NT.dot(temperature);
-        auto const pGR = Np.dot(gas_pressure);
-        auto const pCap = Np.dot(capillary_pressure);
-        auto const pLR = pGR - pCap;
+        double const T = NT.dot(temperature);
+        double const pGR = Np.dot(gas_pressure);
+        double const pCap = Np.dot(capillary_pressure);
+        double const pLR = pGR - pCap;
 
         double div_u = mT * Bu * displacement;
 
@@ -1349,10 +1349,20 @@ void TH2MLocalAssembler<
         // C-component equation
         MCpG.noalias() += NpT * rho_C_FR * (alpha_B - phi) * beta_p_SR * Np * w;
         PRINT2(output, MCpG, rho_C_FR * (alpha_B - phi) * beta_p_SR);
-
+        // std::cout << MCpG << "\n";
         MCpC.noalias() -=
             NpT * rho_C_FR * (alpha_B - phi) * beta_p_SR * s_L * Np * w;
+
+        if (pCap_dot != 0.) // avoid division by Zero
+        {
+            MCpC.noalias() += NpT *
+                              (phi * (rho_C_LR - rho_C_GR) -
+                               rho_C_FR * pCap * (alpha_B - phi) * beta_p_SR) *
+                              s_L_dot / pCap_dot * Np * w;
+        }
+
         PRINT2(output, MCpC, rho_C_FR * (alpha_B - phi) * beta_p_SR * s_L);
+        // std::cout << MCpC << "\n";
 
         MCT.noalias() -= NpT * rho_C_FR * (alpha_B - phi) * beta_T_SR * Np * w;
         PRINT2(output, MCT, rho_C_FR * (alpha_B - phi) * beta_T_SR);
@@ -1386,10 +1396,11 @@ void TH2MLocalAssembler<
         PRINT2(output, fC_I,
                (advection_C_G * rho_GR + advection_C_L * rho_LR) * b);
 
-        fC.noalias() -= NpT *
-                        (phi * (rho_C_LR - rho_C_GR) -
-                         rho_C_FR * pCap * (alpha_B - phi) * beta_p_SR) *
-                        s_L_dot * w;
+        // fC.noalias() -= NpT *
+        //                 (phi * (rho_C_LR - rho_C_GR) -
+        //                  rho_C_FR * pCap * (alpha_B - phi) * beta_p_SR) *
+        //                 s_L_dot * w;
+
         PRINT2(output, fC_II,
                (phi * (rho_C_LR - rho_C_GR) -
                 rho_C_FR * pCap * (alpha_B - phi) * beta_p_SR) *
@@ -1406,9 +1417,12 @@ void TH2MLocalAssembler<
 
         MWpG.noalias() += NpT * rho_W_FR * (alpha_B - phi) * beta_p_SR * Np * w;
         PRINT2(output, MWpG, rho_W_FR * (alpha_B - phi) * beta_p_SR * Np);
+        // std::cout << MWpG << "\n";
         MWpC.noalias() -=
             NpT * rho_W_FR * (alpha_B - phi) * beta_p_SR * s_L * Np * w;
         PRINT2(output, MWpC, rho_W_FR * (alpha_B - phi) * beta_p_SR * s_L);
+        // std::cout << MWpC << "\n";
+        // OGS_FATAL("sdfdasf");
 
         MWT.noalias() -= NpT * rho_W_FR * (alpha_B - phi) * beta_T_SR * Np * w;
         PRINT2(output, MWT, rho_W_FR * (alpha_B - phi) * beta_T_SR);
@@ -1512,15 +1526,61 @@ void TH2MLocalAssembler<
             PRINT(eps);
         }
 
-        if (_process_data.apply_mass_lumping)
+        if (0 && (_process_data.apply_mass_lumping))
         {
-            auto MpG = M.template block<C_size, gas_pressure_size>(
-                C_index, gas_pressure_index);
-            MpG = MpG.colwise().sum().eval().asDiagonal();
-            auto MpC = M.template block<W_size, capillary_pressure_size>(
-                W_index, capillary_pressure_index);
-            MpC = MpC.colwise().sum().eval().asDiagonal();
+            for (unsigned row = 0; row < MCpG.cols(); row++)
+            {
+                for (unsigned column = 0; column < MCpG.cols(); column++)
+                {
+                    if (row != column)
+                    {
+                        // std::cout << "row: " << row << " column: " << column
+                        //           << "\n";
+
+                        // std::cout << MCpG(row, row) << " " << MCpG(row,
+                        // column)
+                        //           << "\n";
+
+                        MCpG(row, row) += MCpG(row, column);
+                        MCpG(row, column) = 0.0;
+
+                        // std::cout << "MCpCG:\n";
+                        // std::cout << MCpC(row, row) << " " << MCpC(row,
+                        // column)
+                        //           << "\n";
+
+                        MCpC(row, row) += MCpC(row, column);
+                        MCpC(row, column) = 0.0;
+
+                        // std::cout << "MWpG:\n";
+                        // std::cout << MWpG(row, row) << " " << MWpG(row,
+                        // column)
+                        //           << "\n";
+
+                        MWpG(row, row) += MWpG(row, column);
+                        MWpG(row, column) = 0.0;
+
+                        // std::cout << "MWpC:\n";
+                        // std::cout << MWpC(row, row) << " " << MWpC(row,
+                        // column)
+                        //           << "\n";
+
+                        MWpC(row, row) += MWpC(row, column);
+                        MWpC(row, column) = 0.0;
+                    }
+                }
+            }
+            // auto MpG = M.template block<C_size, gas_pressure_size>(
+            //     C_index, gas_pressure_index);
+            // MpG = MpG.colwise().sum().eval().asDiagonal();
+            // auto MpC = M.template block<W_size, capillary_pressure_size>(
+            //     W_index, capillary_pressure_index);
+            // MpC = MpC.colwise().sum().eval().asDiagonal();
         }
+
+        // std::cout << "M (post_lumping):\n" << M << "\n";
+
+        // OGS_FATAL("So.");
 
 #ifdef DEBUG_OUTPUT
         std::cout << "------------------------------------------------------\n";
@@ -1908,6 +1968,13 @@ void TH2MLocalAssembler<ShapeFunctionDisplacement, ShapeFunctionPressure,
 
     for (unsigned ip = 0; ip < n_integration_points; ip++)
     {
+        auto const& Np = _ip_data[ip].N_p;
+
+        double const pGR = Np.dot(gas_pressure);
+        double const pCap = Np.dot(capillary_pressure);
+        double const pLR = pGR - pCap;
+
+        _liquid_pressure[ip] = pLR;
         _liquid_density[ip] = _ip_data[ip].rho_LR;
         _gas_density[ip] = _ip_data[ip].rho_GR;
         _saturation[ip] = _ip_data[ip].saturation;
