@@ -1,0 +1,52 @@
+<?xml version="1.0"?>
+<VTKFile type="Collection" version="0.1" byte_order="LittleEndian" compressor="vtkZLibDataCompressor">
+  <Collection>
+    <DataSet timestep="0" group="" part="0" file="th2m_liakopoulos_richards_pcs_0_ts_0_t_0.000000.vtu"/>
+    <DataSet timestep="1" group="" part="0" file="th2m_liakopoulos_richards_pcs_0_ts_1_t_1.000000.vtu"/>
+    <DataSet timestep="2" group="" part="0" file="th2m_liakopoulos_richards_pcs_0_ts_2_t_2.000000.vtu"/>
+    <DataSet timestep="3" group="" part="0" file="th2m_liakopoulos_richards_pcs_0_ts_3_t_3.000000.vtu"/>
+    <DataSet timestep="4" group="" part="0" file="th2m_liakopoulos_richards_pcs_0_ts_4_t_4.000000.vtu"/>
+    <DataSet timestep="5" group="" part="0" file="th2m_liakopoulos_richards_pcs_0_ts_5_t_5.000000.vtu"/>
+    <DataSet timestep="6" group="" part="0" file="th2m_liakopoulos_richards_pcs_0_ts_6_t_6.000000.vtu"/>
+    <DataSet timestep="7" group="" part="0" file="th2m_liakopoulos_richards_pcs_0_ts_7_t_7.000000.vtu"/>
+    <DataSet timestep="8" group="" part="0" file="th2m_liakopoulos_richards_pcs_0_ts_8_t_8.000000.vtu"/>
+    <DataSet timestep="9" group="" part="0" file="th2m_liakopoulos_richards_pcs_0_ts_9_t_9.000000.vtu"/>
+    <DataSet timestep="10" group="" part="0" file="th2m_liakopoulos_richards_pcs_0_ts_10_t_10.000000.vtu"/>
+    <DataSet timestep="20" group="" part="0" file="th2m_liakopoulos_richards_pcs_0_ts_11_t_20.000000.vtu"/>
+    <DataSet timestep="30" group="" part="0" file="th2m_liakopoulos_richards_pcs_0_ts_12_t_30.000000.vtu"/>
+    <DataSet timestep="40" group="" part="0" file="th2m_liakopoulos_richards_pcs_0_ts_13_t_40.000000.vtu"/>
+    <DataSet timestep="50" group="" part="0" file="th2m_liakopoulos_richards_pcs_0_ts_14_t_50.000000.vtu"/>
+    <DataSet timestep="60" group="" part="0" file="th2m_liakopoulos_richards_pcs_0_ts_15_t_60.000000.vtu"/>
+    <DataSet timestep="70" group="" part="0" file="th2m_liakopoulos_richards_pcs_0_ts_16_t_70.000000.vtu"/>
+    <DataSet timestep="80" group="" part="0" file="th2m_liakopoulos_richards_pcs_0_ts_17_t_80.000000.vtu"/>
+    <DataSet timestep="90" group="" part="0" file="th2m_liakopoulos_richards_pcs_0_ts_18_t_90.000000.vtu"/>
+    <DataSet timestep="100" group="" part="0" file="th2m_liakopoulos_richards_pcs_0_ts_19_t_100.000000.vtu"/>
+    <DataSet timestep="200" group="" part="0" file="th2m_liakopoulos_richards_pcs_0_ts_20_t_200.000000.vtu"/>
+    <DataSet timestep="300" group="" part="0" file="th2m_liakopoulos_richards_pcs_0_ts_21_t_300.000000.vtu"/>
+    <DataSet timestep="400" group="" part="0" file="th2m_liakopoulos_richards_pcs_0_ts_22_t_400.000000.vtu"/>
+    <DataSet timestep="500" group="" part="0" file="th2m_liakopoulos_richards_pcs_0_ts_23_t_500.000000.vtu"/>
+    <DataSet timestep="600" group="" part="0" file="th2m_liakopoulos_richards_pcs_0_ts_24_t_600.000000.vtu"/>
+    <DataSet timestep="700" group="" part="0" file="th2m_liakopoulos_richards_pcs_0_ts_25_t_700.000000.vtu"/>
+    <DataSet timestep="800" group="" part="0" file="th2m_liakopoulos_richards_pcs_0_ts_26_t_800.000000.vtu"/>
+    <DataSet timestep="900" group="" part="0" file="th2m_liakopoulos_richards_pcs_0_ts_27_t_900.000000.vtu"/>
+    <DataSet timestep="1000" group="" part="0" file="th2m_liakopoulos_richards_pcs_0_ts_28_t_1000.000000.vtu"/>
+    <DataSet timestep="1200" group="" part="0" file="th2m_liakopoulos_richards_pcs_0_ts_29_t_1200.000000.vtu"/>
+    <DataSet timestep="1400" group="" part="0" file="th2m_liakopoulos_richards_pcs_0_ts_30_t_1400.000000.vtu"/>
+    <DataSet timestep="1600" group="" part="0" file="th2m_liakopoulos_richards_pcs_0_ts_31_t_1600.000000.vtu"/>
+    <DataSet timestep="1800" group="" part="0" file="th2m_liakopoulos_richards_pcs_0_ts_32_t_1800.000000.vtu"/>
+    <DataSet timestep="2000" group="" part="0" file="th2m_liakopoulos_richards_pcs_0_ts_33_t_2000.000000.vtu"/>
+    <DataSet timestep="2400" group="" part="0" file="th2m_liakopoulos_richards_pcs_0_ts_34_t_2400.000000.vtu"/>
+    <DataSet timestep="2800" group="" part="0" file="th2m_liakopoulos_richards_pcs_0_ts_35_t_2800.000000.vtu"/>
+    <DataSet timestep="3200" group="" part="0" file="th2m_liakopoulos_richards_pcs_0_ts_36_t_3200.000000.vtu"/>
+    <DataSet timestep="3600" group="" part="0" file="th2m_liakopoulos_richards_pcs_0_ts_37_t_3600.000000.vtu"/>
+    <DataSet timestep="4000" group="" part="0" file="th2m_liakopoulos_richards_pcs_0_ts_38_t_4000.000000.vtu"/>
+    <DataSet timestep="4400" group="" part="0" file="th2m_liakopoulos_richards_pcs_0_ts_39_t_4400.000000.vtu"/>
+    <DataSet timestep="4800" group="" part="0" file="th2m_liakopoulos_richards_pcs_0_ts_40_t_4800.000000.vtu"/>
+    <DataSet timestep="5200" group="" part="0" file="th2m_liakopoulos_richards_pcs_0_ts_41_t_5200.000000.vtu"/>
+    <DataSet timestep="5600" group="" part="0" file="th2m_liakopoulos_richards_pcs_0_ts_42_t_5600.000000.vtu"/>
+    <DataSet timestep="6000" group="" part="0" file="th2m_liakopoulos_richards_pcs_0_ts_43_t_6000.000000.vtu"/>
+    <DataSet timestep="6400" group="" part="0" file="th2m_liakopoulos_richards_pcs_0_ts_44_t_6400.000000.vtu"/>
+    <DataSet timestep="6800" group="" part="0" file="th2m_liakopoulos_richards_pcs_0_ts_45_t_6800.000000.vtu"/>
+    <DataSet timestep="7200" group="" part="0" file="th2m_liakopoulos_richards_pcs_0_ts_46_t_7200.000000.vtu"/>
+  </Collection>
+</VTKFile>
