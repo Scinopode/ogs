@@ -17,8 +17,6 @@
 #include "MathLib/LinAlg/Eigen/EigenMapTools.h"
 #include "ParameterLib/Parameter.h"
 
-#include <iostream>
-
 namespace ProcessLib
 {
 namespace TH2M
@@ -27,6 +25,8 @@ template <typename BMatricesType, typename ShapeMatrixTypeDisplacement,
           typename ShapeMatricesTypePressure, int DisplacementDim, int NPoints>
 struct IntegrationPointData final
 {
+    using GlobalDimMatrixType =
+        typename ShapeMatricesTypePressure::GlobalDimMatrixType;
     explicit IntegrationPointData(
         MaterialLib::Solids::MechanicsBase<DisplacementDim> const&
             solid_material)
@@ -71,7 +71,7 @@ struct IntegrationPointData final
 
     // solid phase pressure
     double p_SR;
-    
+
     // real constitutent partial densities
     double rho_C_GR = std::numeric_limits<double>::quiet_NaN();
     double rho_C_GR_prev = std::numeric_limits<double>::quiet_NaN();
@@ -82,6 +82,27 @@ struct IntegrationPointData final
     double rho_W_LR = std::numeric_limits<double>::quiet_NaN();
     double rho_W_LR_prev = std::numeric_limits<double>::quiet_NaN();
 
+    // phase composition
+    // molar fraction
+    double xnCG = std::numeric_limits<double>::quiet_NaN();
+    double xnWG = std::numeric_limits<double>::quiet_NaN();
+    double xnCL = std::numeric_limits<double>::quiet_NaN();
+    double xnWL = std::numeric_limits<double>::quiet_NaN();
+    // mass fraction
+    double xmCG = std::numeric_limits<double>::quiet_NaN();
+    double xmWG = std::numeric_limits<double>::quiet_NaN();
+    double xmCL = std::numeric_limits<double>::quiet_NaN();
+    double xmWL = std::numeric_limits<double>::quiet_NaN();
+    // mass fraction derivatives
+    double dxmCG_dpGR = std::numeric_limits<double>::quiet_NaN();
+    double dxmWG_dpGR = std::numeric_limits<double>::quiet_NaN();
+    double dxmCL_dpLR = std::numeric_limits<double>::quiet_NaN();
+    double dxmWL_dpLR = std::numeric_limits<double>::quiet_NaN();
+    double dxmCG_dT = std::numeric_limits<double>::quiet_NaN();
+    double dxmWG_dT = std::numeric_limits<double>::quiet_NaN();
+    double dxmCL_dT = std::numeric_limits<double>::quiet_NaN();
+    double dxmWL_dT = std::numeric_limits<double>::quiet_NaN();
+
     // phase enthalpies
     double rho_G_h_G = std::numeric_limits<double>::quiet_NaN();
     double rho_G_h_G_prev = std::numeric_limits<double>::quiet_NaN();
@@ -90,16 +111,39 @@ struct IntegrationPointData final
     double rho_S_h_S = std::numeric_limits<double>::quiet_NaN();
     double rho_S_h_S_prev = std::numeric_limits<double>::quiet_NaN();
 
+    // specific enthalpies
+    double h_G = std::numeric_limits<double>::quiet_NaN();
+    double h_L = std::numeric_limits<double>::quiet_NaN();
+    double h_S = std::numeric_limits<double>::quiet_NaN();
+
     // porosity
     double phi = std::numeric_limits<double>::quiet_NaN();
     double phi_prev = std::numeric_limits<double>::quiet_NaN();
-    
-    
+
+    double muGR = std::numeric_limits<double>::quiet_NaN();
+    double muLR = std::numeric_limits<double>::quiet_NaN();
+
+    double lambdaGR = std::numeric_limits<double>::quiet_NaN();
+    double lambdaLR = std::numeric_limits<double>::quiet_NaN();
+    double lambdaSR = std::numeric_limits<double>::quiet_NaN();
+
     // other
     double phi_S_p_SR = std::numeric_limits<double>::quiet_NaN();
     double phi_S_p_SR_prev = std::numeric_limits<double>::quiet_NaN();
-    
-    
+
+    double thermal_strain;
+    double beta_pS;
+    double beta_T_SR;
+    double c_p_S;
+    double alpha_B;
+    double beta_p_SR;
+
+    Eigen::Vector2d kRel;
+    // Eigen::Matrix<double, DisplacementDim, DisplacementDim> k_S;
+    GlobalDimMatrixType k_S;
+
+    // double rho_ref_SR;
+    // double thermal_strain;
 
     MaterialLib::Solids::MechanicsBase<DisplacementDim> const& solid_material;
     std::unique_ptr<typename MaterialLib::Solids::MechanicsBase<
@@ -112,20 +156,20 @@ struct IntegrationPointData final
         eps_m_prev = eps_m;
         sigma_eff_prev = sigma_eff;
         saturation_prev = saturation;
-        
+
         rho_G_h_G_prev = rho_G_h_G;
         rho_L_h_L_prev = rho_L_h_L;
         rho_S_h_S_prev = rho_S_h_S;
 
         phi_prev = phi;
-        
+
         phi_S_p_SR_prev = phi_S_p_SR;
 
         rho_C_GR_prev = rho_C_GR;
         rho_W_GR_prev = rho_W_GR;
         rho_C_LR_prev = rho_C_LR;
         rho_W_LR_prev = rho_W_LR;
- 
+
         material_state_variables->pushBackState();
     }
 
@@ -156,8 +200,7 @@ struct IntegrationPointData final
         ParameterLib::SpatialPosition const& x_position,
         double const dt,
         DisplacementVectorType const& /*u*/,
-        double const T,
-        double const thermal_strain)
+        double const T)
     {
         auto const& identity2 = MathLib::KelvinVector::Invariants<
             MathLib::KelvinVector::KelvinVectorDimensions<
