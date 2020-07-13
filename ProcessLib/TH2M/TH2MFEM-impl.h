@@ -549,6 +549,7 @@ void TH2MLocalAssembler<ShapeFunctionDisplacement, ShapeFunctionPressure,
 
         // cf. WW: THM
         const auto rhoSR = rho_ref_SR * (1. - 3. * ip_data.thermal_strain);
+        ip_data.rho_SR = rhoSR;
 
         // TODO: check if needed!
         // ip_data.phi_S_p_SR = phi_S * p_SR;
