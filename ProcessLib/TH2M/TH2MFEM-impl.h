@@ -479,17 +479,19 @@ void TH2MLocalAssembler<ShapeFunctionDisplacement, ShapeFunctionPressure,
         vars[static_cast<int>(MPL::Variable::capillary_pressure)] = pCap;
         vars[static_cast<int>(MPL::Variable::liquid_phase_pressure)] = pLR;
 
-        ip_data.saturation =
+        auto const s_L =
             medium.property(MPL::PropertyType::saturation)
                 .template value<double>(
                     vars, pos, t, std::numeric_limits<double>::quiet_NaN());
+
+        vars[static_cast<int>(MPL::Variable::liquid_saturation)] = s_L;
 
         auto const phi = medium.property(MPL::PropertyType::porosity)
                              .template value<double>(vars, pos, t, dt);
 
         ip_data.phi = phi;
+        ip_data.saturation = s_L;
 
-        auto const s_L = ip_data.saturation;
         auto const phi_G = (1. - s_L) * phi;
         auto const phi_L = s_L * phi;
         auto const phi_S = 1. - phi;
@@ -500,114 +502,358 @@ void TH2MLocalAssembler<ShapeFunctionDisplacement, ShapeFunctionPressure,
         double const T0 = _process_data.reference_temperature(t, pos)[0];
         double const delta_T(T - T0);
 
-        const double beta_pS =
+        ip_data.beta_pS =
             solid_phase.property(MPL::PropertyType::compressibility)
                 .template value<double>(
                     vars, pos, t, std::numeric_limits<double>::quiet_NaN());
-        const double beta_T_SR =
+        ip_data.beta_T_SR =
             solid_phase.property(MPL::PropertyType::thermal_expansivity)
                 .template value<double>(
                     vars, pos, t, std::numeric_limits<double>::quiet_NaN());
-        const double rho_ref_SR =
+        const auto rho_ref_SR =
             solid_phase.property(MPL::PropertyType::density)
                 .template value<double>(
                     vars, pos, t, std::numeric_limits<double>::quiet_NaN());
 
-        auto const alpha_B =
-            medium.property(MPL::PropertyType::biot_coefficient)
+        ip_data.c_p_S =
+            solid_phase.property(MPL::PropertyType::specific_heat_capacity)
                 .template value<double>(vars, pos, t, dt);
 
-        auto const beta_p_SR = (1. - alpha_B) * beta_pS;
+        ip_data.lambdaSR =
+            solid_phase.property(MPL::PropertyType::thermal_conductivity)
+                .template value<double>(vars, pos, t, dt);
 
-        double const thermal_strain = beta_T_SR * delta_T;
+        ip_data.alpha_B = medium.property(MPL::PropertyType::biot_coefficient)
+                              .template value<double>(vars, pos, t, dt);
+
+        ip_data.beta_p_SR = (1. - ip_data.alpha_B) * ip_data.beta_pS;
+
+        ip_data.thermal_strain = ip_data.beta_T_SR * delta_T;
 
         // cf. Eq. 79
-        const double p_SR =
-            p_FR - 1. / (beta_pS * phi_S) * (div_u - thermal_strain);
+        ip_data.p_SR = p_FR - 1. / (ip_data.beta_pS * phi_S) *
+                                  (div_u - ip_data.thermal_strain);
+
+        // const double p_SR_dot =
+        //     p_FR_dot -
+        //     1. / (beta_pS * phi_S) * (div_u_dot - beta_T_SR * T_dot) -
+        //     phi_dot / phi_S * (p_FR - p_SR);
 
         // cf. WW: THM
-        auto const rho_SR = rho_ref_SR * (1. - 3. * thermal_strain);
+        const auto rhoSR = rho_ref_SR * (1. - 3. * ip_data.thermal_strain);
+
+        // TODO: check if needed!
         // ip_data.phi_S_p_SR = phi_S * p_SR;
         ip_data.phi_S_p_SR = 0.;
 
-#ifdef PHASE_TRANSITION
+        ip_data.k_S = MPL::formEigenTensor<DisplacementDim>(
+            medium.property(MPL::PropertyType::permeability)
+                .value(vars, pos, t, dt));
 
-        double rho_GR;
-        double rho_LR;
-        double rho_C_GR;
-        double rho_W_GR;
-        double rho_C_LR;
-        double rho_W_LR;
+        auto const k_rel =
+            medium.property(MPL::PropertyType::relative_permeability)
+                .template value<Eigen::Vector2d>(vars, pos, t, dt);
 
-        double xm_C_G;
-        double xm_W_G;
-        double xm_C_L;
-        double xm_W_L;
+        ip_data.kRel = k_rel;
 
-        double dummy;
-        bool phase_transition = _process_data.phase_transition;
+        // #####################################################
 
-        VLE(phase_transition, T, pGR, pCap, rho_GR, rho_C_GR, rho_W_GR, rho_LR,
-            rho_C_LR, rho_W_LR, xm_C_G, xm_W_G, xm_C_L, xm_W_L, dummy, dummy,
-            dummy, dummy, dummy, dummy, dummy, dummy);
+        auto const nComponentsGas = gas_phase.numberOfComponents();
+        auto const nComponentsLiquid = liquid_phase.numberOfComponents();
+        // PRINT(nComponentsGas);
 
-        ip_data.rho_C_GR = rho_C_GR;
-        ip_data.rho_W_GR = rho_W_GR;
-        ip_data.rho_C_LR = rho_C_LR;
-        ip_data.rho_W_LR = rho_W_LR;
+        // PRINT(pGR);
+        // PRINT(pCap);
+        // PRINT(pLR);
+        // PRINT(T);
 
-        const double c_p_S = 1000.;
-        const auto c_p_C_G = 1000.;  // J/kg/K
-        const auto c_p_W_G = 1914.;  // J/kg/K
-        const auto h_C_G = c_p_C_G * T;
-        const auto h_W_G = c_p_W_G * T;
-        const auto h_W_L = 112654.;  // J/kg
-        const auto h_C_L = 648584.;  // J/kg
+        auto const xnG = gas_phase.property(MPL::PropertyType::mole_fraction)
+                             .template value<Eigen::Vector2d>(vars, pos, t, dt);
+        // PRINT(xnG[0]);
+        // PRINT(xnG[1]);
 
-        // phase specific enthalpies
-        const auto h_G = xm_C_G * h_C_G + xm_W_G * h_W_G;
-        const auto h_L = xm_W_L * h_W_L + xm_C_L * h_C_L;
-        const auto h_S = c_p_S * T;
+        vars[static_cast<int>(MPL::Variable::mole_fraction)] = xnG[0];
 
-        // phase enthalpies
-        ip_data.rho_G_h_G = phi_G * rho_GR * h_G;
-        ip_data.rho_L_h_L = phi_L * rho_LR * h_L;
-        ip_data.rho_S_h_S = phi_S * rho_SR * h_S;
+        auto const MG = gas_phase.property(MPL::PropertyType::molar_mass)
+                            .template value<double>(vars, pos, t, dt);
+        // PRINT(MG);
 
-#else
-        const double c_p_S = 1000.;
-        const auto c_p_C_G = 1000.;  // J/kg/K
-        const auto c_p_W_L = 4180.;  // J/kg/K
+        auto const pCGR = xnG[0] * pGR;
+        auto const pWGR = xnG[1] * pGR;
 
-        const auto h_C_G = c_p_C_G * T;
-        const auto h_W_L = c_p_W_L * T;
-        // todo: h_G && h_L for mixtures
-        const auto h_G = h_C_G;
-        const auto h_L = h_W_L;
-        const auto h_S = c_p_S * T;
+        // PRINT(pCGR);
+        // PRINT(pWGR);
 
-        const auto rho_GR =
+        auto rhoGR = gas_phase.property(MPL::PropertyType::density)
+                         .template value<double>(vars, pos, t, dt);
+        // PRINT(rhoGR);
+
+        auto drhoGR_dpGR =
             gas_phase.property(MPL::PropertyType::density)
-                .template value<double>(
-                    vars, pos, t, std::numeric_limits<double>::quiet_NaN());
+                .template dValue<double>(vars, MPL::Variable::phase_pressure,
+                                         pos, t, dt);
+        // PRINT(drhoGR_dpGR);
 
-        const auto rho_LR =
+        auto beta_pGR = 1. / rhoGR * drhoGR_dpGR;
+        // PRINT(beta_pGR);
+
+        auto drhoGR_dT = gas_phase.property(MPL::PropertyType::density)
+                             .template dValue<double>(
+                                 vars, MPL::Variable::temperature, pos, t, dt);
+        // PRINT(drhoGR_dT);
+
+        auto beta_TGR = 1. / rhoGR * drhoGR_dT;
+        // PRINT(beta_TGR);
+
+        auto pWVap = 0.;
+        auto dpWVap_dT = 0.;
+
+        Eigen::Vector2d dxm_dpGR = {0., 0.};
+        Eigen::Vector2d xmG = {1., 0.};
+
+        if (nComponentsGas == 2)
+        {
+            pWVap = gas_phase.component(1)
+                        .property(MPL::PropertyType::saturation_vapour_pressure)
+                        .template value<double>(vars, pos, t, dt);
+            dpWVap_dT =
+                gas_phase.component(1)
+                    .property(MPL::PropertyType::saturation_vapour_pressure)
+                    .template dValue<double>(vars, MPL::Variable::temperature,
+                                             pos, t, dt);
+
+            xmG[0] = xnG[0] *
+                     gas_phase.component(0)
+                         .property(MPL::PropertyType::molar_mass)
+                         .template value<double>(vars, pos, t, dt) /
+                     MG;
+            xmG[1] = 1. - xmG[0];
+        }
+
+        auto xmCG = xmG[0];
+        auto xmWG = xmG[1];
+
+        // PRINT(xmG[0]);
+        // PRINT(xmG[1]);
+
+        auto const dxmWG_dpGR = xmG[1] * beta_pGR;
+        auto const dxmCG_dpGR = -dxmWG_dpGR;
+        // PRINT(dxmWG_dpGR);
+        // PRINT(dxmCG_dpGR);
+
+        // PRINT(pWVap);
+        // PRINT(dpWVap_dT);
+
+        auto rhoCGR = xmG[0] * rhoGR;
+        auto rhoWGR = xmG[1] * rhoGR;
+        // PRINT(rhoCGR);
+        // PRINT(rhoWGR);
+
+        auto drhoWGR_dT = 0.;
+        if (pWGR != 0)
+        {
+            drhoWGR_dT = rhoWGR * (1. / pWGR * dpWVap_dT - 1. / T);
+        }
+        // PRINT(drhoWGR_dT);
+
+        auto const dxmWG_dT = 1. / rhoGR * drhoWGR_dT - xmG[1] * beta_TGR;
+        auto const dxmCG_dT = -dxmWG_dT;
+        // PRINT(dxmCG_dT);
+        // PRINT(dxmWG_dT);
+
+        auto H = 0.;
+        auto dH_dT = 0.;
+        if (nComponentsLiquid == 2)
+        {
+            H = liquid_phase.component(0)
+                    .property(MPL::PropertyType::henry_coefficient)
+                    .template value<double>(vars, pos, t, dt);
+            dH_dT = liquid_phase.component(0)
+                        .property(MPL::PropertyType::henry_coefficient)
+                        .template dValue<double>(
+                            vars, MPL::Variable::temperature, pos, t, dt);
+        }
+        // PRINT(H);
+        // PRINT(dH_dT);
+
+        auto cCL = 0.;
+        auto dcCL_dpLR = 0.;
+        if (liquid_phase.hasProperty(MPL::PropertyType::concentration))
+        {
+            cCL = liquid_phase.property(MPL::PropertyType::concentration)
+                      .template value<double>(vars, pos, t,
+                                              dt);  // in mol*m^(-3)
+            dcCL_dpLR =
+                liquid_phase.property(MPL::PropertyType::concentration)
+                    .template dValue<double>(
+                        vars, MPL::Variable::liquid_phase_pressure, pos, t,
+                        dt);  // in mol*m^(-3)
+        }
+        // PRINT(cCL);
+        // PRINT(dcCL_dpLR);
+
+        auto dcCL_dT = dH_dT * xnG[0] * pGR - H * dpWVap_dT;
+        // PRINT(dcCL_dT);
+
+        vars[static_cast<int>(MPL::Variable::concentration)] = cCL;
+
+        auto rhoLR =
             liquid_phase.property(MPL::PropertyType::density)
-                .template value<double>(
-                    vars, pos, t, std::numeric_limits<double>::quiet_NaN());
+                .template value<double>(vars, pos, t, dt);  // in mol*m^(-3)
 
-        ip_data.rho_GR = rho_GR;
-        ip_data.rho_LR = rho_LR;
+        vars[static_cast<int>(MPL::Variable::concentration)] = 0.;
+        auto rhoWLR = liquid_phase.property(MPL::PropertyType::density)
+                          .template value<double>(vars, pos, t, dt);
 
-        ip_data.rho_C_GR = rho_GR;
-        ip_data.rho_W_GR = 0.;
-        ip_data.rho_C_LR = 0.;
-        ip_data.rho_W_LR = rho_LR;
+        auto rhoCLR = rhoLR - rhoWLR;
 
-        ip_data.rho_G_h_G = phi_G * rho_GR * h_G;
-        ip_data.rho_L_h_L = phi_L * rho_LR * h_L;
-        ip_data.rho_S_h_S = phi_S * rho_SR * h_S;
-#endif
+        // PRINT(rhoLR);
+        // PRINT(rhoWLR);
+        // PRINT(rhoCLR);
+
+        const auto xmWL = rhoWLR / rhoLR;
+        const auto xmCL = 1. - xmWL;
+
+        // PRINT(xmWL);
+        // PRINT(xmCL);
+
+        // HACK!! int the linear EOS of the liquid, the third 'independent'
+        // variable is actually pressure-dependent, thus not independent.
+        // The exact derivative would reed
+        // drho_dpLR=rho_ref*(betaP+betaC*dC_dpLR). In order to get the
+        // parameters of the eos (rho_ref, betaP, and betaC), I firstly
+        // calculate the pressure derivative and then the concenctration
+        // derivative only.
+        const auto rho_ref_betaP =
+            liquid_phase.property(MPL::PropertyType::density)
+                .template dValue<double>(
+                    vars, MPL::Variable::liquid_phase_pressure, pos, t, dt);
+        // PRINT(rho_ref_betaP);
+
+        const auto rho_ref_betaC =
+            liquid_phase.property(MPL::PropertyType::density)
+                .template dValue<double>(vars, MPL::Variable::concentration,
+                                         pos, t, dt);
+        // PRINT(rho_ref_betaC);
+        const auto drhoLR_dpLR = rho_ref_betaP + rho_ref_betaC * H;
+        // PRINT(drhoLR_dpLR);
+
+        const auto rho_ref_betaT =
+            liquid_phase.property(MPL::PropertyType::density)
+                .template dValue<double>(vars, MPL::Variable::temperature, pos,
+                                         t, dt);
+        // PRINT(rho_ref_betaT);
+        const auto drhoLR_dT = rho_ref_betaT + rho_ref_betaC * dcCL_dT;
+        // PRINT(drhoLR_dT);
+
+        auto drhoWLR_dpLR = rho_ref_betaP;
+        // PRINT(drhoWLR_dpLR);
+
+        const auto drhoWLR_dT = rho_ref_betaT;
+        // PRINT(drhoWLR_dT);
+
+        const auto dxmWL_dpLR =
+            1. / rhoLR * (drhoWLR_dpLR - xmWL * drhoLR_dpLR);
+        const auto dxmCL_dpLR = -dxmWL_dpLR;
+        // PRINT(dxmWL_dpLR);
+        // PRINT(dxmCL_dpLR);
+        auto const dxmWL_dT = 1. / rhoLR * (drhoWLR_dT - xmWL * drhoLR_dT);
+        auto const dxmCL_dT = -dxmWL_dT;
+        // PRINT(dxmWL_dT);
+        // PRINT(dxmCL_dT);
+
+        const double c_p_S =
+            solid_phase.property(MPL::PropertyType::specific_heat_capacity)
+                .template value<double>(vars, pos, t, dt);
+        auto h_G = 0.;
+        auto h_L = 0.;
+        const auto h_S = c_p_S * T;
+
+        if (nComponentsGas == 2)
+        {
+            auto c_p_C_G =
+                gas_phase.component(0)
+                    .property(MPL::PropertyType::specific_heat_capacity)
+                    .template value<double>(vars, pos, t, dt);
+            auto c_p_W_G =
+                gas_phase.component(1)
+                    .property(MPL::PropertyType::specific_heat_capacity)
+                    .template value<double>(vars, pos, t, dt);
+
+            auto h_C_G = c_p_C_G * T;
+            auto h_W_G = c_p_W_G * T;
+            h_G = xmCG * h_C_G + xmWG * h_W_G;
+        }
+        else
+        {
+            h_G = gas_phase.property(MPL::PropertyType::specific_heat_capacity)
+                      .template value<double>(vars, pos, t, dt) *
+                  T;
+        }
+        if (nComponentsLiquid == 2)
+        {
+            auto c_p_C_L =
+                liquid_phase.component(0)
+                    .property(MPL::PropertyType::specific_heat_capacity)
+                    .template value<double>(vars, pos, t, dt);
+            auto c_p_W_L =
+                liquid_phase.component(1)
+                    .property(MPL::PropertyType::specific_heat_capacity)
+                    .template value<double>(vars, pos, t, dt);
+            auto h_C_L = c_p_C_L * T;
+            auto h_W_L = c_p_W_L * T;
+            h_L = xmCL * h_C_L + xmWL * h_W_L;
+        }
+        else
+        {
+            h_L =
+                liquid_phase.property(MPL::PropertyType::specific_heat_capacity)
+                    .template value<double>(vars, pos, t, dt) *
+                T;
+        }
+
+        ip_data.rho_GR = rhoGR;
+        ip_data.rho_LR = rhoLR;
+
+        ip_data.rho_C_GR = rhoCGR;
+        ip_data.rho_W_GR = rhoWGR;
+        ip_data.rho_C_LR = rhoCLR;
+        ip_data.rho_W_LR = rhoWLR;
+
+        ip_data.xmCG = xmCG;
+        ip_data.xmWG = xmWG;
+        ip_data.xmCL = xmCL;
+        ip_data.xmWL = xmWL;
+
+        ip_data.dxmCG_dpGR = dxmCG_dpGR;
+        ip_data.dxmWG_dpGR = dxmWG_dpGR;
+        ip_data.dxmCL_dpLR = dxmCL_dpLR;
+        ip_data.dxmWL_dpLR = dxmWL_dpLR;
+        ip_data.dxmCG_dT = dxmCG_dT;
+        ip_data.dxmWG_dT = dxmWG_dT;
+        ip_data.dxmCL_dT = dxmCL_dT;
+        ip_data.dxmWL_dT = dxmWL_dT;
+
+        ip_data.h_G = h_G;
+        ip_data.h_L = h_L;
+        ip_data.h_S = h_S;
+
+        ip_data.rho_G_h_G = phi_G * rhoGR * h_G;
+        ip_data.rho_L_h_L = phi_L * rhoLR * h_L;
+        ip_data.rho_S_h_S = phi_S * rhoSR * h_S;
+        ip_data.muGR = gas_phase.property(MPL::PropertyType::viscosity)
+                           .template value<double>(vars, pos, t, dt);
+
+        ip_data.lambdaGR =
+            gas_phase.property(MPL::PropertyType::thermal_conductivity)
+                .template value<double>(vars, pos, t, dt);
+
+        ip_data.muLR = liquid_phase.property(MPL::PropertyType::viscosity)
+                           .template value<double>(vars, pos, t, dt);
+
+        ip_data.lambdaLR =
+            liquid_phase.property(MPL::PropertyType::thermal_conductivity)
+                .template value<double>(vars, pos, t, dt);
     }
 }
 
@@ -665,7 +911,8 @@ void TH2MLocalAssembler<ShapeFunctionDisplacement, ShapeFunctionPressure,
         // vars[static_cast<int>(MPL::Variable::temperature)] = T;
         // vars[static_cast<int>(MPL::Variable::phase_pressure)] = pGR;
         // vars[static_cast<int>(MPL::Variable::capillary_pressure)] = pCap;
-        // vars[static_cast<int>(MPL::Variable::liquid_phase_pressure)] = pLR;
+        // vars[static_cast<int>(MPL::Variable::liquid_phase_pressure)] =
+        // pLR;
 
         ip_data.pushBackState();
     }
@@ -793,10 +1040,12 @@ void TH2MLocalAssembler<
         temperature_index, displacement_index);
 
     // // pointer-matrices to the stiffness matrix - liquid phase equation
-    // auto KLpG = K.template block<capillary_pressure_size, gas_pressure_size>(
+    // auto KLpG = K.template block<capillary_pressure_size,
+    // gas_pressure_size>(
     //     capillary_pressure_index, gas_pressure_index);
     // auto KLpC =
-    //     K.template block<capillary_pressure_size, capillary_pressure_size>(
+    //     K.template block<capillary_pressure_size,
+    //     capillary_pressure_size>(
     //         capillary_pressure_index, capillary_pressure_index);
 
     // pointer-matrices to the stiffness matrix - temperature equation
@@ -909,8 +1158,8 @@ void TH2MLocalAssembler<
 #ifndef UNKNOWNS
         if (output)
         {
-            std::cout
-                << "######################################################\n";
+            std::cout << "#################################################"
+                         "#####\n";
             std::cout << "--- unknowns: ---\n";
             std::cout << "pGR: " << gas_pressure << "\n";
             std::cout << "pCap: " << capillary_pressure << "\n";
@@ -950,137 +1199,276 @@ void TH2MLocalAssembler<
 #endif
 
         //   Constitutive properties
-        MPL::VariableArray vars;
-        vars[static_cast<int>(MPL::Variable::temperature)] = T;
-        vars[static_cast<int>(MPL::Variable::phase_pressure)] = pGR;
-        vars[static_cast<int>(MPL::Variable::capillary_pressure)] = pCap;
-        vars[static_cast<int>(MPL::Variable::liquid_phase_pressure)] = pLR;
+        // MPL::VariableArray vars;
+        // vars[static_cast<int>(MPL::Variable::temperature)] = T;
+        // vars[static_cast<int>(MPL::Variable::phase_pressure)] = pGR;
+        // vars[static_cast<int>(MPL::Variable::capillary_pressure)] = pCap;
+        // vars[static_cast<int>(MPL::Variable::liquid_phase_pressure)] = pLR;
+
+        // std::cout <<
+        // "#####################################################\n";
+        // {
+        //     auto const nComponents = gas_phase.numberOfComponents();
+        //     PRINT(nComponents);
+
+        //     PRINT(pGR);
+        //     PRINT(pCap);
+        //     PRINT(pLR);
+        //     PRINT(T);
+
+        //     auto const xnG =
+        //         gas_phase.property(MPL::PropertyType::mole_fraction)
+        //             .template value<Eigen::Vector2d>(vars, pos, t, dt);
+        //     PRINT(xnG[0]);
+        //     PRINT(xnG[1]);
+
+        //     vars[static_cast<int>(MPL::Variable::mole_fraction)] = xnG[0];
+
+        //     auto const MG = gas_phase.property(MPL::PropertyType::molar_mass)
+        //                         .template value<double>(vars, pos, t, dt);
+        //     PRINT(MG);
+
+        //     auto const pCGR = xnG[0] * pGR;
+        //     auto const pWGR = xnG[1] * pGR;
+
+        //     PRINT(pCGR);
+        //     PRINT(pWGR);
+
+        //     auto rhoGR = gas_phase.property(MPL::PropertyType::density)
+        //                      .template value<double>(vars, pos, t, dt);
+        //     PRINT(rhoGR);
+
+        //     auto drhoGR_dpGR =
+        //         gas_phase.property(MPL::PropertyType::density)
+        //             .template dValue<double>(
+        //                 vars, MPL::Variable::phase_pressure, pos, t, dt);
+        //     PRINT(drhoGR_dpGR);
+
+        //     auto beta_pGR = 1. / rhoGR * drhoGR_dpGR;
+        //     PRINT(beta_pGR);
+
+        //     auto drhoGR_dT =
+        //         gas_phase.property(MPL::PropertyType::density)
+        //             .template dValue<double>(vars,
+        //             MPL::Variable::temperature,
+        //                                      pos, t, dt);
+        //     PRINT(drhoGR_dT);
+
+        //     auto beta_TGR = 1. / rhoGR * drhoGR_dT;
+        //     PRINT(beta_TGR);
+
+        //     auto pWVap = 0.;
+        //     auto dpWVap_dT = 0.;
+
+        //     Eigen::Vector2d dxm_dpGR = {0., 0.};
+        //     Eigen::Vector2d xmG = {1., 0.};
+
+        //     if (nComponents == 2)
+        //     {
+        //         pWVap =
+        //             gas_phase.component(1)
+        //                 .property(MPL::PropertyType::saturation_vapour_pressure)
+        //                 .template value<double>(vars, pos, t, dt);
+        //         dpWVap_dT =
+        //             gas_phase.component(1)
+        //                 .property(MPL::PropertyType::saturation_vapour_pressure)
+        //                 .template dValue<double>(
+        //                     vars, MPL::Variable::temperature, pos, t, dt);
+        //     }
+
+        //     if (nComponents == 2)
+        //     {
+        //         xmG[0] = xnG[0] *
+        //                  gas_phase.component(0)
+        //                      .property(MPL::PropertyType::molar_mass)
+        //                      .template value<double>(vars, pos, t, dt) /
+        //                  MG;
+        //         xmG[1] = 1. - xmG[0];
+        //     }
+        //     else
+        //     {
+        //         xmG[0] = 1.;
+        //         xmG[1] = 0.;
+        //     }
+
+        //     PRINT(xmG[0]);
+        //     PRINT(xmG[1]);
+
+        //     auto const dxmWG_dpGR = xmG[1] * beta_pGR;
+        //     auto const dxmCG_dpGR = -dxmWG_dpGR;
+        //     PRINT(dxmWG_dpGR);
+        //     PRINT(dxmCG_dpGR);
+
+        //     PRINT(pWVap);
+        //     PRINT(dpWVap_dT);
+
+        //     auto rhoCGR = xmG[0] * rhoGR;
+        //     auto rhoWGR = xmG[1] * rhoGR;
+        //     PRINT(rhoCGR);
+        //     PRINT(rhoWGR);
+
+        //     auto drhoWGR_dT = 0.;
+        //     if (pWGR != 0)
+        //     {
+        //         drhoWGR_dT = rhoWGR * (1. / pWGR * dpWVap_dT - 1. / T);
+        //     }
+        //     PRINT(drhoWGR_dT);
+
+        //     auto const dxmWG_dT = 1. / rhoGR * drhoWGR_dT - xmG[1] *
+        //     beta_TGR; auto const dxmCG_dT = -dxmWG_dT; PRINT(dxmCG_dT);
+        //     PRINT(dxmWG_dT);
+
+        //     auto H = 0.;
+        //     auto dH_dT = 0.;
+        //     if (liquid_phase.numberOfComponents() == 2)
+        //     {
+        //         H = liquid_phase.component(0)
+        //                 .property(MPL::PropertyType::henry_coefficient)
+        //                 .template value<double>(vars, pos, t, dt);
+        //         dH_dT = liquid_phase.component(0)
+        //                     .property(MPL::PropertyType::henry_coefficient)
+        //                     .template dValue<double>(
+        //                         vars, MPL::Variable::temperature, pos, t,
+        //                         dt);
+        //     }
+        //     PRINT(H);
+        //     PRINT(dH_dT);
+
+        //     auto cCL = 0.;
+        //     auto dcCL_dpLR = 0.;
+        //     if (liquid_phase.hasProperty(MPL::PropertyType::concentration))
+        //     {
+        //         cCL = liquid_phase.property(MPL::PropertyType::concentration)
+        //                   .template value<double>(vars, pos, t,
+        //                                           dt);  // in mol*m^(-3)
+        //         dcCL_dpLR =
+        //             liquid_phase.property(MPL::PropertyType::concentration)
+        //                 .template dValue<double>(
+        //                     vars, MPL::Variable::liquid_phase_pressure, pos,
+        //                     t, dt);  // in mol*m^(-3)
+        //     }
+        //     PRINT(cCL);
+        //     PRINT(dcCL_dpLR);
+
+        //     auto dcCL_dT = dH_dT * xnG[0] * pGR - H * dpWVap_dT;
+        //     PRINT(dcCL_dT);
+
+        //     vars[static_cast<int>(MPL::Variable::concentration)] = cCL;
+
+        //     auto rhoLR = liquid_phase.property(MPL::PropertyType::density)
+        //                      .template value<double>(vars, pos, t,
+        //                                              dt);  // in mol*m^(-3)
+
+        //     vars[static_cast<int>(MPL::Variable::concentration)] = 0.;
+        //     auto rhoWLR = liquid_phase.property(MPL::PropertyType::density)
+        //                       .template value<double>(vars, pos, t, dt);
+
+        //     auto rhoCLR = rhoLR - rhoWLR;
+
+        //     PRINT(rhoLR);
+        //     PRINT(rhoWLR);
+        //     PRINT(rhoCLR);
+
+        //     const auto xmWL = rhoWLR / rhoLR;
+        //     const auto xmCL = 1. - xmWL;
+
+        //     PRINT(xmWL);
+        //     PRINT(xmCL);
+
+        //     // HACK!! int the linear EOS of the liquid, the third
+        //     // 'independent' variable is actually pressure-dependent, thus
+        //     // not independent. The exact derivative would reed
+        //     // drho_dpLR=rho_ref*(betaP+betaC*dC_dpLR). In order to get the
+        //     // parameters of the eos (rho_ref, betaP, and betaC), I firstly
+        //     // calculate the pressure derivative and then the concenctration
+        //     // derivative only.
+        //     const auto rho_ref_betaP =
+        //         liquid_phase.property(MPL::PropertyType::density)
+        //             .template dValue<double>(
+        //                 vars, MPL::Variable::liquid_phase_pressure, pos, t,
+        //                 dt);
+        //     PRINT(rho_ref_betaP);
+        //     const auto rho_ref_betaC =
+        //         liquid_phase.property(MPL::PropertyType::density)
+        //             .template dValue<double>(vars,
+        //             MPL::Variable::concentration,
+        //                                      pos, t, dt);
+        //     PRINT(rho_ref_betaC);
+
+        //     const auto drhoLR_dpLR = rho_ref_betaP + rho_ref_betaC * H;
+        //     PRINT(drhoLR_dpLR);
+
+        //     const auto rho_ref_betaT =
+        //         liquid_phase.property(MPL::PropertyType::density)
+        //             .template dValue<double>(vars,
+        //             MPL::Variable::temperature,
+        //                                      pos, t, dt);
+        //     PRINT(rho_ref_betaT);
+
+        //     const auto drhoLR_dT = rho_ref_betaT + rho_ref_betaC * dcCL_dT;
+        //     PRINT(drhoLR_dT);
+
+        //     auto drhoWLR_dpLR = rho_ref_betaP;
+        //     PRINT(drhoWLR_dpLR);
+
+        //     const auto drhoWLR_dT = rho_ref_betaT;
+        //     PRINT(drhoWLR_dT);
+
+        //     const auto dxmWL_dpLR =
+        //         1. / rhoLR * (drhoWLR_dpLR - xmWL * drhoLR_dpLR);
+        //     const auto dxmCL_dpLR = -dxmWL_dpLR;
+        //     PRINT(dxmWL_dpLR);
+        //     PRINT(dxmCL_dpLR);
+
+        //     auto const dxmWL_dT = 1. / rhoLR * (drhoWLR_dT - xmWL *
+        //     drhoLR_dT); auto const dxmCL_dT = -dxmWL_dT; PRINT(dxmWL_dT);
+        //     PRINT(dxmCL_dT);
+
+        //     OGS_FATAL("stop.");
+        // }
 
         bool phase_transition = _process_data.phase_transition;
 
         auto& rho_GR = ip_data.rho_GR;  // gas phase density
-
         auto& rho_C_GR = ip_data.rho_C_GR;
-        // C constituent partial density in gas phase
-        // == rho_C_GR || rho_GR
-
         auto& rho_W_GR = ip_data.rho_W_GR;
-        // W constituent partial density in gas phase
-        // == rho_W_GR || 0.
 
         auto& rho_LR = ip_data.rho_LR;  // liquid phase density
-
         auto& rho_W_LR = ip_data.rho_W_LR;
-        // W constituent partial density in liquid phase
-        // == rho_W_LR || rho_LR
-
         auto& rho_C_LR = ip_data.rho_C_LR;
-        // C constituent partial density in liquid phase
-        // == rho_C_LR || 0.
 
-#ifdef PHASE_TRANSITION
-        double xm_C_G;        // C constituent gas phase mass fraction
-        double xm_W_G;        // W constituent gas phase mass fraction
-        double xm_C_L;        // C constituent liquid phase mass fraction
-        double xm_W_L;        // W constituent liquid phase mass fraction
-        double dxm_C_G_dpGR;  // C mass fraction derivative w.r.t. pGR in G
-                              // phase
-        double dxm_W_G_dpGR;  // W mass fraction derivative w.r.t. pGR in G
-                              // phase
-        double dxm_C_L_dpLR;  // C mass fraction derivative w.r.t. pLR in L
-                              // phase
-        double dxm_W_L_dpLR;  // W mass fraction derivative w.r.t. pLR in L
-                              // phase
-        double dxm_C_G_dT;    // C mass fraction derivative w.r.t. T in G phase
-        double dxm_W_G_dT;    // W mass fraction derivative w.r.t. T in G phase
-        double dxm_C_L_dT;    // C mass fraction derivative w.r.t. T in L phase
-        double dxm_W_L_dT;    // W mass fraction derivative w.r.t. T in L phase
+        auto& xm_C_G = ip_data.xmCG;  // C constituent gas phase mass fraction
+        auto& xm_W_G = ip_data.xmWG;  // W constituent gas phase mass fraction
 
-        VLE(phase_transition, T, pGR, pCap, rho_GR, rho_C_GR, rho_W_GR, rho_LR,
-            rho_C_LR, rho_W_LR, xm_C_G, xm_W_G, xm_C_L, xm_W_L, dxm_C_G_dpGR,
-            dxm_W_G_dpGR, dxm_C_L_dpLR, dxm_W_L_dpLR, dxm_C_G_dT, dxm_W_G_dT,
-            dxm_C_L_dT, dxm_W_L_dT);
-#else
-        double xm_C_G = 1.;  // C constituent gas phase mass fraction
-        double xm_W_G = 0.;  // W constituent gas phase mass fraction
+        auto& xm_C_L =
+            ip_data.xmCL;  // C constituent liquid phase mass fraction
+        auto& xm_W_L =
+            ip_data.xmWL;  // W constituent liquid phase mass fraction
 
-        double xm_C_L = 0.;  // C constituent liquid phase mass fraction
-        double xm_W_L = 1.;  // W constituent liquid phase mass fraction
-
-        double dxm_C_G_dpGR = 0.;
-        // C mass fraction derivative w.r.t. pGR in G phase
-        double dxm_W_G_dpGR = 0.;
-        // W mass fraction derivative w.r.t. pGR in G phase
-        double dxm_C_L_dpLR = 0.;
-        // C mass fraction derivative w.r.t. pLR in L phase
-        double dxm_W_L_dpLR = 0.;
-        // W mass fraction derivative w.r.t. pLR in L phase
-        double dxm_C_G_dT = 0.;
-        // C mass fraction derivative w.r.t. T in G phase
-        double dxm_W_G_dT = 0.;
-        // W mass fraction derivative w.r.t. T in G phase
-        double dxm_C_L_dT = 0.;
-        // C mass fraction derivative w.r.t. T in L phase
-        double dxm_W_L_dT = 0.;
-        // W mass fraction derivative w.r.t. T in L phase
-
-#endif  // PHASE_TRANSITION
+        auto& dxm_C_G_dpGR = ip_data.dxmCG_dpGR;
+        auto& dxm_W_G_dpGR = ip_data.dxmWG_dpGR;
+        auto& dxm_C_L_dpLR = ip_data.dxmCL_dpLR;
+        auto& dxm_W_L_dpLR = ip_data.dxmWL_dpLR;
+        auto& dxm_C_G_dT = ip_data.dxmCG_dT;
+        auto& dxm_W_G_dT = ip_data.dxmWG_dT;
+        auto& dxm_C_L_dT = ip_data.dxmCL_dT;
+        auto& dxm_W_L_dT = ip_data.dxmWL_dT;
 
         //  - solid phase properties
-        const double beta_pS =
-            solid_phase.property(MPL::PropertyType::compressibility)
-                .template value<double>(
-                    vars, pos, t, std::numeric_limits<double>::quiet_NaN());
-        const double beta_T_SR =
-            solid_phase.property(MPL::PropertyType::thermal_expansivity)
-                .template value<double>(
-                    vars, pos, t, std::numeric_limits<double>::quiet_NaN());
-        const double rho_ref_SR =
-            solid_phase.property(MPL::PropertyType::density)
-                .template value<double>(
-                    vars, pos, t, std::numeric_limits<double>::quiet_NaN());
-
-        const double c_p_S = 1000.;
-        const double lambda_SR =
-            solid_phase.property(MPL::PropertyType::thermal_conductivity)
-                .template value<double>(vars, pos, t, dt);
+        auto& beta_pS = ip_data.beta_pS;
+        auto& beta_T_SR = ip_data.beta_T_SR;
+        auto& c_p_S = ip_data.c_p_S;
+        auto& lambda_SR = ip_data.lambdaSR;
 
         //  - gas phase properties
-        auto const mu_GR = gas_phase.property(MPL::PropertyType::viscosity)
-                               .template value<double>(vars, pos, t, dt);
-        auto const c_p_G =
-            gas_phase.property(MPL::PropertyType::specific_heat_capacity)
-                .template value<double>(vars, pos, t, dt);
-        // unused for now, implicit in h_L
-
-        auto const lambda_GR =
-            gas_phase.property(MPL::PropertyType::thermal_conductivity)
-                .template value<double>(vars, pos, t, dt);
-
-        const auto c_p_C_G = 1000.;  // J/kg/K
-        const auto c_p_W_G = 1914.;  // J/kg/K
-        const auto h_C_G = c_p_C_G * T;
-        const auto h_W_G = c_p_W_G * T;
+        auto& mu_GR = ip_data.muGR;
+        auto& lambda_GR = ip_data.lambdaGR;
 
         //  - liquid phase properties
-        auto const mu_LR = liquid_phase.property(MPL::PropertyType::viscosity)
-                               .template value<double>(vars, pos, t, dt);
+        auto& mu_LR = ip_data.muLR;
+        auto& lambda_LR = ip_data.lambdaLR;
 
-        auto const c_p_L =
-            liquid_phase.property(MPL::PropertyType::specific_heat_capacity)
-                .template value<double>(vars, pos, t, dt);
-        // unused for now, implicit in h_G
-
-        auto const lambda_LR =
-            liquid_phase.property(MPL::PropertyType::thermal_conductivity)
-                .template value<double>(vars, pos, t, dt);
-
-        const auto c_p_C_L = 1000.;  // J/kg/K
-        const auto c_p_W_L = 4180.;  // J/kg/K
-        const auto h_C_L = c_p_C_L * T;
-        const auto h_W_L = c_p_W_L * T;
         // constant liquid constituent enthalpies ftw!
-
         // const auto h_W_L = 112654.;  // J/kg
         // const auto h_C_L = 648584.;  // J/kg
 
@@ -1095,27 +1483,22 @@ void TH2MLocalAssembler<
         const auto D_W_L = (sD_L * I).eval();
 
         //  - medium properties
-        auto const k_S = MPL::formEigenTensor<DisplacementDim>(
-            medium.property(MPL::PropertyType::permeability)
-                .value(vars, pos, t, dt));
+        MPL::VariableArray vars;
+        // auto const k_S = MPL::formEigenTensor<DisplacementDim>(
+        //     medium.property(MPL::PropertyType::permeability)
+        //         .value(vars, pos, t, dt));
+        auto& k_S = ip_data.k_S;
 
         auto& s_L = ip_data.saturation;
         auto const s_G = 1. - s_L;
-
         const auto s_L_dot = (s_L - ip_data.saturation_prev) / dt;
 
-        vars[static_cast<int>(MPL::Variable::liquid_saturation)] = s_L;
+        // vars[static_cast<int>(MPL::Variable::liquid_saturation)] = s_L;
 
-        auto const alpha_B =
-            medium.property(MPL::PropertyType::biot_coefficient)
-                .template value<double>(vars, pos, t, dt);
+        auto& alpha_B = ip_data.alpha_B;
+        auto& beta_p_SR = ip_data.beta_p_SR;
 
-        auto const beta_p_SR = (1. - alpha_B) * beta_pS;
-
-        auto const k_rel =
-            medium.property(MPL::PropertyType::relative_permeability)
-                .template value<Eigen::Vector2d>(vars, pos, t, dt);
-
+        auto const k_rel = ip_data.kRel;
         auto const k_rel_L = k_rel[0];
         auto const k_rel_G = k_rel[1];
 
@@ -1144,15 +1527,16 @@ void TH2MLocalAssembler<
             phi_S * lambda_SR + phi_L * lambda_LR + phi_G * lambda_GR);
 
         // TODO (Wenqing) : Change dT to time step wise increment
-        double const delta_T(T - T0);
-        double const thermal_strain = beta_T_SR * delta_T;
+        // double const delta_T(T - T0);
+        // double const thermal_strain = beta_T_SR * delta_T;
         // prevent rho_SR and p_SR being killed by crazy T
 
-        auto const rho_SR = rho_ref_SR * (1. - 3. * thermal_strain);
+        auto& rho_SR = ip_data.rho_SR;
         auto const rho = phi_G * rho_GR + phi_L * rho_LR + phi_S * rho_SR;
 
         // TODO: change back to rho_SR
-        // auto const rho_c_p = phi_G * rho_GR * c_p_G + phi_L * rho_LR * c_p_L
+        // auto const rho_c_p = phi_G * rho_GR * c_p_G + phi_L * rho_LR *
+        // c_p_L
         // +
         //                      phi_S * rho_ref_SR * c_p_S;
 
@@ -1168,9 +1552,7 @@ void TH2MLocalAssembler<
         const double rho_W_FR = s_G * rho_W_GR + s_L * rho_W_LR;
 
         // solid phase pressure
-        const double p_SR =
-            p_FR - 1. / (beta_pS * phi_S) * (div_u - thermal_strain);
-
+        auto& p_SR = ip_data.p_SR;
         // const double p_SR_dot =
         //     p_FR_dot -
         //     1. / (beta_pS * phi_S) * (div_u_dot - beta_T_SR * T_dot) -
@@ -1183,9 +1565,9 @@ void TH2MLocalAssembler<
             (phi_S_p_SR - ip_data.phi_S_p_SR_prev) / dt;
 
         // phase specific enthalpies
-        const auto h_G = xm_C_G * h_C_G + xm_W_G * h_W_G;
-        const auto h_L = xm_W_L * h_W_L + xm_C_L * h_C_L;
-        const auto h_S = c_p_S * T;
+        auto& h_G = ip_data.h_G;
+        auto& h_L = ip_data.h_L;
+        auto& h_S = ip_data.h_S;
 
         // phase enthalpies
         const double rho_G_h_G_dot =
@@ -1217,128 +1599,128 @@ void TH2MLocalAssembler<
 #ifndef MATERIAL_PROPERTIES
         if (output)
         {
-            std::cout
-                << "######################################################\n";
+            std::cout << "#################################################"
+                         "#####\n";
             std::cout << "#    Material properties:\n";
-            std::cout
-                << "#----------------------------------------------------#\n";
+            std::cout << "#------------------------------------------------"
+                         "----#\n";
             std::cout << "#         rho_GR:  " << rho_GR << "\n";
             std::cout << "#       rho_C_GR:  " << rho_C_GR << "\n";
             std::cout << "#       rho_W_GR:  " << rho_W_GR << "\n";
-            std::cout
-                << "#    .    .    .    .    .    .    .    .    .    .  #\n";
+            std::cout << "#    .    .    .    .    .    .    .    .    .   "
+                         " .  #\n";
             std::cout << "#   rho_C_GR_dot:  " << rho_C_GR_dot << "\n";
             std::cout << "#   rho_W_GR_dot:  " << rho_W_GR_dot << "\n";
-            std::cout
-                << "#    .    .    .    .    .    .    .    .    .    .  #\n";
+            std::cout << "#    .    .    .    .    .    .    .    .    .   "
+                         " .  #\n";
             std::cout << "       rho_C_FR : " << rho_C_FR << "\n";
-            std::cout
-                << "#    .    .    .    .    .    .    .    .    .    .  #\n";
+            std::cout << "#    .    .    .    .    .    .    .    .    .   "
+                         " .  #\n";
             std::cout << "#         xm_C_G:  " << xm_C_G << "\n";
             std::cout << "#         xm_W_G:  " << xm_W_G << "\n";
-            std::cout
-                << "#    .    .    .    .    .    .    .    .    .    .  #\n";
+            std::cout << "#    .    .    .    .    .    .    .    .    .   "
+                         " .  #\n";
             std::cout << "#  d_xm_C_G_dpGR:  " << dxm_C_G_dpGR << "\n";
             std::cout << "#  d_xm_W_G_dpGR:  " << dxm_W_G_dpGR << "\n";
             std::cout << "#    d_xm_C_G_dT:  " << dxm_C_G_dT << "\n";
             std::cout << "#    d_xm_W_G_dT:  " << dxm_W_G_dT << "\n";
-            std::cout
-                << "#----------------------------------------------------#\n";
+            std::cout << "#------------------------------------------------"
+                         "----#\n";
             std::cout << "#         rho_LR:  " << rho_LR << "\n";
             std::cout << "#       rho_C_LR:  " << rho_C_LR << "\n";
             std::cout << "#       rho_W_LR:  " << rho_W_LR << "\n";
-            std::cout
-                << "#    .    .    .    .    .    .    .    .    .    .  #\n";
+            std::cout << "#    .    .    .    .    .    .    .    .    .   "
+                         " .  #\n";
             std::cout << "#   rho_C_LR_dot:  " << rho_C_LR_dot << "\n";
             std::cout << "#   rho_W_LR_dot:  " << rho_W_LR_dot << "\n";
-            std::cout
-                << "#    .    .    .    .    .    .    .    .    .    .  #\n";
+            std::cout << "#    .    .    .    .    .    .    .    .    .   "
+                         " .  #\n";
             std::cout << "       rho_W_FR : " << rho_W_FR << "\n";
-            std::cout
-                << "#    .    .    .    .    .    .    .    .    .    .  #\n";
+            std::cout << "#    .    .    .    .    .    .    .    .    .   "
+                         " .  #\n";
             std::cout << "#         xm_C_L:  " << xm_C_L << "\n";
             std::cout << "#         xm_W_L:  " << xm_W_L << "\n";
-            std::cout
-                << "#    .    .    .    .    .    .    .    .    .    .  #\n";
+            std::cout << "#    .    .    .    .    .    .    .    .    .   "
+                         " .  #\n";
             std::cout << "#  d_xm_C_L_dpLR:  " << dxm_C_L_dpLR << "\n";
             std::cout << "#  d_xm_W_L_dpLR:  " << dxm_W_L_dpLR << "\n";
             std::cout << "#    d_xm_C_L_dT:  " << dxm_C_L_dT << "\n";
             std::cout << "#    d_xm_W_L_dT:  " << dxm_W_L_dT << "\n";
-            std::cout
-                << "#----------------------------------------------------#\n";
+            std::cout << "#------------------------------------------------"
+                         "----#\n";
             std::cout << "#         rho_SR:  " << rho_SR << "\n";
             std::cout << "#            rho:  " << rho << "\n";
-            std::cout
-                << "#----------------------------------------------------#\n";
-            std::cout << "#          c_p_G:  " << c_p_G << "\n";
-            std::cout << "#          c_p_L:  " << c_p_L << "\n";
-            std::cout << "#          c_p_S:  " << c_p_S << "\n";
-            std::cout
-                << "#----------------------------------------------------#\n";
+            std::cout << "#------------------------------------------------"
+                         "----#\n";
+            // std::cout << "#          c_p_G:  " << c_p_G << "\n";
+            // std::cout << "#          c_p_L:  " << c_p_L << "\n";
+            // std::cout << "#          c_p_S:  " << c_p_S << "\n";
+            std::cout << "#------------------------------------------------"
+                         "----#\n";
             std::cout << "#      beta_p_SR:  " << beta_p_SR << "\n";
             std::cout << "#      beta_T_SR:  " << beta_T_SR << "\n";
-            std::cout
-                << "#----------------------------------------------------#\n";
+            std::cout << "#------------------------------------------------"
+                         "----#\n";
             std::cout << "#            h_G:  " << h_G << "\n";
             std::cout << "#            h_L:  " << h_L << "\n";
             std::cout << "#            h_S:  " << h_S << "\n";
-            std::cout
-                << "#    .    .    .    .    .    .    .    .    .    .  #\n";
-            std::cout << "#          h_C_G:  " << h_C_G << "\n";
-            std::cout << "#          h_W_G:  " << h_W_G << "\n";
-            std::cout << "#          h_C_L:  " << h_C_L << "\n";
-            std::cout << "#          h_W_L:  " << h_W_L << "\n";
-            std::cout
-                << "#    .    .    .    .    .    .    .    .    .    .  #\n";
+            std::cout << "#    .    .    .    .    .    .    .    .    .   "
+                         " .  #\n";
+            // std::cout << "#          h_C_G:  " << h_C_G << "\n";
+            // std::cout << "#          h_W_G:  " << h_W_G << "\n";
+            // std::cout << "#          h_C_L:  " << h_C_L << "\n";
+            // std::cout << "#          h_W_L:  " << h_W_L << "\n";
+            std::cout << "#    .    .    .    .    .    .    .    .    .   "
+                         " .  #\n";
             std::cout << "#      rho_h_eff:  " << rho_h_eff << "\n";
             std::cout << "#      rho_G_h_G:  " << ip_data.rho_G_h_G << "\n";
             std::cout << "#      rho_L_h_L:  " << ip_data.rho_L_h_L << "\n";
             std::cout << "#      rho_S_h_S:  " << ip_data.rho_S_h_S << "\n";
-            std::cout
-                << "#    .    .    .    .    .    .    .    .    .    .  #\n";
+            std::cout << "#    .    .    .    .    .    .    .    .    .   "
+                         " .  #\n";
             std::cout << "#  rho_G_h_G_dot:  " << rho_G_h_G_dot << "\n";
             std::cout << "#  rho_L_h_L_dot:  " << rho_L_h_L_dot << "\n";
             std::cout << "#  rho_S_h_S_dot:  " << rho_S_h_S_dot << "\n";
-            std::cout
-                << "#----------------------------------------------------#\n";
+            std::cout << "#------------------------------------------------"
+                         "----#\n";
             std::cout << "#            k_S:\n" << k_S << "\n";
-            std::cout
-                << "#----------------------------------------------------#\n";
+            std::cout << "#------------------------------------------------"
+                         "----#\n";
             std::cout << "#        k_rel_L:  " << k_rel_L << "\n";
             std::cout << "#        k_rel_G:  " << k_rel_G << "\n";
             std::cout << "#          mu_GR:  " << mu_GR << "\n";
             std::cout << "#          mu_LR:  " << mu_LR << "\n";
             std::cout << "#    k_over_mu_G:\n" << k_over_mu_G << "\n";
             std::cout << "#    k_over_mu_L:\n" << k_over_mu_L << "\n";
-            std::cout
-                << "#----------------------------------------------------#\n";
+            std::cout << "#------------------------------------------------"
+                         "----#\n";
             std::cout << "#            s_L:  " << s_L << "\n";
             std::cout << "#            s_G:  " << s_G << "\n";
             std::cout << "#        s_L_dot:  " << s_L_dot << "\n";
-            std::cout
-                << "#----------------------------------------------------#\n";
+            std::cout << "#------------------------------------------------"
+                         "----#\n";
             std::cout << "#        alpha_B:  " << alpha_B << "\n";
             std::cout << "#        beta_p_SR:  " << beta_p_SR << "\n";
             std::cout << "#        beta_T_SR:  " << beta_T_SR << "\n";
-            std::cout
-                << "#----------------------------------------------------#\n";
+            std::cout << "#------------------------------------------------"
+                         "----#\n";
             std::cout << "#         lambda:\n" << lambda << "\n";
-            std::cout
-                << "#----------------------------------------------------#\n";
+            std::cout << "#------------------------------------------------"
+                         "----#\n";
             std::cout << "#            phi:  " << phi << "\n";
             std::cout << "#          phi_G:  " << phi_G << "\n";
             std::cout << "#          phi_L:  " << phi_L << "\n";
             std::cout << "#          phi_S:  " << phi_S << "\n";
-            std::cout
-                << "######################################################\n";
+            std::cout << "#################################################"
+                         "#####\n";
             std::cout << "#  Darcy-Velocities: "
                       << "\n";
-            std::cout
-                << "#----------------------------------------------------#\n";
+            std::cout << "#------------------------------------------------"
+                         "----#\n";
             std::cout << "#           w_LS:\n" << w_LS << "\n";
             std::cout << "#           w_GS:\n" << w_GS << "\n";
-            std::cout
-                << "######################################################\n";
+            std::cout << "#################################################"
+                         "#####\n";
         }
         // OGS_FATAL("It has to stop!");
 #endif
@@ -1353,7 +1735,7 @@ void TH2MLocalAssembler<
         MCpC.noalias() -=
             NpT * rho_C_FR * (alpha_B - phi) * beta_p_SR * s_L * Np * w;
 
-        if (pCap_dot != 0.) // avoid division by Zero
+        if (pCap_dot != 0.)  // avoid division by Zero
         {
             MCpC.noalias() += NpT *
                               (phi * (rho_C_LR - rho_C_GR) -
@@ -1515,7 +1897,7 @@ void TH2MLocalAssembler<
         eps.noalias() = Bu * displacement;
         ip_data.updateConstitutiveRelationThermal(
             t, pos, dt, displacement,
-            _process_data.reference_temperature(t, pos)[0], thermal_strain);
+            _process_data.reference_temperature(t, pos)[0]);
 
         fU.noalias() -= (BuT * sigma_eff - Nu_op.transpose() * rho * b) * w;
         PRINT2(output, fU, (BuT * sigma_eff - Nu_op.transpose() * rho * b));
@@ -1534,7 +1916,8 @@ void TH2MLocalAssembler<
                 {
                     if (row != column)
                     {
-                        // std::cout << "row: " << row << " column: " << column
+                        // std::cout << "row: " << row << " column: " <<
+                        // column
                         //           << "\n";
 
                         // std::cout << MCpG(row, row) << " " << MCpG(row,
@@ -1704,8 +2087,8 @@ TH2MLocalAssembler<ShapeFunctionDisplacement, ShapeFunctionPressure,
             N_p.dot(T);  // N_p = N_T
         vars[static_cast<int>(MPL::Variable::phase_pressure)] = N_p.dot(pGR);
 
-        // TODO (naumov) Temporary value not used by current material models.
-        // Need extension of secondary variables interface.
+        // TODO (naumov) Temporary value not used by current material
+        // models. Need extension of secondary variables interface.
         double const dt = std::numeric_limits<double>::quiet_NaN();
 
         auto const mu_GR = gas_phase.property(MPL::PropertyType::viscosity)
@@ -1791,8 +2174,8 @@ TH2MLocalAssembler<ShapeFunctionDisplacement, ShapeFunctionPressure,
         vars[static_cast<int>(MPL::Variable::temperature)] = N_p.dot(T);
         vars[static_cast<int>(MPL::Variable::phase_pressure)] = N_p.dot(pLR);
 
-        // TODO (naumov) Temporary value not used by current material models.
-        // Need extension of secondary variables interface.
+        // TODO (naumov) Temporary value not used by current material
+        // models. Need extension of secondary variables interface.
         double const dt = std::numeric_limits<double>::quiet_NaN();
 
         auto const mu_LR = liquid_phase.property(MPL::PropertyType::viscosity)
@@ -1902,7 +2285,7 @@ void TH2MLocalAssembler<ShapeFunctionDisplacement, ShapeFunctionPressure,
 
         _ip_data[ip].updateConstitutiveRelationThermal(
             t, pos, dt, displacement,
-            _process_data.reference_temperature(t, pos)[0], thermal_strain);
+            _process_data.reference_temperature(t, pos)[0]);
 
         auto const rho_LR = liquid_phase.property(MPL::PropertyType::density)
                                 .template value<double>(vars, pos, t, dt);
