@@ -43,6 +43,7 @@ enum PropertyType : int
     critical_pressure,
     critical_temperature,
     compressibility,
+    concentration,
     /// used to specify decay rate of a substance.
     decay_rate,
     density,
@@ -52,6 +53,7 @@ enum PropertyType : int
     entry_pressure,
     fredlund_parameters,
     heat_capacity,
+    henry_coefficient,
     /// used to compute the hydrodynamic dispersion tensor.
     longitudinal_dispersivity,
     molar_mass,
@@ -71,6 +73,7 @@ enum PropertyType : int
     /// specify retardation factor used in component transport process.
     retardation_factor,
     saturation,
+    saturation_vapour_pressure,
     specific_heat_capacity,
     storage,
     swelling_stress_rate,
@@ -132,6 +135,10 @@ inline PropertyType convertStringToProperty(std::string const& inString)
     {
         return PropertyType::compressibility;
     }
+    if (boost::iequals(inString, "concentration"))
+    {
+        return PropertyType::concentration;
+    }
     if (boost::iequals(inString, "decay_rate"))
     {
         return PropertyType::decay_rate;
@@ -163,6 +170,10 @@ inline PropertyType convertStringToProperty(std::string const& inString)
     if (boost::iequals(inString, "heat_capacity"))
     {
         return PropertyType::heat_capacity;
+    }
+    if (boost::iequals(inString, "henry_coefficient"))
+    {
+        return PropertyType::henry_coefficient;
     }
     if (boost::iequals(inString, "longitudinal_dispersivity"))
     {
@@ -228,6 +239,10 @@ inline PropertyType convertStringToProperty(std::string const& inString)
     {
         return PropertyType::saturation;
     }
+    if (boost::iequals(inString, "saturation_vapour_pressure"))
+    {
+        return PropertyType::saturation_vapour_pressure;
+    }
     if (boost::iequals(inString, "specific_heat_capacity"))
     {
         return PropertyType::specific_heat_capacity;
@@ -288,6 +303,7 @@ static const std::array<std::string, PropertyType::number_of_properties>
                              "critical_pressure",
                              "critical_temperature",
                              "compressibility",
+                             "concentration",
                              "decay_rate",
                              "density",
                              "diffusion",
@@ -296,6 +312,7 @@ static const std::array<std::string, PropertyType::number_of_properties>
                              "entry_pressure",
                              "fredlund_parameters",
                              "heat_capacity",
+                             "henry_coefficient",
                              "longitudinal_dispersivity",
                              "molar_mass",
                              "mole_fraction",
@@ -312,6 +329,7 @@ static const std::array<std::string, PropertyType::number_of_properties>
                              "residual_liquid_saturation",
                              "retardation_factor",
                              "saturation",
+                             "saturation_vapour_pressure",
                              "specific_heat_capacity",
                              "storage",
                              "swelling_stress_rate",
