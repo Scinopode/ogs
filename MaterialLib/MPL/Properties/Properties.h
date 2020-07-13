@@ -26,6 +26,7 @@
 #include "HenryTemperature.h"
 #include "IdealGasLaw.h"
 #include "LinearProperty.h"
+#include "AverageMolarMass.h"
 #include "ParameterProperty.h"
 #include "PorosityFromMassBalance.h"
 #include "RelativePermeability/RelPermBrooksCorey.h"

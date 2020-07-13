@@ -27,6 +27,7 @@
 #include "CreateHenryTemperature.h"
 #include "CreateIdealGasLaw.h"
 #include "CreateLinearProperty.h"
+#include "CreateAverageMolarMass.h"
 #include "CreateParameterProperty.h"
 #include "CreatePermeabilityOrthotropicPowerLaw.h"
 #include "CreatePorosityFromMassBalance.h"
