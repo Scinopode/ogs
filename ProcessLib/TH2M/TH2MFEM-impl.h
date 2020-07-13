@@ -57,7 +57,15 @@ TH2MLocalAssembler<ShapeFunctionDisplacement, ShapeFunctionPressure,
       _gas_density(
           std::vector<double>(_integration_method.getNumberOfPoints())),
       _porosity(std::vector<double>(_integration_method.getNumberOfPoints())),
-      _saturation(std::vector<double>(_integration_method.getNumberOfPoints()))
+      _saturation(std::vector<double>(_integration_method.getNumberOfPoints())),
+      _mole_fraction_gas(
+          std::vector<double>(_integration_method.getNumberOfPoints())),
+      _mole_fraction_liquid(
+          std::vector<double>(_integration_method.getNumberOfPoints())),
+      _mass_fraction_gas(
+          std::vector<double>(_integration_method.getNumberOfPoints())),
+      _mass_fraction_liquid(
+          std::vector<double>(_integration_method.getNumberOfPoints()))
 {
     unsigned const n_integration_points =
         _integration_method.getNumberOfPoints();
@@ -572,6 +580,7 @@ void TH2MLocalAssembler<ShapeFunctionDisplacement, ShapeFunctionPressure,
         // PRINT(xnG[0]);
         // PRINT(xnG[1]);
 
+        ip_data.xnCG = xnG[0];
         vars[static_cast<int>(MPL::Variable::mole_fraction)] = xnG[0];
 
         auto const MG = gas_phase.property(MPL::PropertyType::molar_mass)
@@ -1546,6 +1555,9 @@ void TH2MLocalAssembler<
         _gas_density[ip] = rho_GR;
         _porosity[ip] = phi;
         _saturation[ip] = s_L;
+        _mole_fraction_gas[ip] = ip_data.xnCG;
+        _mass_fraction_gas[ip] = ip_data.xmCG;
+        _mass_fraction_liquid[ip] = ip_data.xmWL;
 
         // abbreviations
         const double rho_C_FR = s_G * rho_C_GR + s_L * rho_C_LR;
@@ -2247,6 +2259,8 @@ void TH2MLocalAssembler<ShapeFunctionDisplacement, ShapeFunctionPressure,
     for (int ip = 0; ip < n_integration_points; ip++)
     {
         pos.setIntegrationPoint(ip);
+        auto& ip_data = _ip_data[ip];
+
         auto const& Nu = _ip_data[ip].N_u;
         auto const& Np = _ip_data[ip].N_p;
         auto const& NT = Np;
@@ -2304,6 +2318,9 @@ void TH2MLocalAssembler<ShapeFunctionDisplacement, ShapeFunctionPressure,
         _gas_density[ip] = rho_GR;
         _porosity[ip] = phi;
         _saturation[ip] = s_L;
+        _mole_fraction_gas[ip] = ip_data.xnCG;
+        _mass_fraction_gas[ip] = ip_data.xmCG;
+        _mass_fraction_liquid[ip] = ip_data.xmWL;
     }
 }
 
@@ -2351,16 +2368,21 @@ void TH2MLocalAssembler<ShapeFunctionDisplacement, ShapeFunctionPressure,
 
     for (unsigned ip = 0; ip < n_integration_points; ip++)
     {
-        auto const& Np = _ip_data[ip].N_p;
+        auto& ip_data = _ip_data[ip];
+
+        auto const& Np = ip_data.N_p;
 
         double const pGR = Np.dot(gas_pressure);
         double const pCap = Np.dot(capillary_pressure);
         double const pLR = pGR - pCap;
 
         _liquid_pressure[ip] = pLR;
-        _liquid_density[ip] = _ip_data[ip].rho_LR;
-        _gas_density[ip] = _ip_data[ip].rho_GR;
-        _saturation[ip] = _ip_data[ip].saturation;
+        _liquid_density[ip] = ip_data.rho_LR;
+        _gas_density[ip] = ip_data.rho_GR;
+        _saturation[ip] = ip_data.saturation;
+        _mole_fraction_gas[ip] = ip_data.xnCG;
+        _mass_fraction_gas[ip] = ip_data.xmCG;
+        _mass_fraction_liquid[ip] = ip_data.xmWL;
     }
 }
 

@@ -315,6 +315,15 @@ void TH2MProcess<DisplacementDim>::initializeConcreteProcess(
                            &LocalAssemblerIF::getIntPtLiquidDensity);
     add_secondary_variable("liquid_pressure", 1,
                            &LocalAssemblerIF::getIntPtLiquidPressure);
+    add_secondary_variable("mole_fraction_gas", 1,
+                           &LocalAssemblerIF::getIntPtMoleFractionGas);
+    add_secondary_variable("mole_fraction_liquid", 1,
+                           &LocalAssemblerIF::getIntPtMoleFractionLiquid);
+    add_secondary_variable("mass_fraction_gas", 1,
+                           &LocalAssemblerIF::getIntPtMassFractionGas);
+    add_secondary_variable("mass_fraction_liquid", 1,
+                           &LocalAssemblerIF::getIntPtMassFractionLiquid);
+                           
 
     _process_data.gas_pressure_interpolated =
         MeshLib::getOrCreateMeshProperty<double>(

@@ -319,6 +319,45 @@ private:
         return _saturation;
     }
 
+    virtual std::vector<double> const& getIntPtMoleFractionGas(
+        const double /*t*/,
+        std::vector<GlobalVector*> const& /*x*/,
+        std::vector<NumLib::LocalToGlobalIndexMap const*> const& /*dof_table*/,
+        std::vector<double>& /*cache*/) const override
+    {
+        assert(!_mole_fraction_gas.empty());
+        return _mole_fraction_gas;
+    }
+    virtual std::vector<double> const& getIntPtMoleFractionLiquid(
+        const double /*t*/,
+        std::vector<GlobalVector*> const& /*x*/,
+        std::vector<NumLib::LocalToGlobalIndexMap const*> const& /*dof_table*/,
+        std::vector<double>& /*cache*/) const override
+    {
+        assert(!_mole_fraction_liquid.empty());
+        return _mole_fraction_liquid;
+    }
+    virtual std::vector<double> const& getIntPtMassFractionGas(
+        const double /*t*/,
+        std::vector<GlobalVector*> const& /*x*/,
+        std::vector<NumLib::LocalToGlobalIndexMap const*> const& /*dof_table*/,
+        std::vector<double>& /*cache*/) const override
+    {
+        assert(!_mass_fraction_gas.empty());
+        return _mass_fraction_gas;
+    }
+    virtual std::vector<double> const& getIntPtMassFractionLiquid(
+        const double /*t*/,
+        std::vector<GlobalVector*> const& /*x*/,
+        std::vector<NumLib::LocalToGlobalIndexMap const*> const& /*dof_table*/,
+        std::vector<double>& /*cache*/) const override
+    {
+        assert(!_mass_fraction_liquid.empty());
+        return _mass_fraction_liquid;
+    }
+
+
+
 private:
     TH2MProcessData<DisplacementDim>& _process_data;
 
@@ -342,6 +381,11 @@ private:
     std::vector<double> _gas_density;
     std::vector<double> _porosity;
     std::vector<double> _saturation;
+    std::vector<double> _mole_fraction_gas;
+    std::vector<double> _mole_fraction_liquid;
+    std::vector<double> _mass_fraction_gas;
+    std::vector<double> _mass_fraction_liquid;
+
 
     // The shape function of pressure has the same form with the shape function
     // of temperature
