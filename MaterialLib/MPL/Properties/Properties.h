@@ -22,6 +22,7 @@
 #include "DaltonsLaw.h"
 #include "DupuitPermeability.h"
 #include "ExponentialProperty.h"
+#include "HenrysLaw.h"
 #include "HenryTemperature.h"
 #include "IdealGasLaw.h"
 #include "LinearProperty.h"
