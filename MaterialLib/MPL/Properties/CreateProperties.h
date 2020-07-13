@@ -21,6 +21,7 @@
 #include "CreateConstant.h"
 #include "CreateCurveProperty.h"
 #include "CreateDupuitPermeability.h"
+#include "CreateDaltonsLaw.h"
 #include "CreateExponentialProperty.h"
 #include "CreateIdealGasLaw.h"
 #include "CreateLinearProperty.h"

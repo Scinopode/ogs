@@ -72,6 +72,11 @@ std::unique_ptr<MaterialPropertyLib::Property> createProperty(
         return createDupuitPermeability(config, parameters);
     }
 
+    if (boost::iequals(property_type, "DaltonsLaw"))
+    {
+        return createDaltonsLaw(config);
+    }
+
     if (boost::iequals(property_type, "IdealGasLaw"))
     {
         return createIdealGasLaw(config);
