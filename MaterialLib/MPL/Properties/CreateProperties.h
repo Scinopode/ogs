@@ -22,6 +22,7 @@
 #include "CreateCurveProperty.h"
 #include "CreateDupuitPermeability.h"
 #include "CreateDaltonsLaw.h"
+#include "CreateHenrysLaw.h"
 #include "CreateExponentialProperty.h"
 #include "CreateHenryTemperature.h"
 #include "CreateIdealGasLaw.h"
