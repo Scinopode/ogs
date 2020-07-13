@@ -58,6 +58,8 @@ enum class Variable : int
     strain,
     stress,
     volumetric_strain_rate,
+    mole_fraction,  // used to pass gas phase main component mole fraction to
+                    // the liquid phase solubility property
     number_of_variables
 };
 
