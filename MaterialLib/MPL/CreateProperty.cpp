@@ -77,9 +77,24 @@ std::unique_ptr<MaterialPropertyLib::Property> createProperty(
         return createDaltonsLaw(config);
     }
 
+    if (boost::iequals(property_type, "HenrysLaw"))
+    {
+        return createHenrysLaw(config);
+    }    
+
+    if (boost::iequals(property_type, "HenryTemperature"))
+    {
+        return createHenryTemperature(config);
+    }
+
     if (boost::iequals(property_type, "IdealGasLaw"))
     {
         return createIdealGasLaw(config);
+    }
+
+    if (boost::iequals(property_type, "AverageMolarMass"))
+    {
+        return createAverageMolarMass(config);
     }
 
     if (boost::iequals(property_type, "PermeabilityOrthotropicPowerLaw"))
