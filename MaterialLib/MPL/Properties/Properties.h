@@ -11,6 +11,7 @@
  */
 #pragma once
 
+#include "Antoine.h"
 #include "BishopsPowerLaw.h"
 #include "BishopsSaturationCutoff.h"
 #include "Constant.h"
