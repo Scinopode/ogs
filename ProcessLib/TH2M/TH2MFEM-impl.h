@@ -575,17 +575,20 @@ void TH2MLocalAssembler<ShapeFunctionDisplacement, ShapeFunctionPressure,
         // PRINT(pLR);
         // PRINT(T);
 
-        auto const xnG = gas_phase.property(MPL::PropertyType::mole_fraction)
-                             .template value<Eigen::Vector2d>(vars, pos, t, dt);
+        Eigen::Vector2d xnG = {1., 0.};
+
+        if (nComponentsGas == 2)
+        {
+            xnG = gas_phase.property(MPL::PropertyType::mole_fraction)
+                      .template value<Eigen::Vector2d>(vars, pos, t, dt);
+        }
+
         // PRINT(xnG[0]);
         // PRINT(xnG[1]);
 
         ip_data.xnCG = xnG[0];
-        vars[static_cast<int>(MPL::Variable::mole_fraction)] = xnG[0];
 
-        auto const MG = gas_phase.property(MPL::PropertyType::molar_mass)
-                            .template value<double>(vars, pos, t, dt);
-        // PRINT(MG);
+        vars[static_cast<int>(MPL::Variable::mole_fraction)] = xnG[0];
 
         auto const pCGR = xnG[0] * pGR;
         auto const pWGR = xnG[1] * pGR;
@@ -631,6 +634,9 @@ void TH2MLocalAssembler<ShapeFunctionDisplacement, ShapeFunctionPressure,
                     .template dValue<double>(vars, MPL::Variable::temperature,
                                              pos, t, dt);
 
+            auto const MG = gas_phase.property(MPL::PropertyType::molar_mass)
+                                .template value<double>(vars, pos, t, dt);
+            // PRINT(MG);
             xmG[0] = xnG[0] *
                      gas_phase.component(0)
                          .property(MPL::PropertyType::molar_mass)
