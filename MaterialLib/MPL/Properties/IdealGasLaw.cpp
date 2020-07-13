@@ -14,6 +14,7 @@
  */
 
 #include "MaterialLib/MPL/Properties/IdealGasLaw.h"
+
 #include "MaterialLib/MPL/Medium.h"
 #include "MaterialLib/PhysicalConstant.h"
 
@@ -37,6 +38,24 @@ double molarMass(Phase* _phase, Component* _component,
     OGS_FATAL(
         "Neither a phase nor a component are set for retrieving molar "
         "mass.");
+
+    return 0.;
+}
+
+double dMolarMass(Phase* _phase, Component* _component,
+                  VariableArray const& variable_array,
+                  Variable const primary_variable,
+                  ParameterLib::SpatialPosition const& pos, double const t,
+                  double const dt)
+{
+    if (_phase)  // IdealGasLaw of an entire phase
+    {
+        return _phase->property(PropertyType::molar_mass)
+            .template dValue<double>(variable_array, primary_variable, pos, t,
+                                     dt);
+    }
+
+    OGS_FATAL("Derivative of molar mass implemented as phase property only.");
 
     return 0.;
 }
@@ -71,15 +90,21 @@ PropertyDataType IdealGasLaw::dValue(VariableArray const& variable_array,
     double molar_mass =
         molarMass(_phase, _component, variable_array, pos, t, dt);
 
+    double dMolarMass_dP = dMolarMass(_phase, _component, variable_array,
+                                      Variable::phase_pressure, pos, t, dt);
+    double dMolarMass_dT = dMolarMass(_phase, _component, variable_array,
+                                      Variable::temperature, pos, t, dt);
+
     if (primary_variable == Variable::temperature)
     {
-        return -pressure * molar_mass / gas_constant / temperature /
-               temperature;
+        return pressure / gas_constant / temperature / temperature *
+               (temperature * dMolarMass_dT - molar_mass);
     }
 
     if (primary_variable == Variable::phase_pressure)
     {
-        return molar_mass / gas_constant / temperature;
+        return (molar_mass + pressure * dMolarMass_dP) / gas_constant /
+               temperature;
     }
 
     OGS_FATAL(
