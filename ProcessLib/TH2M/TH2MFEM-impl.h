@@ -588,6 +588,7 @@ void TH2MLocalAssembler<ShapeFunctionDisplacement, ShapeFunctionPressure,
         // PRINT(xnG[1]);
 
         ip_data.xnCG = xnG[0];
+        ip_data.xnWG = 1. - xnG[0];
 
         vars[static_cast<int>(MPL::Variable::mole_fraction)] = xnG[0];
 
@@ -1169,7 +1170,9 @@ void TH2MLocalAssembler<
 #define MATERIAL_PROPERTIES
 #endif
 
-        bool output = ((ip == 0) && (_element.getID() == 0)) ? 0 : 0;
+        bool phase_transition = _process_data.phase_transition;
+        bool output =
+            ((ip == 0) && (_element.getID() == 0)) ? phase_transition : 0;
 
 #ifndef UNKNOWNS
         if (output)
@@ -1213,6 +1216,8 @@ void TH2MLocalAssembler<
         std::cout << " --------------- \n";
         std::cout << "*************************************\n";
 #endif
+
+
 
         //   Constitutive properties
         // MPL::VariableArray vars;
@@ -1443,8 +1448,6 @@ void TH2MLocalAssembler<
         //     OGS_FATAL("stop.");
         // }
 
-        bool phase_transition = _process_data.phase_transition;
-
         auto& rho_GR = ip_data.rho_GR;  // gas phase density
         auto& rho_C_GR = ip_data.rho_C_GR;
         auto& rho_W_GR = ip_data.rho_W_GR;
@@ -1452,6 +1455,9 @@ void TH2MLocalAssembler<
         auto& rho_LR = ip_data.rho_LR;  // liquid phase density
         auto& rho_W_LR = ip_data.rho_W_LR;
         auto& rho_C_LR = ip_data.rho_C_LR;
+
+        auto& xn_C_G = ip_data.xnCG;  // C constituent gas phase mass fraction
+        auto& xn_W_G = ip_data.xnWG;  // W constituent gas phase mass fraction
 
         auto& xm_C_G = ip_data.xmCG;  // C constituent gas phase mass fraction
         auto& xm_W_G = ip_data.xmWG;  // W constituent gas phase mass fraction
@@ -1504,6 +1510,28 @@ void TH2MLocalAssembler<
         //     medium.property(MPL::PropertyType::permeability)
         //         .value(vars, pos, t, dt));
         auto& k_S = ip_data.k_S;
+        vars[static_cast<int>(MPL::Variable::temperature)] = T;
+        vars[static_cast<int>(MPL::Variable::phase_pressure)] = pGR;
+        vars[static_cast<int>(MPL::Variable::capillary_pressure)] = pCap;
+        vars[static_cast<int>(MPL::Variable::liquid_phase_pressure)] = pLR;
+
+        bool wert = ((ip == 0) && (_element.getID() == 0));
+
+             if ((liquid_phase.numberOfComponents() == 2)&& wert)
+             {
+                auto H = liquid_phase.component(0)
+                        .property(MPL::PropertyType::henry_coefficient)
+                        .template value<double>(vars, pos, t, dt);
+                auto dH_dT = liquid_phase.component(0)
+                            .property(MPL::PropertyType::henry_coefficient)
+                            .template dValue<double>(
+                                vars, MPL::Variable::temperature, pos, t,
+                                dt);
+            PRINT(H);
+            PRINT(dH_dT);
+            
+            }
+            
 
         auto& s_L = ip_data.saturation;
         auto const s_G = 1. - s_L;
@@ -1616,7 +1644,7 @@ void TH2MLocalAssembler<
                                          k_over_mu_L * gradpGR;
 
 #ifndef MATERIAL_PROPERTIES
-        if (output)
+        if (phase_transition)
         {
             std::cout << "#################################################"
                          "#####\n";
@@ -1633,6 +1661,10 @@ void TH2MLocalAssembler<
             std::cout << "#    .    .    .    .    .    .    .    .    .   "
                          " .  #\n";
             std::cout << "       rho_C_FR : " << rho_C_FR << "\n";
+            std::cout << "#    .    .    .    .    .    .    .    .    .   "
+                         " .  #\n";
+            std::cout << "#         xn_C_G:  " << xn_C_G << "\n";
+            std::cout << "#         xn_W_G:  " << xn_W_G << "\n";
             std::cout << "#    .    .    .    .    .    .    .    .    .   "
                          " .  #\n";
             std::cout << "#         xm_C_G:  " << xm_C_G << "\n";
@@ -1740,8 +1772,9 @@ void TH2MLocalAssembler<
             std::cout << "#           w_GS:\n" << w_GS << "\n";
             std::cout << "#################################################"
                          "#####\n";
+            OGS_FATAL("It has to stop!");
         }
-        // OGS_FATAL("It has to stop!");
+        //     OGS_FATAL("It has to stop!");
 #endif
         PRINT2(output, --------------------------------------, 0);
         PRINT2(output, Component C equation, 0);

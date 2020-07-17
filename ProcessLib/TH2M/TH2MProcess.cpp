@@ -16,7 +16,6 @@
 #include "NumLib/DOF/ComputeSparsityPattern.h"
 #include "ProcessLib/Process.h"
 #include "ProcessLib/TH2M/CreateLocalAssemblers.h"
-
 #include "TH2MFEM.h"
 #include "TH2MProcessData.h"
 
@@ -110,6 +109,21 @@ void checkMPLProperties(MeshLib::Mesh const& mesh,
                     MaterialPropertyLib::property_enum_to_string[property]
                         .c_str());
             }
+        }
+
+        auto const nComponentsGas = gas_phase.numberOfComponents();
+        if (nComponentsGas)
+        {
+            // assume phase change
+            if (!gas_phase.hasProperty(MPL::PropertyType::mole_fraction))
+            {
+                OGS_FATAL(
+                    "If the number of gas phase components is two or more, it "
+                    "is necessary to govern the contribution of these "
+                    "components amoung the phase by setting up the phase "
+                    "property \'mole_fraction\'");
+            }
+            // ... many more to check   
         }
     }
     DBUG("Media properties verified.");
@@ -302,13 +316,11 @@ void TH2MProcess<DisplacementDim>::initializeConcreteProcess(
                            &LocalAssemblerIF::getIntPtEpsilon);
     add_secondary_variable("velocity_gas", mesh.getDimension(),
                            &LocalAssemblerIF::getIntPtDarcyVelocityGas);
-    add_secondary_variable(
-        "velocity_liquid", mesh.getDimension(),
-        &LocalAssemblerIF::getIntPtDarcyVelocityLiquid);
+    add_secondary_variable("velocity_liquid", mesh.getDimension(),
+                           &LocalAssemblerIF::getIntPtDarcyVelocityLiquid);
     add_secondary_variable("saturation", 1,
                            &LocalAssemblerIF::getIntPtSaturation);
-    add_secondary_variable("porosity", 1,
-                           &LocalAssemblerIF::getIntPtPorosity);
+    add_secondary_variable("porosity", 1, &LocalAssemblerIF::getIntPtPorosity);
     add_secondary_variable("gas_density", 1,
                            &LocalAssemblerIF::getIntPtGasDensity);
     add_secondary_variable("liquid_density", 1,
@@ -323,7 +335,6 @@ void TH2MProcess<DisplacementDim>::initializeConcreteProcess(
                            &LocalAssemblerIF::getIntPtMassFractionGas);
     add_secondary_variable("mass_fraction_liquid", 1,
                            &LocalAssemblerIF::getIntPtMassFractionLiquid);
-                           
 
     _process_data.gas_pressure_interpolated =
         MeshLib::getOrCreateMeshProperty<double>(
@@ -341,9 +352,9 @@ void TH2MProcess<DisplacementDim>::initializeConcreteProcess(
             MeshLib::MeshItemType::Node, 1);
 
     // Initialize local assemblers after all variables have been set.
-    GlobalExecutor::executeMemberOnDereferenced(
-        &LocalAssemblerIF::initialize, _local_assemblers,
-        *_local_to_global_index_map);
+    GlobalExecutor::executeMemberOnDereferenced(&LocalAssemblerIF::initialize,
+                                                _local_assemblers,
+                                                *_local_to_global_index_map);
 }
 
 template <int DisplacementDim>
@@ -375,9 +386,8 @@ void TH2MProcess<DisplacementDim>::initializeBoundaryConditions()
 }
 
 template <int DisplacementDim>
-void TH2MProcess<
-    DisplacementDim>::setInitialConditionsConcreteProcess(GlobalVector const& x,
-                                                          double const t)
+void TH2MProcess<DisplacementDim>::setInitialConditionsConcreteProcess(
+    GlobalVector const& x, double const t)
 {
     DBUG("SetInitialConditions TH2MProcess.");
 
