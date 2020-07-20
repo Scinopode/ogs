@@ -885,7 +885,7 @@ void TH2MLocalAssembler<
         bool output =
             ((ip == 0) && (_element.getID() == 0)) ? phase_transition : 0;
 
-#ifndef UNKNOWNS
+#ifdef UNKNOWNS
         if (output)
         {
             std::cout << "#################################################"
@@ -1354,7 +1354,7 @@ void TH2MLocalAssembler<
                                          k_over_mu_L * rho_GR * b -
                                          k_over_mu_L * gradpGR;
 
-#ifndef MATERIAL_PROPERTIES
+#ifdef MATERIAL_PROPERTIES
         if (phase_transition)
         {
             std::cout << "#################################################"
