@@ -518,7 +518,7 @@ void TH2MLocalAssembler<ShapeFunctionDisplacement, ShapeFunctionPressure,
             solid_phase.property(MPL::PropertyType::thermal_expansivity)
                 .template value<double>(
                     vars, pos, t, std::numeric_limits<double>::quiet_NaN());
-        const auto rho_ref_SR =
+        auto const rho_ref_SR =
             solid_phase.property(MPL::PropertyType::density)
                 .template value<double>(
                     vars, pos, t, std::numeric_limits<double>::quiet_NaN());
@@ -548,7 +548,7 @@ void TH2MLocalAssembler<ShapeFunctionDisplacement, ShapeFunctionPressure,
         //     phi_dot / phi_S * (p_FR - p_SR);
 
         // cf. WW: THM
-        const auto rhoSR = rho_ref_SR * (1. - 3. * ip_data.thermal_strain);
+        auto const rhoSR = rho_ref_SR * (1. - 3. * ip_data.thermal_strain);
         ip_data.rho_SR = rhoSR;
 
         // TODO: check if needed!
@@ -728,8 +728,8 @@ void TH2MLocalAssembler<ShapeFunctionDisplacement, ShapeFunctionPressure,
         // PRINT(rhoWLR);
         // PRINT(rhoCLR);
 
-        const auto xmWL = rhoWLR / rhoLR;
-        const auto xmCL = 1. - xmWL;
+        auto const xmWL = rhoWLR / rhoLR;
+        auto const xmCL = 1. - xmWL;
 
         // PRINT(xmWL);
         // PRINT(xmCL);
@@ -741,37 +741,37 @@ void TH2MLocalAssembler<ShapeFunctionDisplacement, ShapeFunctionPressure,
         // parameters of the eos (rho_ref, betaP, and betaC), I firstly
         // calculate the pressure derivative and then the concenctration
         // derivative only.
-        const auto rho_ref_betaP =
+        auto const rho_ref_betaP =
             liquid_phase.property(MPL::PropertyType::density)
                 .template dValue<double>(
                     vars, MPL::Variable::liquid_phase_pressure, pos, t, dt);
         // PRINT(rho_ref_betaP);
 
-        const auto rho_ref_betaC =
+        auto const rho_ref_betaC =
             liquid_phase.property(MPL::PropertyType::density)
                 .template dValue<double>(vars, MPL::Variable::concentration,
                                          pos, t, dt);
         // PRINT(rho_ref_betaC);
-        const auto drhoLR_dpLR = rho_ref_betaP + rho_ref_betaC * H;
+        auto const drhoLR_dpLR = rho_ref_betaP + rho_ref_betaC * H;
         // PRINT(drhoLR_dpLR);
 
-        const auto rho_ref_betaT =
+        auto const rho_ref_betaT =
             liquid_phase.property(MPL::PropertyType::density)
                 .template dValue<double>(vars, MPL::Variable::temperature, pos,
                                          t, dt);
         // PRINT(rho_ref_betaT);
-        const auto drhoLR_dT = rho_ref_betaT + rho_ref_betaC * dcCL_dT;
+        auto const drhoLR_dT = rho_ref_betaT + rho_ref_betaC * dcCL_dT;
         // PRINT(drhoLR_dT);
 
         auto drhoWLR_dpLR = rho_ref_betaP;
         // PRINT(drhoWLR_dpLR);
 
-        const auto drhoWLR_dT = rho_ref_betaT;
+        auto const drhoWLR_dT = rho_ref_betaT;
         // PRINT(drhoWLR_dT);
 
-        const auto dxmWL_dpLR =
+        auto const dxmWL_dpLR =
             1. / rhoLR * (drhoWLR_dpLR - xmWL * drhoLR_dpLR);
-        const auto dxmCL_dpLR = -dxmWL_dpLR;
+        auto const dxmCL_dpLR = -dxmWL_dpLR;
         // PRINT(dxmWL_dpLR);
         // PRINT(dxmCL_dpLR);
         auto const dxmWL_dT = 1. / rhoLR * (drhoWLR_dT - xmWL * drhoLR_dT);
@@ -784,7 +784,7 @@ void TH2MLocalAssembler<ShapeFunctionDisplacement, ShapeFunctionPressure,
                 .template value<double>(vars, pos, t, dt);
         auto h_G = 0.;
         auto h_L = 0.;
-        const auto h_S = c_p_S * T;
+        auto const h_S = c_p_S * T;
 
         if (nComponentsGas == 2)
         {
@@ -1494,15 +1494,15 @@ void TH2MLocalAssembler<
         // const auto h_W_L = 112654.;  // J/kg
         // const auto h_C_L = 648584.;  // J/kg
 
-        const auto I =
+        auto const I =
             Eigen::Matrix<double, DisplacementDim, DisplacementDim>::Identity();
         const double sD_G = 0.1;  // or whatever
         const double sD_L = 0.1;
 
-        const auto D_C_G = (sD_G * I).eval();  // I know, I know...
-        const auto D_W_G = (sD_G * I).eval();
-        const auto D_C_L = (sD_L * I).eval();
-        const auto D_W_L = (sD_L * I).eval();
+        auto const D_C_G = (sD_G * I).eval();  // I know, I know...
+        auto const D_W_G = (sD_G * I).eval();
+        auto const D_C_L = (sD_L * I).eval();
+        auto const D_W_L = (sD_L * I).eval();
 
         //  - medium properties
         MPL::VariableArray vars;
@@ -1535,7 +1535,7 @@ void TH2MLocalAssembler<
 
         auto& s_L = ip_data.saturation;
         auto const s_G = 1. - s_L;
-        const auto s_L_dot = (s_L - ip_data.saturation_prev) / dt;
+        auto const s_L_dot = (s_L - ip_data.saturation_prev) / dt;
 
         // vars[static_cast<int>(MPL::Variable::liquid_saturation)] = s_L;
 
@@ -1617,24 +1617,24 @@ void TH2MLocalAssembler<
         auto& h_S = ip_data.h_S;
 
         // phase enthalpies
-        const double rho_G_h_G_dot =
+        auto const rho_G_h_G_dot =
             (ip_data.rho_G_h_G - ip_data.rho_G_h_G_prev) / dt;
-        const double rho_L_h_L_dot =
+        auto const rho_L_h_L_dot =
             (ip_data.rho_L_h_L - ip_data.rho_L_h_L_prev) / dt;
-        const double rho_S_h_S_dot =
+        auto const rho_S_h_S_dot =
             (ip_data.rho_S_h_S - ip_data.rho_S_h_S_prev) / dt;
 
-        const double rho_C_GR_dot = (rho_C_GR - ip_data.rho_C_GR_prev) / dt;
-        const double rho_C_LR_dot = (rho_C_LR - ip_data.rho_C_LR_prev) / dt;
-        const double rho_W_GR_dot = (rho_W_GR - ip_data.rho_W_GR_prev) / dt;
-        const double rho_W_LR_dot = (rho_W_LR - ip_data.rho_W_LR_prev) / dt;
+        auto const rho_C_GR_dot = (rho_C_GR - ip_data.rho_C_GR_prev) / dt;
+        auto const rho_C_LR_dot = (rho_C_LR - ip_data.rho_C_LR_prev) / dt;
+        auto const rho_W_GR_dot = (rho_W_GR - ip_data.rho_W_GR_prev) / dt;
+        auto const rho_W_LR_dot = (rho_W_LR - ip_data.rho_W_LR_prev) / dt;
 
-        const auto rho_h_eff =
+        auto const rho_h_eff =
             ip_data.rho_G_h_G + ip_data.rho_L_h_L + ip_data.rho_S_h_S;
         // cf. Eq 101
 
-        const auto k_over_mu_G = k_S * k_rel_G / mu_GR;
-        const auto k_over_mu_L = k_S * k_rel_L / mu_LR;
+        auto const k_over_mu_G = k_S * k_rel_G / mu_GR;
+        auto const k_over_mu_L = k_S * k_rel_L / mu_LR;
 
         GlobalDimVectorType const w_GS =
             k_over_mu_G * rho_GR * b - k_over_mu_G * gradpGR;
@@ -1804,16 +1804,16 @@ void TH2MLocalAssembler<
         MCu.noalias() += NpT * rho_C_FR * alpha_B * mT * Bu * w;
         PRINT2(output, MCu, rho_C_FR * alpha_B);
 
-        const auto advection_C_G = rho_C_GR * k_over_mu_G;
-        const auto advection_C_L = rho_C_LR * k_over_mu_L;
-        const auto diffusion_C_G_p = phi_G * rho_GR * D_C_G * dxm_C_L_dpLR;
-        const auto diffusion_C_L_p = phi_L * rho_LR * D_C_L * dxm_C_G_dpGR;
-        const auto diffusion_C_G_T = phi_G * rho_GR * D_C_G * dxm_C_G_dT;
-        const auto diffusion_C_L_T = phi_L * rho_LR * D_C_L * dxm_C_L_dT;
+        auto const advection_C_G = rho_C_GR * k_over_mu_G;
+        auto const advection_C_L = rho_C_LR * k_over_mu_L;
+        auto const diffusion_C_G_p = phi_G * rho_GR * D_C_G * dxm_C_L_dpLR;
+        auto const diffusion_C_L_p = phi_L * rho_LR * D_C_L * dxm_C_G_dpGR;
+        auto const diffusion_C_G_T = phi_G * rho_GR * D_C_G * dxm_C_G_dT;
+        auto const diffusion_C_L_T = phi_L * rho_LR * D_C_L * dxm_C_L_dT;
 
-        const auto advection_C = advection_C_G + advection_C_L;
-        const auto diffusion_C_p = diffusion_C_G_p + diffusion_C_L_p;
-        const auto diffusion_C_T = diffusion_C_G_T + diffusion_C_L_T;
+        auto const advection_C = advection_C_G + advection_C_L;
+        auto const diffusion_C_p = diffusion_C_G_p + diffusion_C_L_p;
+        auto const diffusion_C_T = diffusion_C_G_T + diffusion_C_L_T;
 
         LCpG.noalias() += gradNpT * (advection_C + diffusion_C_p) * gradNp * w;
         PRINT2(output, LCpG, (advection_C + diffusion_C_p));
@@ -1864,16 +1864,16 @@ void TH2MLocalAssembler<
         MWu.noalias() += NpT * rho_W_FR * alpha_B * mT * Bu * w;
         PRINT2(output, MWu, rho_W_FR * alpha_B);
 
-        const auto advection_W_G = rho_W_GR * k_over_mu_G;
-        const auto advection_W_L = rho_W_LR * k_over_mu_L;
-        const auto diffusion_W_G_p = phi_G * rho_GR * D_W_G * dxm_W_L_dpLR;
-        const auto diffusion_W_L_p = phi_L * rho_LR * D_W_L * dxm_W_G_dpGR;
-        const auto diffusion_W_G_T = phi_G * rho_GR * D_W_G * dxm_W_G_dT;
-        const auto diffusion_W_L_T = phi_L * rho_LR * D_W_L * dxm_W_L_dT;
+        auto const advection_W_G = rho_W_GR * k_over_mu_G;
+        auto const advection_W_L = rho_W_LR * k_over_mu_L;
+        auto const diffusion_W_G_p = phi_G * rho_GR * D_W_G * dxm_W_L_dpLR;
+        auto const diffusion_W_L_p = phi_L * rho_LR * D_W_L * dxm_W_G_dpGR;
+        auto const diffusion_W_G_T = phi_G * rho_GR * D_W_G * dxm_W_G_dT;
+        auto const diffusion_W_L_T = phi_L * rho_LR * D_W_L * dxm_W_L_dT;
 
-        const auto advection_W = advection_W_G + advection_W_L;
-        const auto diffusion_W_p = diffusion_W_G_p + diffusion_W_L_p;
-        const auto diffusion_W_T = diffusion_W_G_T + diffusion_W_L_T;
+        auto const advection_W = advection_W_G + advection_W_L;
+        auto const diffusion_W_p = diffusion_W_G_p + diffusion_W_L_p;
+        auto const diffusion_W_T = diffusion_W_G_T + diffusion_W_L_T;
 
         LWpG.noalias() += gradNpT * (advection_W + diffusion_W_p) * gradNp * w;
         PRINT2(output, LWpG, (advection_W + diffusion_W_p));
