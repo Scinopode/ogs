@@ -597,52 +597,14 @@ void TH2MLocalAssembler<ShapeFunctionDisplacement, ShapeFunctionPressure,
 
     assert(local_x.size() == matrix_size);
 
-    auto gas_pressure =
-        Eigen::Map<typename ShapeMatricesTypePressure::template VectorType<
-            gas_pressure_size> const>(local_x.data() + gas_pressure_index,
-                                      gas_pressure_size);
-
-    auto capillary_pressure =
-        Eigen::Map<typename ShapeMatricesTypePressure::template VectorType<
-            capillary_pressure_size> const>(
-            local_x.data() + capillary_pressure_index, capillary_pressure_size);
-
-    auto temperature =
-        Eigen::Map<typename ShapeMatricesTypePressure::template VectorType<
-            temperature_size> const>(local_x.data() + temperature_index,
-                                     temperature_size);
-
-    ParameterLib::SpatialPosition pos;
-    pos.setElementID(_element.getID());
-
     getConstitutiveVariables(local_x, t,
                              std::numeric_limits<double>::quiet_NaN());
-
-    auto const& medium = *_process_data.media_map->getMedium(_element.getID());
 
     unsigned const n_integration_points =
         _integration_method.getNumberOfPoints();
     for (unsigned ip = 0; ip < n_integration_points; ip++)
     {
-        // pos.setIntegrationPoint(ip);
-        auto& ip_data = _ip_data[ip];
-
-        // auto const& Np = ip_data.N_p;
-        // auto const& NT = Np;
-
-        // auto const T = NT.dot(temperature);
-        // auto const pGR = Np.dot(gas_pressure);
-        // auto const pCap = Np.dot(capillary_pressure);
-        // auto const pLR = pGR - pCap;
-
-        // MPL::VariableArray vars;
-        // vars[static_cast<int>(MPL::Variable::temperature)] = T;
-        // vars[static_cast<int>(MPL::Variable::phase_pressure)] = pGR;
-        // vars[static_cast<int>(MPL::Variable::capillary_pressure)] = pCap;
-        // vars[static_cast<int>(MPL::Variable::liquid_phase_pressure)] =
-        // pLR;
-
-        ip_data.pushBackState();
+        _ip_data[ip].pushBackState();
     }
 }
 
